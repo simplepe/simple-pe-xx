@@ -10,7 +10,7 @@ from scipy.optimize import brentq
 from scipy.misc import logsumexp
 
 # a list of ifos that we can consider
-ifos = ("H1", "H2", "I1", "K1", "L1", "V1")
+ifos = ("H1", "H2", "I1", "K1", "L1", "V1", "ETdet1", "ETdet1", "ETdet1")
 
 
 ##################################################################
@@ -350,7 +350,7 @@ class event(object):
                 if s > det.found_thresh:
                     self.found += 1
                 if s > det.loc_thresh:
-                    if ifo != "H2":
+                    if ifo != "H2" and ifo !="ETdet2":
                         self.localized += 1
                     self.snrsq += s ** 2
                     # add the details to the event

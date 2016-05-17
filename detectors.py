@@ -62,6 +62,15 @@ def detectors(ifos, india="bangalore", south_africa="sutherland"):
     elif south_africa == "soetdoring":
       location["S1"], response["S1"] = \
         calc_location_response(26.098595, -28.83926, 270)
+  if "ETdet1" in ifos:
+    location["ETdet1"], response["ETdet1"] = \
+          calc_location_response(76 + 26./60, 14 + 14./60, 270)
+  if "ETdet2" in ifos:
+    location["ETdet2"], response["ETdet2"] = \
+          calc_location_response(76 + 26./60, 14. + 14./60, 270-45)
+  if "ETdet3" in ifos:
+    location["ETdet3"], response["ETdet3"] = \
+          calc_location_response(16 + 26./60, 84. + 14./60, 270)
    
   return( location, response )
 
@@ -136,7 +145,9 @@ def range_8(configuration):
     "sa2" : {'H1' : 197.5, 'L1' : 197.5, 'V1': 128.3, "I1" : 197.5 , \
         "K1" : 160.0, "S1":197.5}, 
     "steve" : {'H1' : 160.0, 'L1' : 160.0, 'V1': 160.0, "I1" : 160.0 }, 
-    "s6vsr2" : {'H1' : 20., 'L1' : 20., 'V1': 8. } 
+    "s6vsr2" : {'H1' : 20., 'L1' : 20., 'V1': 8. } ,
+    "ET1" : {'H1' : 197.5, 'L1' : 197.5, 'V1': 128.3, 'ETdet1': 1500., 'ETdet2': 1500. }, # Triangular ET
+    "ET2" : {'H1' : 197.5, 'L1' : 197.5, 'V1': 128.3, 'ETdet1': 1500., 'ETdet3': 1500. }, # L-shaped at 2 places
   }
   return(range_dict_all[configuration])
 
@@ -161,7 +172,9 @@ def bandwidth(configuration):
     "sa2" : {'H1' : 117.4, 'L1' : 117.4, 'V1': 148.9, "I1" : 117.4, \
         "K1" : 89.0 , "S1": 117.4}, 
     "steve" : {'H1' : 100.0, 'L1' : 100.0, 'V1': 100.0, "I1" : 100.0 }, 
-    "s6vsr2" : {'H1' : 100., 'L1' : 100., 'V1': 120. } 
+    "s6vsr2" : {'H1' : 100., 'L1' : 100., 'V1': 120. } ,
+    "ET1" : {'H1' : 117.4, 'L1' : 117.4, 'V1': 148.9, 'ETdet1': 117.4, 'ETdet2': 117.4 },
+    "ET2" : {'H1' : 117.4, 'L1' : 117.4, 'V1': 148.9, 'ETdet1': 117.4, 'ETdet3': 117.4 },
   }
   return(bandwidth_dict_all[configuration])
 
@@ -175,7 +188,9 @@ def fmean(configuration):
     "2016" : {'H1' : 100., 'L1' : 100., 'V1': 130. }, 
     "design" : {'H1' : 100., 'L1' : 100., 'V1': 130. }, 
     "india" : {'H1' : 100., 'I1' : 100., 'L1' : 100., 'V1': 130. }, 
-    "s6vsr2" : {'H1' : 180., 'L1' : 180., 'V1': 150. } 
+    "s6vsr2" : {'H1' : 180., 'L1' : 180., 'V1': 150. },
+    "ET1" : {'H1' : 100., 'L1' : 100., 'V1': 130., 'ETdet1':100., 'ETdet2':100 },
+    "ET2" : {'H1' : 100., 'L1' : 100., 'V1': 130., 'ETdet1':100., 'ETdet3':100 },
   }
   return(fmean_dict_all[configuration])
 
