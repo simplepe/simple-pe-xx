@@ -49,7 +49,7 @@ def like_equal_cosi(a_hat, f, x, d_max=1000., make_plot=False):
     l_circ = quad(lambda a: (3 * d0 ** 3) / d_max ** 3 * a ** -4 *
                             like_equal_d_cosi(a_hat, f, d0 / a, x),
                   max(a_peak - 5 * a_width, 0), a_peak + 5 * a_width,
-                  epsabs=1e-2, epsrel=1e-4)[0]
+                  epsabs=1e-8, epsrel=1e-8)[0]
     if make_plot:
         a = linspace(max(a_peak - 5 * a_width, 0), a_peak + 5 * a_width)
         lc = zeros_like(a)
@@ -66,7 +66,7 @@ def like_equal(a_hat, f, d_max=1000):
     priors, specifically 1/2pi for psi,phi, 1/2 for cosi, 3 d^2dd/d_max^3 for
     distance d_max.  """
     lc = 0.5 * quad(lambda x: like_equal_cosi(a_hat, f, x, d_max),
-                    -1., 1., epsabs=1e-2, epsrel=1e-4)[0]
+                    -1., 1., epsabs=1e-8, epsrel=1e-8)[0]
     return lc
 
 
@@ -192,7 +192,8 @@ def like(a_hat, f_plus, f_cross, d_max=1000.):
     return l
 
 
-def loglike_approx(a_hat, f_plus, f_cross, d_max=1000., method="coh"):
+def loglike_approx(a_hat, f_plus, f_cross, d_max=1000., method="coh",
+    correction=False):
     """
     Calculate the approximate likelihood. This works for three cases:
     left and right circularly polarized and the standard coherent analysis.
@@ -210,18 +211,21 @@ def loglike_approx(a_hat, f_plus, f_cross, d_max=1000., method="coh"):
     if snr == 0:
         loglike = 0
     elif method == "coh":
-        loglike = log(32 * (d_hat / d_max) ** 3 * d_hat ** 4 /
+        loglike = log(24 * (d_hat / d_max) ** 3 * d_hat ** 4 /
                    (f_plus ** 2 * f_cross ** 2) / (1 - cosi_hat ** 2) ** 3)
     else:
         # the width in cos iota:
         cos_fac = sqrt((f_cross ** 2 + f_plus ** 2) / (f_plus * f_cross))
         cos_width = minimum(cos_fac / snr ** 0.5, 0.5)
         loglike = log((d_hat / d_max) ** 3 / snr ** 2 * cos_width)
+        if correction:
+            factor = 1 - 75./(2 * snr**2)
+            loglike += log(factor) + 0.2
 
     return loglike, snr
 
 
-def like_approx(a_hat, f_plus, f_cross, d_max=1000.):
+def like_approx(a_hat, f_plus, f_cross, d_max=1000., correction=False):
     """
     Calculate the approximate likelihood summed over left, right and coherent.
     """
@@ -229,12 +233,13 @@ def like_approx(a_hat, f_plus, f_cross, d_max=1000.):
     snr = {}
     like = {}
     for method in ["left", "right", "coh"]:
-        loglike[method], snr[method] = loglike_approx(a_hat, f_plus, f_cross, d_max, method= method)
+        loglike[method], snr[method] = loglike_approx(a_hat, f_plus, f_cross, d_max, method= method, correction=correction)
         like[method] = snr[method]**2 / 2 + loglike[method]
         if snr[method] < 6:
             like[method] = 0
 
-    if ((snr["coh"] ** 2 - snr["right"] ** 2) < 1) or ((snr["coh"] ** 2 - snr["left"] ** 2) < 1):
+    if ((snr["coh"] ** 2 - snr["right"] ** 2) < 2) or  \
+       ((snr["coh"] ** 2 - snr["left"] ** 2) < 2):
         like["coh"] = 0
 
     like_approx = logaddexp(logaddexp(like["left"], like["right"]), like["coh"])

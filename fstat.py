@@ -159,6 +159,7 @@ def circ_project(a, f_plus, f_cross, hand):
     a_proj = zeros_like(a)
     a_proj[0] = a[0]
     a_proj[1:] = fa_proj / f
+    a_proj[isnan(a_proj)] = 0
     return a_proj
 
 # These functions allow us to go from SNRs to F-stat params and back
