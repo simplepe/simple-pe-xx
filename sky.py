@@ -583,7 +583,7 @@ def SkyPatch(ifos, ra, dec, radius, gpstime, dt=0.0005, sigma=1.65,\
             baseline = lal.ArrivalTimeDiff(detectors[i].location,\
                                                 detectors[j].location,\
                                                 ra, dec, lal.LIGOTimeGPS(gpstime))
-            ltt      = lal.LightTravelTime(ifos[i], ifos[j])
+            ltt      = float(lal.LIGOTimeGPS(0, lal.LightTravelTime(detectors[i], detectors[j])))
             angle    = np.arccos(baseline/ltt)
             
             # get window
