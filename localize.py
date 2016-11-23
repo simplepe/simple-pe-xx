@@ -607,6 +607,25 @@ class Localization(object):
         snr = linalg.norm(z)
         return z, snr
 
+    def approx_like(self, Dmax=1000):
+        """
+        Calculate the approximate likelihood, based on equations XXX
+        :param Dmax: maximum distance, used for normalization
+        """
+        if self.snr == 0:
+            self.like = 0
+            return
+        Fp, Fc = self.event.get_f(self.mirror)
+        self.like = self.snr ** 2 / 2
+        if (self.method == "left") or (self.method == "right"):
+            cos_fac = sqrt((Fp ** 2 + Fc ** 2) / (Fp * Fc))
+            cosf = min(cos_fac / sqrt(self.snr), 0.5)
+            self.like += log((self.D / Dmax) ** 3 / self.snr ** 2 * cosf)
+        else:
+            self.like += log(32. * (self.D / Dmax) ** 3 * self.D ** 4 / (Fp ** 2 * Fc ** 2)
+                             / (1 - self.cosi ** 2) ** 3)
+
+
     def sky_project(self):
         """
         Project localization matrix to zero out components in direction of source
@@ -632,23 +651,5 @@ class Localization(object):
         band = 4 * math.pi * (180 / math.pi) ** 2 * sqrt(2) * special.erfinv(self.p) * self.sigma[0]
         # use the minimum (that's not nan)
         self.area = nanmin((ellipse, band))
-
-    def approx_like(self, Dmax=1000):
-        """
-        Calculate the approximate likelihood, based on equations XXX
-        :param Dmax: maximum distance, used for normalization
-        """
-        if self.snr == 0:
-            self.like = 0
-            return
-        Fp, Fc = self.event.get_f(self.mirror)
-        self.like = self.snr ** 2 / 2
-        if (self.method == "left") or (self.method == "right"):
-            cos_fac = sqrt((Fp ** 2 + Fc ** 2) / (Fp * Fc))
-            cosf = min(cos_fac / sqrt(self.snr), 0.5)
-            self.like += log((self.D / Dmax) ** 3 / self.snr ** 2 * cosf)
-        else:
-            self.like += log(32. * (self.D / Dmax) ** 3 * self.D ** 4 / (Fp ** 2 * Fc ** 2)
-                             / (1 - self.cosi ** 2) ** 3)
 
 
