@@ -7,8 +7,9 @@ def interpolate_psd(psd_data, freq_data, fmin, fmax, df):
     npts = int(fmax/df) + 1
     freq = numpy.arange(df/2, fmax+df, df)
     p_int = interpolate.interp1d(freq_data, psd_data)
-    p = numpy.zeros_like(freq)
-    p[freq>=fmin] = p_int(freq[freq>=fmin])
+#    p = numpy.zeros_like(freq)
+#    p[freq>=fmin] = p_int(freq[freq>=fmin])
+    p = p_int(freq)
     psd_int = psd.FrequencySeries(p, delta_f = df)
     return psd_int
    
