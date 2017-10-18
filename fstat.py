@@ -73,8 +73,8 @@ def a_to_circ_amp(a):
 
 def phase_diff(a):
     """
-    Calculate the phase difference (not sure what of)
-    :param a: array of f-stat params, entry zero assumed to be d0
+    Calculate the phase difference between the plus and cross polarizations
+    :param a: array of f-stat params, entry zero (unused) assumed to be d0
     """
     return arctan2(a[1] * a[4] - a[2] * a[3], a[1] * a[2] + a[3] * a[4])
 
