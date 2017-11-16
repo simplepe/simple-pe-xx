@@ -215,10 +215,10 @@ def loglike_approx(a_hat, f_plus, f_cross, d_max=1000., method="coh",
                    (f_plus ** 2 * f_cross ** 2) / (1 - cosi_hat ** 2) ** 3)
     else:
         # the width in cos iota:
-        cos_fac = sqrt((f_cross ** 2 + f_plus ** 2) / (f_plus * f_cross))
-        cos_width = minimum(cos_fac / snr ** 0.5, 0.5)
-        loglike = log((d_hat / d_max) ** 3 / snr ** 2 * cos_width)
-        if correction:
+        cos_fac = sqrt(sqrt(2) *(f_cross ** 2 + f_plus ** 2) / (f_plus * f_cross))
+        cos_width = minimum(cos_fac / snr ** 0.5, 1)
+        loglike = log(3) - log(4) + 3 * log(d_hat / d_max) - 2 * log(snr) + log(cos_width)
+	if correction:
             factor = 1 - 75./(2 * snr**2)
             loglike += log(factor) + 0.2
 
