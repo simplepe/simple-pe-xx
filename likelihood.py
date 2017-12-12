@@ -173,7 +173,7 @@ def like_cosi(a_hat, f_plus, f_cross, x, d_max=1000.):
     :param d_max: maximum distance for marginalization
     """
     l_x = 2 / pi * quad(lambda p: like_cosi_psi(a_hat, f_plus, f_cross, x, p, d_max),
-                        0, math.pi / 2, epsabs=1e-2, epsrel=1e-4)[0]
+                        0, math.pi / 2, epsabs=1e-6, epsrel=1e-6)[0]
     return l_x
 
 
@@ -217,7 +217,8 @@ def loglike_approx(a_hat, f_plus, f_cross, d_max=1000., method="coh",
         # the width in cos iota:
         cos_fac = sqrt(sqrt(2) *(f_cross ** 2 + f_plus ** 2) / (f_plus * f_cross))
         cos_width = minimum(cos_fac / snr ** 0.5, 1)
-        loglike = log(3) - log(4) + 3 * log(d_hat / d_max) - 2 * log(snr) + log(cos_width)
+        cos_int = 1 - (1 - cos_width)**4
+        loglike = log(3) - log(8) + 3 * log(d_hat / d_max) - 2 * log(snr) + log(cos_int)
 	if correction:
             factor = 1 - 75./(2 * snr**2)
             loglike += log(factor) + 0.2

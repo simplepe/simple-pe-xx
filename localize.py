@@ -247,14 +247,16 @@ class Event(object):
             self.D = params["distance"]
             self.ra = radians(params["RAdeg"])
             self.dec = radians(params["DEdeg"])
-            t = Time(params["MJD"], format='mjd')
-            self.gps = lal.LIGOTimeGPS(int(t.gps), int(1e9 * (t.gps % 1)))
+            try: self.gps = params['gps']
+            except: 
+                t = Time(params["MJD"], format='mjd')
+                self.gps = lal.LIGOTimeGPS(int(t.gps), int(1e9 * (t.gps % 1)))
             self.gmst = lal.GreenwichMeanSiderealTime(self.gps)
             # self.gmst = float(t.sidereal_time("mean", "greenwich")/units.hourangle)
             self.phi = radians(params["coa-phase"])
             self.psi = radians(params["polarization"])
             self.cosi = cos(radians(params["inclination"]))
-            self.mchirp = params[9]**(3./5) * params[10]**(3./5) * (params[9] + params[10])**(-1./5)
+            self.mchirp = params["mass1"]**(3./5) * params["mass2"]**(3./5) * (params["mass1"] + params["mass2"])**(-1./5)
         elif Dmax:
             self.D = random.uniform(0, 1) ** (1. / 3) * Dmax
             self.ra = random.uniform(0, 2 * math.pi)
@@ -477,8 +479,8 @@ class Event(object):
                 (l["coh"].snr ** 2 - l["left"].snr ** 2 < 2):
             l["coh"].like = 0
         keys = ["left", "right", "coh"]
-        r_max = 1.1 * sqrt(max([l[k].area for k in keys])/pi)
-        r_min = 0.9 * sqrt(min([l[k].area for k in keys])/pi)
+        r_max = 1.1 * sqrt(nanmax([l[k].area for k in keys])/pi)
+        r_min = 0.9 * sqrt(nanmin([l[k].area for k in keys])/pi)
         r = brentq(f, r_min, r_max, (keys, l, p))
         l["marg"] = Localization("marg", self, mirror, p, area = pi*r**2)
         l["marg"].like = logsumexp([l[k].like + log(l[k].area) - log(-2*pi*log(1-l[k].p)) 
