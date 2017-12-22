@@ -173,7 +173,7 @@ def like_cosi(a_hat, f_plus, f_cross, x, d_max=1000.):
     :param d_max: maximum distance for marginalization
     """
     l_x = 2 / pi * quad(lambda p: like_cosi_psi(a_hat, f_plus, f_cross, x, p, d_max),
-                        0, math.pi / 2, epsabs=1e-6, epsrel=1e-6)[0]
+                        0, math.pi / 2, epsabs=1e-8, epsrel=1e-8)[0]
     return l_x
 
 
@@ -188,7 +188,7 @@ def like(a_hat, f_plus, f_cross, d_max=1000.):
     :param d_max: maximum distance for marginalization
     """
     l = 1. / 2 * quad(lambda x: like_cosi(a_hat, f_plus, f_cross, x, d_max),
-                      -1, 1, epsabs=1e-2, epsrel=1e-4)[0]
+                      -1, 1, epsabs=1e-8, epsrel=1e-8)[0]
     return l
 
 
