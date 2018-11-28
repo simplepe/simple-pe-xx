@@ -1,6 +1,5 @@
 import numpy as np
 from numpy import *
-from simple_pe import cosmology
 import astropy.units as u
 
 import scipy.integrate as integrate
