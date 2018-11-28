@@ -27,16 +27,26 @@ def scale_vectors(vec, min_match, x, df, dist, f_low, flen, psd, tol=1e-8):
         m = 0
         while (not m > (min_match * (1 - tol))) or (not m < (min_match * (1 + tol)) ):
             dx = v[i] 
-            if (x - dx)[0] < 0: dx *= 0.9 * x[0]/dx[0]
-            if (x - dx)[1] < 0: dx *= 0.9 * x[1]/dx[1]
-            if (x - dx)[1] > 0.25: 
-                print("Hit equal mass boundary")
-                dx = 0.249 - x[1]
-            diff_h_plus = make_waveform(x, dx, df, dist, f_low, flen)
-            m, _ = match(h_plus, diff_h_plus, psd, low_frequency_cutoff=f_low)
+            # check that the new point is physical
+            alpha = check_physical(x, dx)
+            diff_h_plus = make_waveform(x, alpha * dx, df, dist, f_low, flen)
+            m_alpha, _ = match(h_plus, diff_h_plus, psd, low_frequency_cutoff=f_low)
+            m = ((1 - alpha**2) + m_alpha) / alpha**2
+            print(m)
             scale = np.sqrt((1. - min_match) / (1.0 - m))
             v[i] *= scale
     return v
+
+def check_physical(x, dx, maxs = [1e4, 0.25, 0.98, 0.98], mins = [0, 0, -0.98, -0.98]):
+    """
+    check whether ther point described by the positions x + dx is
+    physically permitted.  If not, rescale and return the scaling factor
+    """
+    alpha = 1.
+    for i in xrange(4):
+        if (x + dx)[i] < mins[i]: alpha = min(alpha, (x[i] - mins[i])/dx[i])
+        if (x + dx)[i] > maxs[i]: alpha = min(alpha, (maxs[i] - x[i])/dx[i])
+    return alpha
 
 def calculate_metric(vec, x, df, dist, f_low, flen, psd):
     ndim = len(vec)
@@ -48,19 +58,26 @@ def calculate_metric(vec, x, df, dist, f_low, flen, psd):
     for i in xrange(ndim):
         dx = vec[i]
         # diagonal components
-        diff_h_plus = make_waveform(x, dx, df, dist, f_low, flen)
-        mplus = match(h_plus, diff_h_plus, psd=psd, low_frequency_cutoff=f_low)[0]
-        diff_h_plus = make_waveform(x, -dx, df, dist, f_low, flen)
-        mminus = match(h_plus, diff_h_plus, psd=psd, low_frequency_cutoff=f_low)[0]
+        alpha = check_physical(x, dx)
+        diff_h_plus = make_waveform(x, alpha * dx, df, dist, f_low, flen)
+        m_alpha, _ = match(h_plus, diff_h_plus, psd, low_frequency_cutoff=f_low)
+        mplus = ((1 - alpha**2) + m_alpha) / alpha**2
+ 
+        alpha = check_physical(x, -dx)
+        diff_h_plus = make_waveform(x, alpha * dx, df, dist, f_low, flen)
+        m_alpha, _ = match(h_plus, diff_h_plus, psd, low_frequency_cutoff=f_low)
+        mminus = ((1 - alpha**2) + m_alpha) / alpha**2
         gij[i,i] = 1 - 0.5 * (mplus + mminus)
 
     for i in xrange(ndim):    
         for j in xrange(i+1,ndim):
             for s in ([[1,1],[1,-1],[-1,1],[-1,-1]]):
                 dx = (s[0] * vec[i] + s[1] * vec[j])/np.sqrt(2)
-                diff_h_plus = make_waveform(x, dx, df, dist, f_low, flen)
-                gij[i,j] += -0.25 * s[0]/s[1] *  match(h_plus, diff_h_plus, 
-                                         psd=psd, low_frequency_cutoff=f_low)[0]
+                alpha = check_physical(x, dx)
+                diff_h_plus = make_waveform(x, alpha * dx, df, dist, f_low, flen)
+                m_alpha, _ = match(h_plus, diff_h_plus, psd, low_frequency_cutoff=f_low)
+                m = ((1 - alpha**2) + m_alpha) / alpha**2
+                gij[i,j] += -0.25 * s[0]/s[1] *  m
             gij[j,i] = gij[i,j]
     return gij
 
