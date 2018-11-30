@@ -38,30 +38,30 @@ def make_waveform(x, dx, dist, df, f_low, flen, waveform="IMRPhenomD"):
     h_plus.resize(flen)
     return(h_plus)
     
-def scale_vectors(x, vec, dist, min_match, df, f_low, flen, psd, 
-        waveform="IMRPhenomD", tol=1e-8): 
+def scale_vectors(x, vec, dist, mismatch, df, f_low, flen, psd, 
+        waveform="IMRPhenomD", tol=1e-2): 
     """
-    This function scales the input vectors so that the minimal match between
-    a waveform at point x and one at x + v[i] is equal to the minimal match,
-    up to the specified tolerance.
+    This function scales the input vectors so that the mismatch between
+    a waveform at point x and one at x + v[i] is equal to the specified 
+    mismatch, up to the specified tolerance.
 
     Parameters
     ----------
     x : np.array with four values assumed to be mchirp, eta, s1z, s2z
     vec: an array of directions dx in which to vary the waveform parameters
     dist: distance to the signal
-    min_match: the desired minimal match
+    mismatch: the desired mismatch (1 - match)
     df: frequency spacing of points
     f_low: low frequency cutoff
     flen: length of the frequency domain array to generate
-    psd: the power spectrum to use in calculating the minimal match
+    psd: the power spectrum to use in calculating the match
     waveform: the waveform generator to use
-    tol: the maximum difference between the requested and actual min_match
+    tol: the maximum fractional error in the mismatch
 
     Returns
     -------
     v: A set of vectors in the directions given by v but normalized to give the
-    desired minimal match
+    desired mismatch
     """
     h = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, waveform)
 
@@ -69,8 +69,8 @@ def scale_vectors(x, vec, dist, min_match, df, f_low, flen, psd,
     v = copy.deepcopy(vec)
     for i in xrange(ndim):
         m = 0
-        while (not m > (min_match * (1 - tol))) or \
-                (not m < (min_match * (1 + tol)) ):
+        while (not (1 - m) > mismatch * (1 - tol)) or \
+                (not (1 - m) < mismatch * (1 + tol) ):
             dx = v[i]
             m = 0
             # calculate average match in +/- dx direction
@@ -82,7 +82,7 @@ def scale_vectors(x, vec, dist, min_match, df, f_low, flen, psd,
                 m += 0.5 * scale_match(m_a, alpha)
                
             # rescale vector
-            scale = np.sqrt((1. - min_match) / (1.0 - m))
+            scale = np.sqrt((mismatch) / (1.0 - m))
             v[i] *= scale
     return v
 
@@ -140,7 +140,7 @@ def calculate_metric(x, vec, dist, df, f_low, flen, psd, waveform="IMRPhenomD"):
     df: frequency spacing of points
     f_low: low frequency cutoff
     flen: length of the frequency domain array to generate
-    psd: the power spectrum to use in calculating the minimal match
+    psd: the power spectrum to use in calculating the match
     waveform: the waveform generator to use
 
     Returns
@@ -202,25 +202,25 @@ def physical_metric(gij, basis):
     return ghatij
 
 
-def calculate_evecs(gij, min_match):
+def calculate_evecs(gij, mismatch):
     """
     A function to calculate the eigenvectors of the metric gij normalized
-    so that the minimal match along the eigendirection is given by min_match
+    so that the match along the eigendirection is given by mismatch
 
     Parameters
     ----------
     gij: the metric
-    min_match: the required minimal match
+    mismatch: the required mismatch 
 
     Returns
     -------
     v: the appropriately scaled eigenvectors
     """
     evals, evec = np.linalg.eig(gij)
-    v = (evec * np.sqrt((1 - min_match)/evals)).T
+    v = (evec * np.sqrt((mismatch)/evals)).T
     return v
 
-def update_metric(x, gij, basis, min_match, dist, df, f_low, flen, psd, 
+def update_metric(x, gij, basis, mismatch, dist, df, f_low, flen, psd, 
         waveform="IMRPhenomD"):
     """
     A function to re-calculate the metric gij based on the matches obtained
@@ -231,26 +231,30 @@ def update_metric(x, gij, basis, min_match, dist, df, f_low, flen, psd,
     x: the point in parameter space used to calculate the metric
     gij: the original metric
     basis: the basis relating the directions of the metric to the physical space
-    min_match: the desired minimum match
+    mismatch: the desired mismatch
     dist: distance to the signal
     df: frequency spacing of points
     f_low: low frequency cutoff
     flen: length of the frequency domain array to generate
-    psd: the power spectrum to use in calculating the minimal match
+    psd: the power spectrum to use in calculating the match
     waveform: the waveform generator to use
 
     Returns
     -------
     g_prime: the updated metric
     """
-    evecs = calculate_evecs(gij, min_match)
+    evecs = calculate_evecs(gij, mismatch)
     v_phys = np.inner(evecs, basis.T)
-    g_prime = calculate_metric(x, v_phys, dist, df, f_low, flen, psd)
-    evec_inv = np.linalg.inv(evecs)
+    v_scale = scale_vectors(x, v_phys, dist, mismatch, df, f_low, flen, psd, 
+            waveform)
+    ev_scale = (evecs.T * 
+            np.linalg.norm(v_scale, axis=1)/np.linalg.norm(v_phys, axis=1)).T
+    g_prime = calculate_metric(x, v_scale, dist, df, f_low, flen, psd, waveform)
+    evec_inv = np.linalg.inv(ev_scale)
     gij_prime = np.inner(np.inner(evec_inv, g_prime), evec_inv)
-    return gij_prime, evecs
+    return gij_prime, ev_scale
 
-def metric_error(gij, evecs, min_match):
+def metric_error(gij, evecs, mismatch):
     """
     A function to calculate the inner products between the evecs and check
     they are orthogonal and correctly normalized
@@ -259,7 +263,7 @@ def metric_error(gij, evecs, min_match):
     ----------
     gij: the metric
     evecs: the eigenvectors
-    min_match: the desired minimum match (equivalently, norm of evecs)
+    misnatch: the desired mismatch (equivalently, norm of evecs)
 
     Returns
     -------
@@ -267,11 +271,11 @@ def metric_error(gij, evecs, min_match):
     """
     vgv = np.inner(np.inner(evecs, gij), evecs)
     off_diag = np.max(abs(vgv[~np.eye(gij.shape[0],dtype=bool)]))
-    diag = np.max(abs(np.diag(vgv)) + min_match - 1)
+    diag = np.max(abs(np.diag(vgv)) - mismatch)
     max_err = max(off_diag, diag)
     return max_err
 
-def find_nearby(data, x, gij, basis, min_match, dist, df, f_low, flen, psd,
+def find_nearby(data, x, gij, basis, mismatch, dist, df, f_low, flen, psd,
         waveform="IMRPhenomD", verbose=False):
     """
     A function to find the point in the grid defined by the metric gij
@@ -283,12 +287,12 @@ def find_nearby(data, x, gij, basis, min_match, dist, df, f_low, flen, psd,
     x: the point in parameter space used to calculate the metric
     gij: the parameter space metric
     basis: the basis relating the directions of the metric to the physical space
-    min_match: the desired minimum match
+    mismatch: the desired mismatch
     dist: distance to the signal
     df: frequency spacing of points
     f_low: low frequency cutoff
     flen: length of the frequency domain array to generate
-    psd: the power spectrum to use in calculating the minimal match
+    psd: the power spectrum to use in calculating the match
     waveform: the waveform generator to use
 
     Returns
@@ -296,7 +300,7 @@ def find_nearby(data, x, gij, basis, min_match, dist, df, f_low, flen, psd,
     x_prime: the point in the grid with the highest match
     """
     
-    evecs = calculate_evecs(gij, min_match)
+    evecs = calculate_evecs(gij, mismatch)
     ndim = len(evecs)
     v_phys = np.inner(evecs, basis.T)
 
@@ -330,10 +334,10 @@ def find_nearby(data, x, gij, basis, min_match, dist, df, f_low, flen, psd,
             if verbose: print("Maximum at the centre, stopping")        
             break
 
-    return x
+    return x, m_0
 
 
-def find_peak(data, x, gij, basis, min_match, dist, df, f_low, flen, psd, 
+def find_peak(data, x, gij, basis, mismatch, dist, df, f_low, flen, psd, 
          waveform="IMRPhenomD"):
     """
     A function to find the maximum match 
@@ -344,12 +348,12 @@ def find_peak(data, x, gij, basis, min_match, dist, df, f_low, flen, psd,
     x: the point in parameter space used to calculate the metric
     gij: the parameter space metric
     basis: the basis relating the directions of the metric to the physical space
-    min_match: the desired minimum match
+    mismatch: the desired mismatch
     dist: distance to the signal
     df: frequency spacing of points
     f_low: low frequency cutoff
     flen: length of the frequency domain array to generate
-    psd: the power spectrum to use in calculating the minimal match
+    psd: the power spectrum to use in calculating the match
     waveform: the waveform generator to use
 
     Returns
@@ -357,7 +361,7 @@ def find_peak(data, x, gij, basis, min_match, dist, df, f_low, flen, psd,
     x_prime: the point in the grid with the highest match
     """
     
-    evecs = calculate_evecs(gij, min_match)
+    evecs = calculate_evecs(gij, mismatch)
     ndim = len(evecs)
     v_phys = np.inner(evecs, basis.T)
 
@@ -381,6 +385,8 @@ def find_peak(data, x, gij, basis, min_match, dist, df, f_low, flen, psd,
     for i in xrange(ndim):
         delta_x += (matches[i,0] - matches[i,1]) * 0.5 * v_phys[i] / \
                 (m_0 - 0.5 * (matches[i,0] + matches[i,1]))
+    print("Moving a distance of"),
+    print delta_x
 
     h = make_waveform(x, delta_x, dist, df, f_low, flen, waveform)
     m_peak = match(data, h, psd, low_frequency_cutoff=f_low)[0]
