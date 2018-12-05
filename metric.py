@@ -275,16 +275,60 @@ def metric_error(gij, evecs, mismatch):
     max_err = max(off_diag, diag)
     return max_err
 
-def find_nearby(data, x, gij, basis, mismatch, dist, df, f_low, flen, psd,
+def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist, df, 
+        f_low, flen, psd, waveform="IMRPhenomD", max_iter=20, verbose=False):
+    """
+    A function to re-calculate the metric gij based on the matches obtained
+    for the eigenvectors of the original metric
+
+    Parameters
+    ----------
+    x: the point in parameter space used to calculate the metric
+    gij: the original metric
+    basis: the basis relating the directions of the metric to the physical space
+    mismatch: the desired mismatch
+    tolerance: the allowed error in the metric is (tolerance * mismatch)
+    dist: distance to the signal
+    df: frequency spacing of points
+    f_low: low frequency cutoff
+    flen: length of the frequency domain array to generate
+    psd: the power spectrum to use in calculating the match
+    waveform: the waveform generator to use
+
+    Returns
+    -------
+    g_prime: the updated metric
+    """
+    g = gij
+    v = np.eye(len(basis))
+    tol = tolerance * mismatch
+    err = metric_error(g, v, mismatch)
+    if verbose: print("Initial error in metric: %.2g" % err)
+
+    op = 0
+    while (err > tol) and (op < max_iter):
+        g, v = update_metric(x, g, basis, mismatch, dist, 
+                                  df, f_low, flen, psd, waveform)
+        err = metric_error(g, v, mismatch)
+        op += 1
+        if verbose: 
+            print("Iteration %d, max error=%.2g" % (op, err))
+    
+    return g, v
+ 
+
+def find_peak(data, xx, gij, basis, mismatch, dist, df, f_low, flen, psd,
         waveform="IMRPhenomD", verbose=False):
     """
-    A function to find the point in the grid defined by the metric gij
-    that gives the highest match with the data
+    A function to find the maximum match.
+    This is done in two steps, first by finding the point in the grid defined
+    by the metric gij (and given mismatch) that gives the highest match.
+    Second, we approximate the match as quadratic and find the maximum.
 
     Parameters
     ----------
     data: the data containing the waveform of interest
-    x: the point in parameter space used to calculate the metric
+    xx: the point in parameter space used to calculate the metric
     gij: the parameter space metric
     basis: the basis relating the directions of the metric to the physical space
     mismatch: the desired mismatch
@@ -298,11 +342,15 @@ def find_nearby(data, x, gij, basis, mismatch, dist, df, f_low, flen, psd,
     Returns
     -------
     x_prime: the point in the grid with the highest match
+    m_0: the match at this point
+    steps: the number of steps taken in each eigendirection
     """
     
+    x = copy.deepcopy(xx)
     evecs = calculate_evecs(gij, mismatch)
     ndim = len(evecs)
     v_phys = np.inner(evecs, basis.T)
+    steps = np.zeros(ndim)
 
     while True:
         h = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, waveform)
@@ -326,72 +374,33 @@ def find_nearby(data, x, gij, basis, mismatch, dist, df, f_low, flen, psd,
         if (matches.max() > m_0):
             # maximum isn't at the centre so update location
             i, j = np.unravel_index(np.argmax(matches), matches.shape)
-            x += (-1)**j * v_phys[i]
+            x += alphas[i,j] * (-1)**j * v_phys[i]
+            steps[i] += (-1)**j
             if verbose:
-                print("Moving in the %d eigendirection, %d units" % 
+                print("Moving in the %d eigendirection, %.2f units" % 
                     (i, alphas[i,j] * (-1)**j) )
+                print("New position"),
+                print(x)
         else: 
             if verbose: print("Maximum at the centre, stopping")        
             break
 
-    return x, m_0
+    s = (matches[:,0] - matches[:,1]) * 0.25 / \
+            (m_0 - 0.5 * (matches[:,0] + matches[:,1]))
+    steps += s
+    delta_x = np.inner(s, v_phys.T)
+    alpha = check_physical(x, delta_x)
+    delta_x *= alpha
 
-
-def find_peak(data, x, gij, basis, mismatch, dist, df, f_low, flen, psd, 
-         waveform="IMRPhenomD"):
-    """
-    A function to find the maximum match 
-
-    Parameters
-    ----------
-    data: the data containing the waveform of interest
-    x: the point in parameter space used to calculate the metric
-    gij: the parameter space metric
-    basis: the basis relating the directions of the metric to the physical space
-    mismatch: the desired mismatch
-    dist: distance to the signal
-    df: frequency spacing of points
-    f_low: low frequency cutoff
-    flen: length of the frequency domain array to generate
-    psd: the power spectrum to use in calculating the match
-    waveform: the waveform generator to use
-
-    Returns
-    -------
-    x_prime: the point in the grid with the highest match
-    """
-    
-    evecs = calculate_evecs(gij, mismatch)
-    ndim = len(evecs)
-    v_phys = np.inner(evecs, basis.T)
-
-    h = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, waveform)
-    m_0, _ = match(data, h, psd, low_frequency_cutoff=f_low)
-    matches = np.zeros([ndim, 2])
-    alphas = np.zeros([ndim, 2])
-    
-    delta_x = np.zeros_like(x)
-
-    for i in xrange(ndim):
-        for j in xrange(2):
-            dx = (-1)**j * v_phys[i]
-            alphas[i,j] = check_physical(x, dx)
-            h = make_waveform(x, alphas[i,j] * dx, dist, df, f_low, flen,
-                    waveform)
-            m, _  = match(data, h, psd, 
-                    low_frequency_cutoff=f_low)
-            matches[i,j] = scale_match(m, alphas[i,j])
-
-    for i in xrange(ndim):
-        delta_x += (matches[i,0] - matches[i,1]) * 0.5 * v_phys[i] / \
-                (m_0 - 0.5 * (matches[i,0] + matches[i,1]))
-    print("Moving a distance of"),
-    print delta_x
+    if verbose: 
+        print("Moving in the eigendirections distance of"),
+        print alpha * s
+        print("New position"),
+        print(x + delta_x)
 
     h = make_waveform(x, delta_x, dist, df, f_low, flen, waveform)
     m_peak = match(data, h, psd, low_frequency_cutoff=f_low)[0]
     x_peak = x + delta_x
     
-    return x_peak, m_peak
-    
+    return x_peak, m_peak, steps
 
