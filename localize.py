@@ -1,4 +1,5 @@
 from numpy import *
+import random as rnd
 import copy
 import detectors
 import fstat
@@ -289,7 +290,7 @@ class Event(object):
         self.snrsq = 0
         for ifo in network.ifos:
             i = getattr(network, ifo)
-            if random.uniform(0, 1) < i.duty_cycle:
+            if rnd.random() < i.duty_cycle: #don't use numpy's RNG here as messes up seeding for networks
                 det = copy.deepcopy(i)
                 det.calculate_snr(self)
                 # calculate SNR and see if the signal was found/useful for loc

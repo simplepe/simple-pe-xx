@@ -64,7 +64,7 @@ def sfrMD(z):
         uses (O_M, O_de, h) = (0.3, 0.7, 0.7) params
         '''
     sfrmd = 0.015*(1.+z)**2.7/(1.+((1.+z)/2.9)**5.6) #msun per yr per Mpc^3
-    #below convert to Plan15 cosmology (essentially negligible)
+    #below convert to Plan15 cosmology (it's small)
     #(H0 constant out the fron will be normalized away later so we ignore it)
     return sfrmd #* sqrt((0.3075*(1+z)**3 + 0.691)/(0.3*(1+z)**3 + 0.7)) neglecting this cosmology convertion factor as it is essentially negligible
 
