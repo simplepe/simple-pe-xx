@@ -8,7 +8,7 @@ from scipy import special
 from astropy.time import Time
 from astropy import units
 from scipy.optimize import brentq
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 
 # a list of ifos that we can consider
 ifos = ("H1", "H2", "I1", "K1", "L1", "V1", "ETdet1", "ETdet1", "ETdet1")
@@ -130,7 +130,7 @@ class Det(object):
 
 
 ##################################################################
-# Class to store network information 
+# Class to store network information
 ##################################################################
 class Network(object):
     """
@@ -191,8 +191,8 @@ class Network(object):
         return array([getattr(getattr(self, i), data) for i in self.ifos])
 
 ################################
-# plot the localization detector ellipse.  
-# Note that this assumes the ellipse is centred on the event 
+# plot the localization detector ellipse.
+# Note that this assumes the ellipse is centred on the event
 ################################
 def projection_ellipse(loc, event):
   # set up co-ordinates
@@ -206,9 +206,9 @@ def projection_ellipse(loc, event):
   # normalization to get 90% area:
   source = event.xyz
   x = inner(source,x_net) + \
-      sqrt(2 * log(10)) *  loc.sigma[0] * cos(angle) 
+      sqrt(2 * log(10)) *  loc.sigma[0] * cos(angle)
   y = inner(source,y_net) + \
-      sqrt(2 * log(10)) *  loc.sigma[1] * sin(angle) 
+      sqrt(2 * log(10)) *  loc.sigma[1] * sin(angle)
   z = sqrt(1 - x**2 - y**2) * sign(inner(source,z_net))
   # check that we're not going outside of unit circle:
   bad = x**2 + y**2 > 1
@@ -223,7 +223,7 @@ def projection_ellipse(loc, event):
     x = append(concatenate((x, x[::-1])), x[0])
     y = append(concatenate((y, y[::-1])), y[0])
     z = append(concatenate((z, -z[::-1])),z[0])
-  for i in xrange(3):
+  for i in range(3):
     r[i] = x * x_net[i] + y * y_net[i] + z * z_net[i]
   theta = arcsin(r[2] / sqrt(r[0]**2 + r[1]**2 + r[2]**2) )
   phi = arctan2(r[1],r[0])
@@ -249,7 +249,7 @@ class Event(object):
             self.ra = radians(params["RAdeg"])
             self.dec = radians(params["DEdeg"])
             try: self.gps = params['gps']
-            except: 
+            except:
                 t = Time(params["MJD"], format='mjd')
                 self.gps = lal.LIGOTimeGPS(int(t.gps), int(1e9 * (t.gps % 1)))
             self.gmst = lal.GreenwichMeanSiderealTime(self.gps)
@@ -268,7 +268,7 @@ class Event(object):
             self.phi = random.uniform(0, 2 * math.pi)
             self.cosi = random.uniform(-1, 1)
             self.mchirp = 1.4 * 2**(-1./5)
-        else: 
+        else:
             raise ValueError("Must provide either list of params or maximum distance")
         # general content:
         self.xyz = detectors.xyz(self.ra - self.gmst, self.dec)
@@ -456,8 +456,8 @@ class Event(object):
                 a = a0 * ((1 + a_ratio) * (-log(1 - p) + log(1 + a_ratio)
                                            - log(1 + a_ratio * prob_ratio * exp(-drho2 / 2)))
                           - a_ratio * (drho2 / 2 - log(prob_ratio)))
-            if isnan(a): 
-                print("for method %s: we got a nan for the area" % method) 
+            if isnan(a):
+                print("for method %s: we got a nan for the area" % method)
         if not self.mirror or isnan(a):
             a = - log(1. - p) * a0
             patches = 1
@@ -465,7 +465,7 @@ class Event(object):
         self.patches[method] = patches
         self.area[method] = a
 
-        
+
     def marg_loc(self, mirror=False, p=0.9):
         """
         Calculate the marginalized localization.
@@ -484,11 +484,11 @@ class Event(object):
         r_min = 0.9 * sqrt(nanmin([l[k].area for k in keys])/pi)
         r = brentq(f, r_min, r_max, (keys, l, p))
         l["marg"] = Localization("marg", self, mirror, p, area = pi*r**2)
-        l["marg"].like = logsumexp([l[k].like + log(l[k].area) - log(-2*pi*log(1-l[k].p)) 
+        l["marg"].like = logsumexp([l[k].like + log(l[k].area) - log(-2*pi*log(1-l[k].p))
                                     for k in keys])
         l["marg"].like -= log(l["marg"].area) - log(-2*pi*log(1-p))
 
-                
+
     def localize_all(self, p=0.9):
         """
         Calculate all localizations
@@ -551,7 +551,7 @@ class Localization(object):
             self.D, self.cosi, _, _ = fstat.a_to_params(A)
 
         self.like = 0.
-        if method is not "time" and method is not "marg": 
+        if method is not "time" and method is not "marg":
             self.approx_like(Dmax)
 
     def calculate_m(self):
@@ -561,8 +561,8 @@ class Localization(object):
         M = zeros([3, 3])
         locations = self.event.get_data("location")
 
-        for i1 in xrange(len(self.event.ifos)):
-            for i2 in xrange(len(self.event.ifos)):
+        for i1 in range(len(self.event.ifos)):
+            for i2 in range(len(self.event.ifos)):
                 M += outer(locations[i1] - locations[i2],
                     locations[i1] - locations[i2]) / (3e8) ** 2 \
                     * CC[i1, i2]
@@ -605,7 +605,7 @@ class Localization(object):
         if max(abs(dt * (2 * pi * f_band))) > 1. / sqrt(2):
             # location of second peak is outside linear regime, return zero
             z = zeros_like(dt)
-        else:    
+        else:
             z = self.event.projected_snr(self.method, self.mirror, dt)
         snr = linalg.norm(z)
         return z, snr
@@ -650,9 +650,7 @@ class Localization(object):
         # calculate the area of the ellipse
         ellipse = - log(1. - self.p) * 2 * math.pi * (180 / math.pi) ** 2 * \
                 self.sigma[0] * self.sigma[1]
-        # calculate the area of the band 
+        # calculate the area of the band
         band = 4 * math.pi * (180 / math.pi) ** 2 * sqrt(2) * special.erfinv(self.p) * self.sigma[0]
         # use the minimum (that's not nan)
         self.area = nanmin((ellipse, band))
-
-
