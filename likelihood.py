@@ -2,7 +2,7 @@ from numpy import *
 from scipy import special
 from scipy.integrate import quad
 import pylab
-import fstat
+from simple_pe import fstat
 
 
 
@@ -219,7 +219,7 @@ def loglike_approx(a_hat, f_plus, f_cross, d_max=1000., method="coh",
         cos_width = minimum(cos_fac / snr ** 0.5, 1)
         cos_int = 1 - (1 - cos_width)**4
         loglike = log(3) - log(8) + 3 * log(d_hat / d_max) - 2 * log(snr) + log(cos_int)
-	if correction:
+    if correction:
             factor = 1 - 75./(2 * snr**2)
             loglike += log(factor) + 0.2
 
