@@ -31,7 +31,7 @@ def getnoise(tech = 'aligo'):
         noise = advdet(f_len, df, df)
         noise = noise.numpy()
         noise[0] = noise[1] #to remove zero from the first element
-        
+
     return noise
 
 def d_horizon(wfrm, noise):
@@ -43,7 +43,7 @@ def d_horizon(wfrm, noise):
 def save_horizons(tech='aligo', mchmin = 1., mchmax = 650., etamin = 0.05, etamax = .25, dmch = 1., deta = .02):
 
     fname = tech+"_mchmin-"+str(mchmin)+"_mchmax-"+str(mchmax)+"_etamin-"+str(etamin)+"_etamax-"+str(etamax)+".h5py"
-    print "Saving to file:", fname
+    print("Saving to file:", fname)
     nmch, neta = int((mchmax - mchmin)/dmch)+1, int((etamax - etamin)/deta)+1
     #print nmch, neta
     infile = h5py.File(fname, "w")
@@ -52,14 +52,14 @@ def save_horizons(tech='aligo', mchmin = 1., mchmax = 650., etamin = 0.05, etama
     dset3 = infile.create_dataset("d_horizon", (nmch*neta,), dtype='f', maxshape=(nmch*neta,))
     dset4 = infile.create_dataset("fmean", (nmch*neta,), dtype='f', maxshape=(nmch*neta,))
     dset5 = infile.create_dataset("fband", (nmch*neta,), dtype='f', maxshape=(nmch*neta,))
-    
+
     dset1.attrs['mchmin'] = mchmin
     dset1.attrs['mchmax'] = mchmax
     dset2.attrs['etamin'] = etamin
     dset2.attrs['etamax'] = etamax
     dset1.attrs['dmch'] = dmch
     dset2.attrs['deta'] = deta
-    
+
     noise, count = getnoise(tech), 0
     for ii in range(nmch*neta):
         mch = np.random.uniform(mchmin, mchmax)
@@ -68,7 +68,7 @@ def save_horizons(tech='aligo', mchmin = 1., mchmax = 650., etamin = 0.05, etama
         wfrm = get_waveform(m1, m2)
         dhr = d_horizon(wfrm, noise)
         fmean, fband = get_fband_fmean(wfrm, noise)
-            
+
         dset1[ii] = mch
         dset2[ii] = eta
         dset3[ii] = dhr
@@ -76,17 +76,17 @@ def save_horizons(tech='aligo', mchmin = 1., mchmax = 650., etamin = 0.05, etama
         dset5[ii] = fband
 
         if ii % 100 == 0:
-            print ii
-           
+            print(ii)
+
     infile.close()
-            
+
 def get_fband_fmean(wfrm, noise):
-    
+
     fmean = (2*wfrm*np.conjugate(wfrm)/noise)*f*df
     fband = (2*wfrm*np.conjugate(wfrm)/noise)*f**2*df
-    
+
     return np.real(fmean.sum()), np.real(np.sqrt(fband.sum()))
-        
+
 
 def get_waveform(m1, m2, d = 1):
     sptilde, sctilde = waveform.get_fd_waveform(approximant="IMRPhenomD",
