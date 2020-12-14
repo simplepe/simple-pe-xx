@@ -75,9 +75,7 @@ def scale_vectors(x, vec, dist, mismatch, df, f_low, flen, psd,
                 (not (mm) < mismatch * (1 + tol) ):
             dx = v[i]
             mm = average_mismatch(x, dx, dist, df, f_low, flen, psd, waveform)
-            print(mm, mismatch)
             v[i] *= (mismatch / mm)**(0.4) # set to 0.4 rather than 0.5 to undershoot
-        print("done")
     return v
 
 
@@ -150,7 +148,6 @@ def average_mismatch(x, dx, dist, df, f_low, flen, psd,
     h0 = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, waveform)
     for s in [1., -1.]:
         a[s] = check_physical(x, s * dx)
-        print(a[s])
         h = make_waveform(x, s * a[s]* dx, dist, df, f_low, flen,
                 waveform)
         m[s], _ = match(h0, h, psd, low_frequency_cutoff=f_low)
@@ -273,10 +270,8 @@ def update_metric(x, gij, basis, mismatch, dist, df, f_low, flen, psd,
     """
     evecs = calculate_evecs(gij, mismatch)
     v_phys = np.inner(evecs, basis.T)
-    print("scaling vectors")
     v_scale = scale_vectors(x, v_phys, dist, mismatch, df, f_low, flen, psd,
             waveform)
-    print("scaled")
     ev_scale = (evecs.T *
             np.linalg.norm(v_scale, axis=1)/np.linalg.norm(v_phys, axis=1)).T
     g_prime = calculate_metric(x, v_scale, dist, df, f_low, flen, psd, waveform)
@@ -338,7 +333,6 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist, df,
 
     op = 0
     while (err > tol) and (op < max_iter):
-        print("updating metric")
         g, v = update_metric(x, g, basis, mismatch, dist,
                                   df, f_low, flen, psd, waveform)
         err = metric_error(g, v, mismatch)
