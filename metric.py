@@ -7,19 +7,19 @@ import copy
 
 def make_waveform(x, dx, dist, df, f_low, flen, waveform="IMRPhenomD"):
     """
-    This function makes a waveform for the given parameters and 
+    This function makes a waveform for the given parameters and
     returns h_plus generated at value (x + dx).  Currently defaults to
 
     Parameters
     ----------
     x : np.array with four values assumed to be mchirp, eta, s1z, s2z
-    dx: same as x. 
+    dx: same as x.
     dist: distance to the signal
     df: frequency spacing of points
     f_low: low frequency cutoff
     flen: length of the frequency domain array to generate
     waveform: the waveform generator to use
-    
+
     Returns
     -------
     h_plus: waveform as a frequency series with the requested df, flen
@@ -33,18 +33,18 @@ def make_waveform(x, dx, dist, df, f_low, flen, waveform="IMRPhenomD"):
                                   mass1 = m1, \
                                   mass2 = m2, \
                                   spin1z = x[2] + dx[2],\
-                                  spin2z = x[3] + dx[3],\
+                                  spin2z = x[2] + dx[2],\
                                   delta_f=df,\
                                   distance = dist,\
                                   f_lower=f_low)
     h_plus.resize(flen)
     return(h_plus)
-    
-def scale_vectors(x, vec, dist, mismatch, df, f_low, flen, psd, 
-        waveform="IMRPhenomD", tol=1e-2): 
+
+def scale_vectors(x, vec, dist, mismatch, df, f_low, flen, psd,
+        waveform="IMRPhenomD", tol=1e-2):
     """
     This function scales the input vectors so that the mismatch between
-    a waveform at point x and one at x + v[i] is equal to the specified 
+    a waveform at point x and one at x + v[i] is equal to the specified
     mismatch, up to the specified tolerance.
 
     Parameters
@@ -69,7 +69,7 @@ def scale_vectors(x, vec, dist, mismatch, df, f_low, flen, psd,
 
     ndim = len(vec)
     v = copy.deepcopy(vec)
-    for i in xrange(ndim):
+    for i in range(ndim):
         mm = 1.0
         while (not (mm) > mismatch * (1 - tol)) or \
                 (not (mm) < mismatch * (1 + tol) ):
@@ -79,7 +79,7 @@ def scale_vectors(x, vec, dist, mismatch, df, f_low, flen, psd,
     return v
 
 
-def check_physical(x, dx, maxs = [1e4, 0.25, 0.98, 0.98], 
+def check_physical(x, dx, maxs = [1e4, 0.25, 0.98, 0.98],
         mins = [0, 0, -0.98, -0.98]):
     """
     A function to check whether ther point described by the positions x + dx is
@@ -88,7 +88,7 @@ def check_physical(x, dx, maxs = [1e4, 0.25, 0.98, 0.98],
     Parameters
     ----------
     x : np.array with four values assumed to be mchirp, eta, s1z, s2z
-    dx: same as x. 
+    dx: same as x.
     maxs: the maximum permitted values of the physical parameters
     mins: the minimum physical values of the physical parameters
 
@@ -97,7 +97,7 @@ def check_physical(x, dx, maxs = [1e4, 0.25, 0.98, 0.98],
     alpha: the scaling factor required to make x + dx physically permissable
     """
     alpha = 1.
-    for i in xrange(4):
+    for i in range(3):
         if (x + dx)[i] < mins[i]: alpha = min(alpha, (x[i] - mins[i])/dx[i])
         if (x + dx)[i] > maxs[i]: alpha = min(alpha, (maxs[i] - x[i])/dx[i])
     return alpha
@@ -125,7 +125,7 @@ def average_mismatch(x, dx, dist, df, f_low, flen, psd,
         waveform="IMRPhenomD"):
     """
     This function calculated the average match for steps of +dx and -dx
-    It also takes care of times where one of the steps moves beyond the 
+    It also takes care of times where one of the steps moves beyond the
     edge of the physical paramter space
 
     Parameters
@@ -148,7 +148,7 @@ def average_mismatch(x, dx, dist, df, f_low, flen, psd,
     h0 = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, waveform)
     for s in [1., -1.]:
         a[s] = check_physical(x, s * dx)
-        h = make_waveform(x, s * a[s]* dx, dist, df, f_low, flen, 
+        h = make_waveform(x, s * a[s]* dx, dist, df, f_low, flen,
                 waveform)
         m[s], _ = match(h0, h, psd, low_frequency_cutoff=f_low)
     if ( min(a.values()) < 1e-2):
@@ -166,7 +166,7 @@ def calculate_metric(x, vec, dist, df, f_low, flen, psd, waveform="IMRPhenomD"):
 
     Parameters
     ----------
-    x : np.array with four values assumed to be mchirp, eta, s1z, s2z
+    x : np.array with three values assumed to be mchirp, eta, sz
     vec: an array of directions dx in which to vary the waveform parameters
     dist: distance to the signal
     df: frequency spacing of points
@@ -188,21 +188,21 @@ def calculate_metric(x, vec, dist, df, f_low, flen, psd, waveform="IMRPhenomD"):
 
     # diagonal components
     # g_ii = 1 - 0.5 [m(dx_i) + m(-dx_i)]
-    for i in xrange(ndim):
+    for i in range(ndim):
         dx = vec[i]
 
-        gij[i,i] += average_mismatch(x, dx, dist, df, f_low, flen, 
+        gij[i,i] += average_mismatch(x, dx, dist, df, f_low, flen,
                 psd, waveform)
 
     # off diagonal
     # g_ij = 0.25 * [- m(1/sqrt(2) (dx_i + dx_j)) - m(-1/sqrt(2) (dx_i + dx_j))
     #               + m(1/sqrt(2) (dx_i - dx_j)) - m(-1/sqrt(2) (dx_i - dx_j))]
-    for i in xrange(ndim):    
-        for j in xrange(i+1,ndim):
+    for i in range(ndim):
+        for j in range(i+1,ndim):
             for s in ([[1,1],[1,-1]]):
                 dx = (s[0] * vec[i] + s[1] * vec[j])/np.sqrt(2)
                 gij[i,j] += 0.5 * s[0]/s[1] * \
-                        average_mismatch(x, dx, dist, df, f_low, 
+                        average_mismatch(x, dx, dist, df, f_low,
                         flen, psd, waveform)
             gij[j,i] = gij[i,j]
 
@@ -234,7 +234,7 @@ def calculate_evecs(gij, mismatch):
     Parameters
     ----------
     gij: the metric
-    mismatch: the required mismatch 
+    mismatch: the required mismatch
 
     Returns
     -------
@@ -244,7 +244,7 @@ def calculate_evecs(gij, mismatch):
     v = (evec * np.sqrt((mismatch)/evals)).T
     return v
 
-def update_metric(x, gij, basis, mismatch, dist, df, f_low, flen, psd, 
+def update_metric(x, gij, basis, mismatch, dist, df, f_low, flen, psd,
         waveform="IMRPhenomD"):
     """
     A function to re-calculate the metric gij based on the matches obtained
@@ -265,13 +265,14 @@ def update_metric(x, gij, basis, mismatch, dist, df, f_low, flen, psd,
 
     Returns
     -------
-    g_prime: the updated metric
+    gij_prime: the updated metric
+    ev_scale: a scaled set of eigenvectors
     """
     evecs = calculate_evecs(gij, mismatch)
     v_phys = np.inner(evecs, basis.T)
-    v_scale = scale_vectors(x, v_phys, dist, mismatch, df, f_low, flen, psd, 
+    v_scale = scale_vectors(x, v_phys, dist, mismatch, df, f_low, flen, psd,
             waveform)
-    ev_scale = (evecs.T * 
+    ev_scale = (evecs.T *
             np.linalg.norm(v_scale, axis=1)/np.linalg.norm(v_phys, axis=1)).T
     g_prime = calculate_metric(x, v_scale, dist, df, f_low, flen, psd, waveform)
     evec_inv = np.linalg.inv(ev_scale)
@@ -299,7 +300,7 @@ def metric_error(gij, evecs, mismatch):
     max_err = max(off_diag, diag)
     return max_err
 
-def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist, df, 
+def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist, df,
         f_low, flen, psd, waveform="IMRPhenomD", max_iter=20, verbose=False):
     """
     A function to re-calculate the metric gij based on the matches obtained
@@ -322,6 +323,7 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist, df,
     Returns
     -------
     g_prime: the updated metric
+    v:
     """
     g = gij
     v = np.eye(len(basis))
@@ -331,19 +333,19 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist, df,
 
     op = 0
     while (err > tol) and (op < max_iter):
-        g, v = update_metric(x, g, basis, mismatch, dist, 
+        g, v = update_metric(x, g, basis, mismatch, dist,
                                   df, f_low, flen, psd, waveform)
         err = metric_error(g, v, mismatch)
         op += 1
-        if verbose: 
+        if verbose:
             print("Iteration %d, max error=%.2g" % (op, err))
-    
+
     if (err <= tol):
         return g, v
     else:
         print("Failed to converge")
         return np.zeros_like(g), np.zeros_like(v)
- 
+
 
 def find_peak(data, xx, gij, basis, mismatch, dist, df, f_low, flen, psd,
         waveform="IMRPhenomD", verbose=False):
@@ -373,7 +375,7 @@ def find_peak(data, xx, gij, basis, mismatch, dist, df, f_low, flen, psd,
     m_0: the match at this point
     steps: the number of steps taken in each eigendirection
     """
-    
+
     x = copy.deepcopy(xx)
     evecs = calculate_evecs(gij, mismatch)
     ndim = len(evecs)
@@ -385,18 +387,18 @@ def find_peak(data, xx, gij, basis, mismatch, dist, df, f_low, flen, psd,
         m_0, _ = match(data, h, psd, low_frequency_cutoff=f_low)
         matches = np.zeros([ndim, 2])
         alphas = np.zeros([ndim, 2])
-        
-        for i in xrange(ndim):
-            for j in xrange(2):
+
+        for i in range(ndim):
+            for j in range(2):
                 dx = (-1)**j * v_phys[i]
                 alphas[i,j] = check_physical(x, dx)
-                h = make_waveform(x, alphas[i,j] * dx, dist, df, f_low, flen, 
+                h = make_waveform(x, alphas[i,j] * dx, dist, df, f_low, flen,
                         waveform)
-                matches[i,j], _ = match(data, h, psd, 
+                matches[i,j], _ = match(data, h, psd,
                         low_frequency_cutoff=f_low)
 
-        if verbose: 
-            print("Central match %.3f; maximum offset match %.3f" % 
+        if verbose:
+            print("Central match %.3f; maximum offset match %.3f" %
                 (m_0, matches.max()))
 
         if (matches.max() > m_0):
@@ -405,13 +407,13 @@ def find_peak(data, xx, gij, basis, mismatch, dist, df, f_low, flen, psd,
             x += alphas[i,j] * (-1)**j * v_phys[i]
             steps[i] += (-1)**j
             if verbose:
-                print("Moving in the %d eigendirection, %.2f units" % 
+                print("Moving in the %d eigendirection, %.2f units" %
                     (i, alphas[i,j] * (-1)**j) )
                 print("New position"),
                 print(x)
-                print
-        else: 
-            if verbose: print("Maximum at the centre, stopping")        
+                print("")
+        else:
+            if verbose: print("Maximum at the centre, stopping")
             break
 
     s = (matches[:,0] - matches[:,1]) * 0.25 / \
@@ -421,16 +423,15 @@ def find_peak(data, xx, gij, basis, mismatch, dist, df, f_low, flen, psd,
     alpha = check_physical(x, delta_x)
     delta_x *= alpha
 
-    if verbose: 
+    if verbose:
         print("Using matches to find peak")
         print("Moving in the eigendirections distance of"),
-        print alpha * s
+        print("%.2g" % alpha * s)
         print("New position"),
         print(x + delta_x)
 
     h = make_waveform(x, delta_x, dist, df, f_low, flen, waveform)
     m_peak = match(data, h, psd, low_frequency_cutoff=f_low)[0]
     x_peak = x + delta_x
-    
-    return x_peak, m_peak, steps
 
+    return x_peak, m_peak, steps
