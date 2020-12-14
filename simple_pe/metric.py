@@ -75,7 +75,9 @@ def scale_vectors(x, vec, dist, mismatch, df, f_low, flen, psd,
                 (not (mm) < mismatch * (1 + tol) ):
             dx = v[i]
             mm = average_mismatch(x, dx, dist, df, f_low, flen, psd, waveform)
-            v[i] *= np.sqrt(mismatch / mm)
+            print(mm, mismatch)
+            v[i] *= (mismatch / mm)**(0.4) # set to 0.4 rather than 0.5 to undershoot
+        print("done")
     return v
 
 
@@ -130,7 +132,7 @@ def average_mismatch(x, dx, dist, df, f_low, flen, psd,
 
     Parameters
     ----------
-    x : np.array with four values assumed to be mchirp, eta, s1z, s2z
+    x : np.array with four values assumed to be mchirp, eta, chi_eff
     dx: the change in the values x
     dist: distance to the signal
     df: frequency spacing of points
@@ -148,6 +150,7 @@ def average_mismatch(x, dx, dist, df, f_low, flen, psd,
     h0 = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, waveform)
     for s in [1., -1.]:
         a[s] = check_physical(x, s * dx)
+        print(a[s])
         h = make_waveform(x, s * a[s]* dx, dist, df, f_low, flen,
                 waveform)
         m[s], _ = match(h0, h, psd, low_frequency_cutoff=f_low)
@@ -270,8 +273,10 @@ def update_metric(x, gij, basis, mismatch, dist, df, f_low, flen, psd,
     """
     evecs = calculate_evecs(gij, mismatch)
     v_phys = np.inner(evecs, basis.T)
+    print("scaling vectors")
     v_scale = scale_vectors(x, v_phys, dist, mismatch, df, f_low, flen, psd,
             waveform)
+    print("scaled")
     ev_scale = (evecs.T *
             np.linalg.norm(v_scale, axis=1)/np.linalg.norm(v_phys, axis=1)).T
     g_prime = calculate_metric(x, v_scale, dist, df, f_low, flen, psd, waveform)
@@ -333,6 +338,7 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist, df,
 
     op = 0
     while (err > tol) and (op < max_iter):
+        print("updating metric")
         g, v = update_metric(x, g, basis, mismatch, dist,
                                   df, f_low, flen, psd, waveform)
         err = metric_error(g, v, mismatch)
@@ -350,6 +356,7 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist, df,
 def find_peak(data, xx, gij, basis, mismatch, dist, df, f_low, flen, psd,
         waveform="IMRPhenomD", verbose=False):
     """
+    bla bla bla
     A function to find the maximum match.
     This is done in two steps, first by finding the point in the grid defined
     by the metric gij (and given mismatch) that gives the highest match.
