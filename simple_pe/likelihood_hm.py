@@ -8,7 +8,7 @@ from math import cos, sin, tan, sqrt
 from scipy import special
 from scipy.integrate import quad
 import pylab
-import fstat_hm as fstat
+from . import fstat_hm as fstat
 
 t = lambda iota: tan(iota / 2.0)
 sqri33 = lambda iota: sin(iota / 2.0) * cos(iota / 2.0) ** 5
