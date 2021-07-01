@@ -100,9 +100,6 @@ def check_physical(x, dx, maxs = [1e4, 0.25, 0.98, 0.98],
     for i in range(3):
         if (x + dx)[i] < mins[i]: alpha = min(alpha, (x[i] - mins[i])/abs(dx[i]))
         if (x + dx)[i] > maxs[i]: alpha = min(alpha, (maxs[i] - x[i])/abs(dx[i]))
-    print( alpha )
-    if alpha < 1:
-        print(x, dx)
     return alpha
 
 
