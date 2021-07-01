@@ -98,8 +98,11 @@ def check_physical(x, dx, maxs = [1e4, 0.25, 0.98, 0.98],
     """
     alpha = 1.
     for i in range(3):
-        if (x + dx)[i] < mins[i]: alpha = min(alpha, (x[i] - mins[i])/dx[i])
-        if (x + dx)[i] > maxs[i]: alpha = min(alpha, (maxs[i] - x[i])/dx[i])
+        if (x + dx)[i] < mins[i]: alpha = min(alpha, (x[i] - mins[i])/abs(dx[i]))
+        if (x + dx)[i] > maxs[i]: alpha = min(alpha, (maxs[i] - x[i])/abs(dx[i]))
+    print( alpha )
+    if alpha < 1:
+        print(x, dx)
     return alpha
 
 
@@ -241,6 +244,8 @@ def calculate_evecs(gij, mismatch):
     v: the appropriately scaled eigenvectors
     """
     evals, evec = np.linalg.eig(gij)
+    # remove any negative evals
+    evals[evals <= 0] = 1e-8
     v = (evec * np.sqrt((mismatch)/evals)).T
     return v
 
