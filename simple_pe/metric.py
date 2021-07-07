@@ -312,7 +312,7 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist,
     Returns
     -------
     g_prime: the updated metric
-    v:
+    v: scaled eigenvectors
     """
     g = gij
     v = np.eye(len(basis))
@@ -331,12 +331,10 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist,
             print("Iteration %d, desired error=%.2g, max error=%.2g" % (op, tol, err))
             print(g)
 
-    if (err <= tol):
-        return g, v
-    else:
-        print("Failed to converge")
-        return np.zeros_like(g), np.zeros_like(v)
+    if (err > tol):
+        print("Failed to achieve requested tolerance.  Requested: %.2g; achieved %.2g" % (tol, err))
 
+    return g, v, tol
 
 def find_peak(data, xx, gij, basis, mismatch, dist, f_low, psd,
               waveform="IMRPhenomD", verbose=False):
@@ -464,7 +462,7 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
     v_phys = np.inner(evecs, basis.T)
     steps = np.zeros(ndim)
     df = psd[ifos[0]].delta_f
-    
+
     flen = len(psd[ifos[0]])
 
     while True:
