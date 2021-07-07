@@ -4,6 +4,7 @@ from pycbc.filter import match
 from pycbc import conversions
 from pycbc.filter.matchedfilter import matched_filter
 import copy
+from scipy import optimize
 
 
 def make_waveform(x, dx, dist, df, f_low, flen, waveform="IMRPhenomD"):
@@ -36,8 +37,8 @@ def make_waveform(x, dx, dist, df, f_low, flen, waveform="IMRPhenomD"):
     return h_plus
 
 
-def scale_vectors(x, vec, dist, mismatch, df, f_low, flen, psd,
-                  waveform="IMRPhenomD", tol=1e-2):
+def scale_vectors(x, vec, dist, mismatch, f_low, psd,
+                  waveform="IMRPhenomD", tolerance=1e-2):
     """
     This function scales the input vectors so that the mismatch between
     a waveform at point x and one at x + v[i] is equal to the specified
@@ -49,29 +50,24 @@ def scale_vectors(x, vec, dist, mismatch, df, f_low, flen, psd,
     vec: an array of directions dx in which to vary the waveform parameters
     dist: distance to the signal
     mismatch: the desired mismatch (1 - match)
-    df: frequency spacing of points
     f_low: low frequency cutoff
-    flen: length of the frequency domain array to generate
     psd: the power spectrum to use in calculating the match
     waveform: the waveform generator to use
-    tol: the maximum fractional error in the mismatch
+    tolerance: the maximum fractional error in the mismatch
 
     Returns
     -------
     v: A set of vectors in the directions given by v but normalized to give the
     desired mismatch
     """
-    h = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, waveform)
-
     ndim = len(vec)
     v = copy.deepcopy(vec)
     for i in range(ndim):
-        mm = 1.0
-        while (not (mm) > mismatch * (1 - tol)) or \
-                (not (mm) < mismatch * (1 + tol)):
-            dx = v[i]
-            mm = average_mismatch(x, dx, dist, df, f_low, flen, psd, waveform)
-            v[i] *= (mismatch / mm) ** (0.4)  # set to 0.4 rather than 0.5 to undershoot
+        opt = optimize.root_scalar(lambda a: average_mismatch(x, a * v[i], dist,
+                                                              f_low, psd, waveform) - mismatch,
+                                   bracket=[0, 5], method='brentq', rtol=tolerance)
+        v[i] *= opt.root
+
     return v
 
 
@@ -117,8 +113,8 @@ def scale_match(m_alpha, alpha):
     return m
 
 
-def average_mismatch(x, dx, dist, df, f_low, flen, psd,
-                     waveform="IMRPhenomD"):
+def average_mismatch(x, dx, dist, f_low, psd,
+                     waveform="IMRPhenomD", verbose=False):
     """
     This function calculated the average match for steps of +dx and -dx
     It also takes care of times where one of the steps moves beyond the
@@ -129,7 +125,6 @@ def average_mismatch(x, dx, dist, df, f_low, flen, psd,
     x : np.array with four values assumed to be mchirp, eta, chi_eff
     dx: the change in the values x
     dist: distance to the signal
-    df: frequency spacing of points
     f_low: low frequency cutoff
     flen: length of the frequency domain array to generate
     psd: the power spectrum to use in calculating the match
@@ -141,21 +136,24 @@ def average_mismatch(x, dx, dist, df, f_low, flen, psd,
     """
     a = {}
     m = {}
-    h0 = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, waveform)
+    h0 = make_waveform(x, np.zeros_like(x), dist, psd.delta_f, f_low, len(psd), waveform)
     for s in [1., -1.]:
         a[s] = check_physical(x, s * dx)
-        h = make_waveform(x, s * a[s] * dx, dist, df, f_low, flen,
-                          waveform)
+        h = make_waveform(x, s * a[s] * dx, dist, psd.delta_f, f_low, len(psd), waveform)
         m[s], _ = match(h0, h, psd, low_frequency_cutoff=f_low)
+    if verbose:
+        print("Had to scale steps to %.2f, %.2f" % (a[-1], a[1]))
+        print("Mismatches %.3f, %.3f" % (1 - m[-1], 1 - m[1]))
     if (min(a.values()) < 1e-2):
-        # we're really close to the boundary, so downweight match contribution
+        if verbose:
+            print("we're really close to the boundary, so down-weight match contribution")
         mm = (2 - m[1] - m[-1]) / (a[1] ** 2 + a[-1] ** 2)
     else:
         mm = 1 - 0.5 * (scale_match(m[1], a[1]) + scale_match(m[-1], a[-1]))
     return mm
 
 
-def calculate_metric(x, vec, dist, df, f_low, flen, psd, waveform="IMRPhenomD"):
+def calculate_metric(x, vec, dist, f_low, psd, waveform="IMRPhenomD"):
     """
     A function to calculate the metric at a point x, associated to a given set
     of variations in the directions given by vec.
@@ -165,9 +163,7 @@ def calculate_metric(x, vec, dist, df, f_low, flen, psd, waveform="IMRPhenomD"):
     x : np.array with three values assumed to be mchirp, eta, sz
     vec: an array of directions dx in which to vary the waveform parameters
     dist: distance to the signal
-    df: frequency spacing of points
     f_low: low frequency cutoff
-    flen: length of the frequency domain array to generate
     psd: the power spectrum to use in calculating the match
     waveform: the waveform generator to use
 
@@ -179,16 +175,12 @@ def calculate_metric(x, vec, dist, df, f_low, flen, psd, waveform="IMRPhenomD"):
     ndim = len(vec)
     gij = np.zeros([ndim, ndim])
 
-    # make the original waveform
-    h = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, waveform)
-
     # diagonal components
     # g_ii = 1 - 0.5 [m(dx_i) + m(-dx_i)]
     for i in range(ndim):
         dx = vec[i]
 
-        gij[i, i] += average_mismatch(x, dx, dist, df, f_low, flen,
-                                      psd, waveform)
+        gij[i, i] += average_mismatch(x, dx, dist, f_low, psd, waveform)
 
     # off diagonal
     # g_ij = 0.25 * [- m(1/sqrt(2) (dx_i + dx_j)) - m(-1/sqrt(2) (dx_i + dx_j))
@@ -198,8 +190,7 @@ def calculate_metric(x, vec, dist, df, f_low, flen, psd, waveform="IMRPhenomD"):
             for s in ([[1, 1], [1, -1]]):
                 dx = (s[0] * vec[i] + s[1] * vec[j]) / np.sqrt(2)
                 gij[i, j] += 0.5 * s[0] / s[1] * \
-                             average_mismatch(x, dx, dist, df, f_low,
-                                              flen, psd, waveform)
+                             average_mismatch(x, dx, dist, f_low, psd, waveform)
             gij[j, i] = gij[i, j]
 
     return gij
@@ -244,8 +235,8 @@ def calculate_evecs(gij, mismatch):
     return v
 
 
-def update_metric(x, gij, basis, mismatch, dist, df, f_low, flen, psd,
-                  waveform="IMRPhenomD"):
+def update_metric(x, gij, basis, mismatch, dist, f_low, psd,
+                  waveform="IMRPhenomD", tolerance=1e-2):
     """
     A function to re-calculate the metric gij based on the matches obtained
     for the eigenvectors of the original metric
@@ -257,9 +248,7 @@ def update_metric(x, gij, basis, mismatch, dist, df, f_low, flen, psd,
     basis: the basis relating the directions of the metric to the physical space
     mismatch: the desired mismatch
     dist: distance to the signal
-    df: frequency spacing of points
     f_low: low frequency cutoff
-    flen: length of the frequency domain array to generate
     psd: the power spectrum to use in calculating the match
     waveform: the waveform generator to use
 
@@ -270,11 +259,11 @@ def update_metric(x, gij, basis, mismatch, dist, df, f_low, flen, psd,
     """
     evecs = calculate_evecs(gij, mismatch)
     v_phys = np.inner(evecs, basis.T)
-    v_scale = scale_vectors(x, v_phys, dist, mismatch, df, f_low, flen, psd,
-                            waveform)
+    v_scale = scale_vectors(x, v_phys, dist, mismatch, f_low, psd,
+                            waveform, tolerance)
     ev_scale = (evecs.T *
                 np.linalg.norm(v_scale, axis=1) / np.linalg.norm(v_phys, axis=1)).T
-    g_prime = calculate_metric(x, v_scale, dist, df, f_low, flen, psd, waveform)
+    g_prime = calculate_metric(x, v_scale, dist, f_low, psd, waveform)
     evec_inv = np.linalg.inv(ev_scale)
     gij_prime = np.inner(np.inner(evec_inv, g_prime), evec_inv)
     return gij_prime, ev_scale
@@ -302,8 +291,8 @@ def metric_error(gij, evecs, mismatch):
     return max_err
 
 
-def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist, df,
-                              f_low, flen, psd, waveform="IMRPhenomD", max_iter=20, verbose=False):
+def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist,
+                              f_low, psd, waveform="IMRPhenomD", max_iter=20, verbose=False):
     """
     A function to re-calculate the metric gij based on the matches obtained
     for the eigenvectors of the original metric
@@ -316,9 +305,7 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist, df,
     mismatch: the desired mismatch
     tolerance: the allowed error in the metric is (tolerance * mismatch)
     dist: distance to the signal
-    df: frequency spacing of points
     f_low: low frequency cutoff
-    flen: length of the frequency domain array to generate
     psd: the power spectrum to use in calculating the match
     waveform: the waveform generator to use
 
@@ -331,16 +318,18 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist, df,
     v = np.eye(len(basis))
     tol = tolerance * mismatch
     err = metric_error(g, v, mismatch)
-    if verbose: print("Initial error in metric: %.2g" % err)
+    if verbose:
+        print("Initial error in metric: %.2g" % err)
 
     op = 0
     while (err > tol) and (op < max_iter):
         g, v = update_metric(x, g, basis, mismatch, dist,
-                             df, f_low, flen, psd, waveform)
+                             f_low, psd, waveform, tolerance)
         err = metric_error(g, v, mismatch)
         op += 1
         if verbose:
-            print("Iteration %d, max error=%.2g" % (op, err))
+            print("Iteration %d, desired error=%.2g, max error=%.2g" % (op, tol, err))
+            print(g)
 
     if (err <= tol):
         return g, v
@@ -349,7 +338,7 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist, df,
         return np.zeros_like(g), np.zeros_like(v)
 
 
-def find_peak(data, xx, gij, basis, mismatch, dist, df, f_low, flen, psd,
+def find_peak(data, xx, gij, basis, mismatch, dist, f_low, psd,
               waveform="IMRPhenomD", verbose=False):
     """
     A function to find the maximum match.
@@ -365,9 +354,7 @@ def find_peak(data, xx, gij, basis, mismatch, dist, df, f_low, flen, psd,
     basis: the basis relating the directions of the metric to the physical space
     mismatch: the desired mismatch
     dist: distance to the signal
-    df: frequency spacing of points
     f_low: low frequency cutoff
-    flen: length of the frequency domain array to generate
     psd: the power spectrum to use in calculating the match
     waveform: the waveform generator to use
 
@@ -385,7 +372,7 @@ def find_peak(data, xx, gij, basis, mismatch, dist, df, f_low, flen, psd,
     steps = np.zeros(ndim)
 
     while True:
-        h = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, waveform)
+        h = make_waveform(x, np.zeros_like(x), dist, psd.delta_f, f_low, len(psd), waveform)
         m_0, _ = match(data, h, psd, low_frequency_cutoff=f_low)
         matches = np.zeros([ndim, 2])
         alphas = np.zeros([ndim, 2])
@@ -394,7 +381,7 @@ def find_peak(data, xx, gij, basis, mismatch, dist, df, f_low, flen, psd,
             for j in range(2):
                 dx = (-1) ** j * v_phys[i]
                 alphas[i, j] = check_physical(x, dx)
-                h = make_waveform(x, alphas[i, j] * dx, dist, df, f_low, flen,
+                h = make_waveform(x, alphas[i, j] * dx, dist, psd.delta_f, f_low, len(psd),
                                   waveform)
                 matches[i, j], _ = match(data, h, psd,
                                          low_frequency_cutoff=f_low)
@@ -432,14 +419,14 @@ def find_peak(data, xx, gij, basis, mismatch, dist, df, f_low, flen, psd,
         print("New position"),
         print(x + delta_x)
 
-    h = make_waveform(x, delta_x, dist, df, f_low, flen, waveform)
+    h = make_waveform(x, delta_x, dist, psd.delta_f, f_low, len(psd), waveform)
     m_peak = match(data, h, psd, low_frequency_cutoff=f_low)[0]
     x_peak = x + delta_x
 
     return x_peak, m_peak, steps
 
 
-def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dist, df, f_low, f_high, flen,
+def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dist, f_low, f_high,
                   waveform="IMRPhenomD", verbose=False):
     """
     A function to find the maximum SNR.
@@ -459,10 +446,8 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
     basis: the basis relating the directions of the metric to the physical space
     mismatch: the desired mismatch
     dist: distance to the signal
-    df: frequency spacing of points
     f_low: low frequency cutoff
     f_high: high frequency cutoff
-    flen: length of the frequency domain array to generate
     waveform: the waveform generator to use
     verbose: print debugging information (if True)
 
@@ -478,6 +463,9 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
     ndim = len(evecs)
     v_phys = np.inner(evecs, basis.T)
     steps = np.zeros(ndim)
+    df = psd[ifos[0]].delta_f
+    
+    flen = len(psd[ifos[0]])
 
     while True:
         h = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, waveform)
@@ -486,8 +474,8 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
             snr = matched_filter(h, data[ifo], psd=psd[ifo], low_frequency_cutoff=f_low,
                                  high_frequency_cutoff=f_high)
             smax = max(abs(snr[(snr.sample_times > t_start) &
-                        (snr.sample_times < t_end)]))
-            snrsq_0 += smax**2
+                               (snr.sample_times < t_end)]))
+            snrsq_0 += smax ** 2
 
         snrsqs = np.zeros([ndim, 2])
         alphas = np.zeros([ndim, 2])
@@ -501,12 +489,12 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
                 for ifo in ifos:
                     snr = matched_filter(h, data[ifo], psd=psd[ifo], low_frequency_cutoff=f_low,
                                          high_frequency_cutoff=f_high)
-                    snrsqs[i,j] += max(abs(snr[(snr.sample_times > t_start) &
-                                         (snr.sample_times < t_end)])) ** 2
+                    snrsqs[i, j] += max(abs(snr[(snr.sample_times > t_start) &
+                                                (snr.sample_times < t_end)])) ** 2
 
         if verbose:
             print("Central snr %.3f; maximum offset snr %.3f" %
-                  (np.sqrt(snrsq_0), np.sqrt(snrsqs.max()) ))
+                  (np.sqrt(snrsq_0), np.sqrt(snrsqs.max())))
 
         if snrsqs.max() > snrsq_0:
             # maximum isn't at the centre so update location
@@ -552,7 +540,7 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
         snr = matched_filter(h, data[ifo], psd=psd[ifo], low_frequency_cutoff=f_low,
                              high_frequency_cutoff=f_high)
         snrsq_peak += max(abs(snr[(snr.sample_times > t_start) &
-                                    (snr.sample_times < t_end)])) ** 2
+                                  (snr.sample_times < t_end)])) ** 2
 
     if snrsq_peak > snrsq_0:
         if verbose:
@@ -566,6 +554,7 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
         snrsq_peak = snrsq_0
 
     return x_peak, np.sqrt(snrsq_peak), steps
+
 
 def matched_filter_network(data, psd, ifos, t_start, t_end, h, f_low, f_high):
     """
@@ -592,8 +581,8 @@ def matched_filter_network(data, psd, ifos, t_start, t_end, h, f_low, f_high):
         snr = matched_filter(h, data[ifo], psd=psd[ifo], low_frequency_cutoff=f_low,
                              high_frequency_cutoff=f_high)
         smax[ifo] = max(abs(snr[(snr.sample_times > t_start) &
-                           (snr.sample_times < t_end)]))
+                                (snr.sample_times < t_end)]))
 
-        snrsq += smax[ifo]**2
+        snrsq += smax[ifo] ** 2
 
     return np.sqrt(snrsq), smax
