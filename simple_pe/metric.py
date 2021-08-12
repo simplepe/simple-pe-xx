@@ -65,14 +65,14 @@ def scale_vectors(x, vec, dist, mismatch, f_low, psd,
     for i in range(ndim):
         opt = optimize.root_scalar(lambda a: average_mismatch(x, a * v[i], dist,
                                                               f_low, psd, waveform) - mismatch,
-                                   bracket=[0, 5], method='brentq', rtol=tolerance)
+                                   bracket=[0, 20], method='brentq', rtol=tolerance)
         v[i] *= opt.root
 
     return v
 
 
 def check_physical(x, dx, maxs=[1e4, 0.25, 0.98, 0.98],
-                   mins=[0, 0.05, -0.98, -0.98]):
+                   mins=[1., 0.05, -0.98, -0.98]):
     """
     A function to check whether ther point described by the positions x + dx is
     physically permitted.  If not, rescale and return the scaling factor
