@@ -2,7 +2,7 @@
 
 ## Getting started
 simple-pe  lives in a git repository which is hosted here:
-https://git.ligo.org/stephen-fairhurst/simple-pey. If you haven't already, you should
+https://git.ligo.org/stephen-fairhurst/simple-pe. If you haven't already, you should
 [fork](https://docs.gitlab.com/ee/gitlab-basics/fork-project.html) this
 repository and clone your fork to your local machine, 
 
