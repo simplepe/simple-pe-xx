@@ -4,5 +4,5 @@ Detectors
 .. autosummary::
    :toctree: generated
 
-   simple_pe.detectors.detectors
-   simple_pe.detectors.psd
+   simple_pe.detectors
+   simple_pe.psd
