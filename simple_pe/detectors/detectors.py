@@ -75,9 +75,15 @@ def detectors(ifos, india="bangalore", south_africa="sutherland"):
   return( location, response )
 
 def calc_location_response(longitude, latitude, arms):
-  """
-  Calculate the location and response for a detector with longitude, latitude in degrees
-  The angle gives the orientation of the arms and is in degrees from North to East
+    """
+    Calculate the location and response for a detector with longitude, latitude in degrees
+    The angle gives the orientation of the arms and is in degrees from North to East
+
+    :param longitude: the longitude
+    :param latitude: the latitude 
+    :param arms: the angle between the arms
+    :return: the detector location and response
+
   """
   phi = radians(longitude)
   theta = radians(latitude)
