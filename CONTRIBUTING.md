@@ -14,7 +14,7 @@ replacing the SSH url to that of your fork. You can then install `simple-pe` by
 running,
 
 ```bash
-$ cd pesummary
+$ cd simple-pe
 $ python setup.py install
 ```
 
@@ -30,19 +30,19 @@ updated by following the instructions below:
 
 ```bash
 $ cd pesummary
-$ git remote add lscsoft https://git.ligo.org/lscsoft/simple-pe
+$ git remote add upstream https://git.ligo.org/stephen-fairhurst/simple-pe
 ```
 
-2. Fetch new changes from the `lscsoft` repo,
+2. Fetch new changes from the `upstream` repo,
 
 ```bash
-$ git fetch lscsoft
+$ git fetch upstream
 ```
 
 3. Merge in the changes,
 
 ```bash
-$ git merge lscsoft/master
+$ git merge upstream/master
 ```
 
 ## Reporting issues
@@ -80,8 +80,8 @@ separate from other work, simplifying review and merge once the work is done.
 To create a new feature branch:
 
 ```bash
-$ git fetch lscsoft
-$ git checkout -b my-new-feature lscsoft/master
+$ git fetch upstream
+$ git checkout -b my-new-feature upstream/master
 ```
 
 
