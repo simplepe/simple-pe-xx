@@ -1,5 +1,5 @@
 Detectors
-===
+=========
 
 .. autosummary::
    :toctree: generated
