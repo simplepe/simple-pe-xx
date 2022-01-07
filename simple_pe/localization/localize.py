@@ -11,7 +11,7 @@ from scipy.optimize import brentq
 from scipy.special import logsumexp
 
 # a list of ifos that we can consider
-ifos = ("H1", "H2", "I1", "K1", "L1", "V1", "ETdet1", "ETdet1", "ETdet1")
+ifos = ("H1", "H2", "I1", "K1", "L1", "V1", "E1", "E2", "E3")
 
 
 ##################################################################

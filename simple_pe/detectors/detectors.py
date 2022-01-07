@@ -74,7 +74,7 @@ def phitheta(loc):
     y = loc[1]
     z = loc[2]
     r = np.sqrt(x ** 2 + y ** 2 + z ** 2)
-    theta = np.arcnp.sin(z / r)
+    theta = np.arcsin(z / r)
     phi = np.arctan2(y, x)
     return (phi, theta)
 
