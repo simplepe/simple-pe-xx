@@ -1,79 +1,25 @@
 import numpy as np
-import lal
+from pycbc import detector
 
 
 ################################
 # define the detectors
 ################################
-def detectors(ifos, india="bangalore", south_africa="sutherland"):
+
+def detectors(ifos):
     """
     Set up a dictionary of detector locations and responses.
     Either put indigo in bangalore or a different site
     """
     location = {}
     response = {}
-    # Use cached detectors for known sites:
-    lho = lal.lal.CachedDetectors[lal.LALDetectorIndexLHODIFF]
 
-    if "H1" in ifos:
-        location["H1"] = lho.location
-        response["H1"] = lho.response
-    if "H2" in ifos:
-        location["H2"] = lho.location
-        response["H2"] = lho.response
-    if "L1" in ifos:
-        llo = lal.CachedDetectors[lal.LALDetectorIndexLLODIFF]
-        location["L1"] = llo.location
-        response["L1"] = llo.response
-    if "V1" in ifos:
-        virgo = lal.CachedDetectors[lal.LALDetectorIndexVIRGODIFF]
-        location["V1"] = virgo.location
-        response["V1"] = virgo.response
-    if "XX" in ifos:
-        response["XX"] = np.array([[0.5, 0, 0], [0, -0.5, 0], [0, 0, 0]], dtype=np.float32)
-    if "K1" in ifos:
-        # KAGRA location:
-        # Here is the coordinates
-        # 36.25 degree N, 136.718 degree E
-        # and 19 degrees from North to West.
-        location["K1"], response["K1"] = calc_location_response(136.718, 36.25, -19)
-    if "I1" in ifos:
-        if india == "bangalore":
-            # Could you pl run us the Localisation Plot once more with
-            # a location close to Bangalore that is seismically quiet
-            # 14 deg 14' N
-            # 76 deg 26' E?
-            location["I1"], response["I1"] = \
-                calc_location_response(76 + 26. / 60, 14 + 14. / 60, 270)
-        elif india == "gmrt":
-            # Here is the coordinates
-            # location: 74deg  02' 59" E 19deg 05' 47" N 270.0 deg (W)
-            location["I1"], response["I1"] = \
-                calc_location_response(74 + 3. / 60, 19 + 6. / 60, 270)
-    if "S1" in ifos:
-        # SOUTH AFRICA
-        # from Jeandrew
-        # Soetdoring
-        # -28.83926,26.098595
-        # Sutherland
-        # -32.370683,20.691833
-        if south_africa == "sutherland":
-            location["S1"], response["S1"] = \
-                calc_location_response(20.691833, -32.370683, 270)
-        elif south_africa == "soetdoring":
-            location["S1"], response["S1"] = \
-                calc_location_response(26.098595, -28.83926, 270)
-    if "ETdet1" in ifos:
-        location["ETdet1"], response["ETdet1"] = \
-            calc_location_response(76 + 26. / 60, 14 + 14. / 60, 270)
-    if "ETdet2" in ifos:
-        location["ETdet2"], response["ETdet2"] = \
-            calc_location_response(76 + 26. / 60, 14. + 14. / 60, 270 - 45)
-    if "ETdet3" in ifos:
-        location["ETdet3"], response["ETdet3"] = \
-            calc_location_response(16 + 26. / 60, 84. + 14. / 60, 270)
+    for ifo in ifos:
+        det = detector.Detector(ifo)
+        location[ifo] = det.location
+        response[ifo] = det.response
 
-    return (location, response)
+    return location, response
 
 
 def calc_location_response(longitude, latitude, arms):
@@ -101,7 +47,7 @@ def calc_location_response(longitude, latitude, arms):
     e_e = np.cross(e_n, r_hat)
     # Calculate arm vectors
     u_y = e_e * np.sin(angle) + e_n * np.cos(angle)
-    u_x = e_e * np.sin(angle + pi / 2) + e_n * np.cos(angle + pi / 2)
+    u_x = e_e * np.sin(angle + np.pi / 2) + e_n * np.cos(angle + np.pi / 2)
     response = np.array(1. / 2 * (np.outer(u_x, u_x) - np.outer(u_y, u_y)), dtype=np.float32)
     return location, response
 
