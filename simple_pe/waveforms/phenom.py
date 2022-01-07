@@ -1,6 +1,5 @@
 from __future__ import division
 from scipy.constants import G, c, pi, mega, parsec
-import math
 import pylab
 
 def frequencies(m1, m2):

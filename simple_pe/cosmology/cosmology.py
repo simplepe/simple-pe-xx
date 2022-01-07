@@ -1,7 +1,6 @@
 from astropy.cosmology import Planck15 as cosmo
 import astropy.units as unt
 import numpy as np
-import detectors
 from scipy import interpolate
 
 ##################################################################

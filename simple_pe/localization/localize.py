@@ -1,8 +1,8 @@
 from numpy import *
 import random as rnd
 import copy
-import detectors
-import fstat
+from simple_pe.detectors import detectors
+from simple_pe.fstat import fstat
 import lal
 from scipy import special
 from astropy.time import Time

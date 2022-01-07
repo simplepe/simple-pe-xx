@@ -2,7 +2,7 @@ from numpy import *
 from scipy import special
 from scipy.integrate import quad
 import pylab
-import fstat
+from simple_pe.fstat import fstat
 
 
 
