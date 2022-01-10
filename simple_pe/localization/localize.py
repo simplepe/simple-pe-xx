@@ -1,4 +1,5 @@
 from numpy import *
+import numpy as np
 import random as rnd
 import copy
 from simple_pe.detectors import detectors
@@ -6,7 +7,6 @@ from simple_pe.fstat import fstat
 import lal
 from scipy import special
 from astropy.time import Time
-from astropy import units
 from scipy.optimize import brentq
 from scipy.special import logsumexp
 
@@ -55,6 +55,7 @@ def evec_sigma(M):
     evec = evec[:, sigma.argsort()]
     sigma.sort()
     return evec, sigma
+
 
 ##################################################################
 # Class to store detector information
@@ -113,7 +114,7 @@ class Det(object):
         :return the complex SNR for the signal
         """
         self.calculate_sensitivity(event)
-        self.snr = (event.mchirp/ (1.4 * 2**(-1./5)) )**(5./6) * self.sigma / event.D * \
+        self.snr = (event.mchirp / (1.4 * 2 ** (-1. / 5))) ** (5. / 6) * self.sigma / event.D * \
                    complex(cos(2 * event.phi), -sin(2 * event.phi)) * \
                    complex(self.f_plus * (1 + event.cosi ** 2) / 2, self.f_cross * event.cosi)
 
@@ -190,44 +191,6 @@ class Network(object):
         """
         return array([getattr(getattr(self, i), data) for i in self.ifos])
 
-################################
-# plot the localization detector ellipse.
-# Note that this assumes the ellipse is centred on the event
-################################
-def projection_ellipse(loc, event):
-  # set up co-ordinates
-  r = {}
-  dangle=  pi/50.0
-  angle= arange(0,2*pi+dangle*0.5,dangle)
-  # calculate the basis
-  x_net = loc.evec[:,0]
-  y_net = loc.evec[:,1]
-  z_net = loc.evec[:,2]
-  # normalization to get 90% area:
-  source = event.xyz
-  x = inner(source,x_net) + \
-      sqrt(2 * log(10)) *  loc.sigma[0] * cos(angle)
-  y = inner(source,y_net) + \
-      sqrt(2 * log(10)) *  loc.sigma[1] * sin(angle)
-  z = sqrt(1 - x**2 - y**2) * sign(inner(source,z_net))
-  # check that we're not going outside of unit circle:
-  bad = x**2 + y**2 > 1
-  if sum(bad) > 0:
-    x = concatenate((x[bad.argmax():], x[0:bad.argmax()]))
-    y = concatenate((y[bad.argmax():], y[0:bad.argmax()]))
-    z = concatenate((z[bad.argmax():], z[0:bad.argmax()]))
-    bad = concatenate((bad[bad.argmax():], bad[0:bad.argmax()]))
-    x = x[~bad]
-    y = y[~bad]
-    z = z[~bad]
-    x = append(concatenate((x, x[::-1])), x[0])
-    y = append(concatenate((y, y[::-1])), y[0])
-    z = append(concatenate((z, -z[::-1])),z[0])
-  for i in range(3):
-    r[i] = x * x_net[i] + y * y_net[i] + z * z_net[i]
-  theta = arcsin(r[2] / sqrt(r[0]**2 + r[1]**2 + r[2]**2) )
-  phi = arctan2(r[1],r[0])
-  return phi, theta
 
 ##################################################################
 # Class to store event information
@@ -248,7 +211,8 @@ class Event(object):
             self.D = params["distance"]
             self.ra = radians(params["RAdeg"])
             self.dec = radians(params["DEdeg"])
-            try: self.gps = params['gps']
+            try:
+                self.gps = params['gps']
             except:
                 t = Time(params["MJD"], format='mjd')
                 self.gps = lal.LIGOTimeGPS(int(t.gps), int(1e9 * (t.gps % 1)))
@@ -257,17 +221,18 @@ class Event(object):
             self.phi = radians(params["coa-phase"])
             self.psi = radians(params["polarization"])
             self.cosi = cos(radians(params["inclination"]))
-            self.mchirp = params["mass1"]**(3./5) * params["mass2"]**(3./5) * (params["mass1"] + params["mass2"])**(-1./5)
+            self.mchirp = params["mass1"] ** (3. / 5) * params["mass2"] ** (3. / 5) * (
+                        params["mass1"] + params["mass2"]) ** (-1. / 5)
         elif Dmax:
             self.D = random.uniform(0, 1) ** (1. / 3) * Dmax
             self.ra = random.uniform(0, 2 * math.pi)
             self.dec = arcsin(random.uniform(-1, 1))
-            self.gps = lal.LIGOTimeGPS(gps,0)
+            self.gps = lal.LIGOTimeGPS(gps, 0)
             self.gmst = lal.GreenwichMeanSiderealTime(self.gps)
             self.psi = random.uniform(0, 2 * math.pi)
             self.phi = random.uniform(0, 2 * math.pi)
             self.cosi = random.uniform(-1, 1)
-            self.mchirp = 1.4 * 2**(-1./5)
+            self.mchirp = 1.4 * 2 ** (-1. / 5)
         else:
             raise ValueError("Must provide either list of params or maximum distance")
         # general content:
@@ -290,7 +255,7 @@ class Event(object):
         self.snrsq = 0
         for ifo in network.ifos:
             i = getattr(network, ifo)
-            if rnd.random() < i.duty_cycle: #don't use numpy's RNG here as messes up seeding for networks
+            if rnd.random() < i.duty_cycle:  # don't use numpy's RNG here as messes up seeding for networks
                 det = copy.deepcopy(i)
                 det.calculate_snr(self)
                 # calculate SNR and see if the signal was found/useful for loc
@@ -299,7 +264,7 @@ class Event(object):
                 if s > det.found_thresh:
                     self.found += 1
                 if s > det.loc_thresh:
-                    if ifo != "H2" and ifo !="ETdet2":
+                    if ifo != "H2" and ifo != "ETdet2":
                         self.localized += 1
                     self.snrsq += s ** 2
                     # add the details to the event
@@ -345,10 +310,10 @@ class Event(object):
             f_mean = self.get_data("f_mean")
             f_band = self.get_data("f_band")
             z *= (1 - 2 * pi ** 2 * (f_mean ** 2 + f_band ** 2) * dt_i ** 2
-                            + 2.j * pi * dt_i * f_mean)
+                  + 2.j * pi * dt_i * f_mean)
         return z
 
-    def projected_snr(self, method, mirror=False, dt_i = None):
+    def projected_snr(self, method, mirror=False, dt_i=None):
         """
         Calculate the projected SNR for a given method at either original or mirror
         sky location
@@ -418,7 +383,6 @@ class Event(object):
 
         return A_i, C_ij, c_i, c
 
-
     def localize(self, method, mirror=False, p=0.9):
         """
         Localization of a source by a network of detectors, given the
@@ -465,7 +429,6 @@ class Event(object):
         self.patches[method] = patches
         self.area[method] = a
 
-
     def marg_loc(self, mirror=False, p=0.9):
         """
         Calculate the marginalized localization.
@@ -480,14 +443,13 @@ class Event(object):
                 (l["coh"].snr ** 2 - l["left"].snr ** 2 < 2):
             l["coh"].like = 0
         keys = ["left", "right", "coh"]
-        r_max = 1.1 * sqrt(nanmax([l[k].area for k in keys])/pi)
-        r_min = 0.9 * sqrt(nanmin([l[k].area for k in keys])/pi)
+        r_max = 1.1 * sqrt(nanmax([l[k].area for k in keys]) / pi)
+        r_min = 0.9 * sqrt(nanmin([l[k].area for k in keys]) / pi)
         r = brentq(f, r_min, r_max, (keys, l, p))
-        l["marg"] = Localization("marg", self, mirror, p, area = pi*r**2)
-        l["marg"].like = logsumexp([l[k].like + log(l[k].area) - log(-2*pi*log(1-l[k].p))
+        l["marg"] = Localization("marg", self, mirror, p, area=pi * r ** 2)
+        l["marg"].like = logsumexp([l[k].like + log(l[k].area) - log(-2 * pi * log(1 - l[k].p))
                                     for k in keys])
-        l["marg"].like -= log(l["marg"].area) - log(-2*pi*log(1-p))
-
+        l["marg"].like -= log(l["marg"].area) - log(-2 * pi * log(1 - p))
 
     def localize_all(self, p=0.9):
         """
@@ -508,10 +470,9 @@ def f(r, keys, l, p):
     f = 0
     lmax = max([l[k].like for k in keys])
     for k in keys:
-        s2 = l[k].area/(-2*pi*log(1-l[k].p))
-        f += exp(l[k].like - lmax) * s2 * (1 - p - exp(-r**2/(2*s2)))
+        s2 = l[k].area / (-2 * pi * log(1 - l[k].p))
+        f += exp(l[k].like - lmax) * s2 * (1 - p - exp(-r ** 2 / (2 * s2)))
     return f
-
 
 
 ##################################################################
@@ -522,7 +483,7 @@ class Localization(object):
     class to hold the details of a localization method
     """
 
-    def __init__(self, method, event, mirror=False, p=0.9, Dmax=1000, area = 0):
+    def __init__(self, method, event, mirror=False, p=0.9, Dmax=1000, area=0):
         """
         Initialization
 
@@ -547,7 +508,7 @@ class Localization(object):
             else:
                 self.area = 1e6
 
-            A  = fstat.snr_f_to_a(self.z, self.event.get_fsig(mirror))
+            A = fstat.snr_f_to_a(self.z, self.event.get_fsig(mirror))
             self.D, self.cosi, _, _ = fstat.a_to_params(A)
 
         self.like = 0.
@@ -564,8 +525,8 @@ class Localization(object):
         for i1 in range(len(self.event.ifos)):
             for i2 in range(len(self.event.ifos)):
                 M += outer(locations[i1] - locations[i2],
-                    locations[i1] - locations[i2]) / (3e8) ** 2 \
-                    * CC[i1, i2]
+                           locations[i1] - locations[i2]) / (3e8) ** 2 \
+                     * CC[i1, i2]
         self.M = M
 
     def calculate_max_snr(self):
@@ -594,7 +555,7 @@ class Localization(object):
         """
         A_i, C_ij, c_i, c = self.event.localization_factors(self.method, self.mirror)
         a = sum(A_i)
-        dt0 = a/(2*c) - inner(c_i, dt_i) / c
+        dt0 = a / (2 * c) - inner(c_i, dt_i) / c
         return dt0
 
     def calculate_snr(self, dt):
@@ -628,7 +589,6 @@ class Localization(object):
             self.like += log(32. * (self.D / Dmax) ** 3 * self.D ** 4 / (Fp ** 2 * Fc ** 2)
                              / (1 - self.cosi ** 2) ** 3)
 
-
     def sky_project(self):
         """
         Project localization matrix to zero out components in direction of source
@@ -649,8 +609,59 @@ class Localization(object):
         """
         # calculate the area of the ellipse
         ellipse = - log(1. - self.p) * 2 * math.pi * (180 / math.pi) ** 2 * \
-                self.sigma[0] * self.sigma[1]
+                  self.sigma[0] * self.sigma[1]
         # calculate the area of the band
         band = 4 * math.pi * (180 / math.pi) ** 2 * sqrt(2) * special.erfinv(self.p) * self.sigma[0]
         # use the minimum (that's not nan)
         self.area = nanmin((ellipse, band))
+
+    def make_ellipse(self):
+        """
+        Calculate the localization ellipse
+        """
+        # check if the event is localized (in xyz), if so, use the projected matrix
+        # if not, don't project
+        evec, sigma = evec_sigma(self.M)
+        if sigma[2] < 1:
+            evec = self.evec
+            sigma = self.sigma
+
+        x_net = evec[:, 0]
+        y_net = evec[:, 1]
+        z_net = evec[:, 2]
+
+        # set up co-ordinates
+        r = {}
+        ang = np.linspace(0, 2 * np.pi, 101)
+
+        # normalization to get area for given p-value:
+        x = np.inner(self.event.xyz, x_net) + \
+            np.sqrt(- 2 * np.log(1 - self.p)) * sigma[0] * np.cos(ang)
+        y = np.inner(self.event.xyz, y_net) + \
+            np.sqrt(- 2 * np.log(1 - self.p)) * sigma[1] * np.sin(ang)
+
+        # check that we're not going outside of unit circle
+        # if we are, first roll this to the beginning then truncate
+        bad = x ** 2 + y ** 2 > 1
+        if sum(bad) > 0:
+            x = np.roll(x, -bad.argmax())
+            y = np.roll(y, -bad.argmax())
+            bad = np.roll(bad, -bad.argmax())
+
+            x = x[~bad]
+            y = y[~bad]
+
+        z = np.sqrt(1 - x ** 2 - y ** 2) * np.sign(np.inner(self.event.xyz, z_net))
+
+        # if we hit the edge then the localization region is 2 parts, above and below z=0 surface
+        if sum(bad) > 0:
+            x = np.append(np.concatenate((x, x[::-1])), x[0])
+            y = np.append(np.concatenate((y, y[::-1])), y[0])
+            z = np.append(np.concatenate((z, -z[::-1])), z[0])
+
+        for i in range(3):
+            r[i] = x * x_net[i] + y * y_net[i] + z * z_net[i]
+        theta = np.arcsin(r[2] / np.sqrt(r[0] ** 2 + r[1] ** 2 + r[2] ** 2))
+        phi = np.arctan2(r[1], r[0])
+
+        return phi, theta
