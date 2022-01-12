@@ -16,6 +16,9 @@ Welcome to simple-pe's documentation!
 .. toctree::
    test
    detectors 
+   fstat
+   likelihood
+   localize
    :maxdepth: 2
    :caption: Contents:
 
