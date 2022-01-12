@@ -21,6 +21,7 @@ def snr_projection(f_sig, method):
     """
     Function to calculate the SNR projection matrix P for a given set
     of detector responses, f_sig
+
     :param f_sig: an Nx2 array of detector responses
     :param method: the way we project (one of "time", "coh", "left", "right")
     """
@@ -46,6 +47,7 @@ def evec_sigma(M):
     """
     Calculate the eigenvalues and vectors of M.
     sigma is defined as the reciprocal of the eigenvalue
+
     :param M: square matrix for which we calculate the eigen-vectors
     and sigmas
     """
@@ -91,6 +93,7 @@ class Det(object):
     def calculate_sensitivity(self, event):
         """
         Calculate the sensitivity of the detector to an event
+
         :param event: object, containing ra, dec, psi, gmst
         """
         self.f_plus, self.f_cross = lal.ComputeDetAMResponse(self.response,
@@ -100,6 +103,7 @@ class Det(object):
     def calculate_mirror_sensitivity(self, event):
         """
         Calculate the sensitivity of the detector to an event, in its mirror sky location
+
         :param event: object, containing mirror_ra, mirror_dec, psi, gmst
         """
         self.mirror_f_plus, self.mirror_f_cross = \
@@ -110,8 +114,9 @@ class Det(object):
     def calculate_snr(self, event):
         """
         Calculate the expected SNR of the event in the detector
+
         :param event: object, containing ra, dec, psi, gmst, phi, cosi
-        :return the complex SNR for the signal
+        :returns: the complex SNR for the signal
         """
         self.calculate_sensitivity(event)
         self.snr = (event.mchirp / (1.4 * 2 ** (-1. / 5))) ** (5. / 6) * self.sigma / event.D * \
@@ -121,8 +126,9 @@ class Det(object):
     def get_fsig(self, mirror=False):
         """
         Method to return the sensitivity of the detector
+
         :param mirror: boolean, is this the mirror position
-        :return length 2 array: sigma * (F_plus, F_cross)
+        :returns: length 2 array: sigma * (F_plus, F_cross)
         """
         if mirror:
             return self.sigma * array([self.mirror_f_plus, self.mirror_f_cross])
@@ -169,6 +175,7 @@ class Network(object):
         """
         set the details of the detectors based on the given configuration.
         data is stored in the detectors module
+
         :param configuration: name of configuration
         :param found_thresh: threshold for single ifo detection
         :param loc_thresh: threshold for single ifo localization
@@ -186,6 +193,7 @@ class Network(object):
     def get_data(self, data):
         """
         get the relevant data for each detector and return it as an array
+
         :param data: name of data to return from a detector
         :return array containing requested data
         """
@@ -203,6 +211,7 @@ class Event(object):
     def __init__(self, Dmax=0, gps=1000000000, params=None):
         """
         Initialize event
+
         :param Dmax: maximum distance to consider
         :param gmst: greenwich mean sidereal time
         :param params: parameters in form used by first 2 years paper
@@ -222,7 +231,7 @@ class Event(object):
             self.psi = radians(params["polarization"])
             self.cosi = cos(radians(params["inclination"]))
             self.mchirp = params["mass1"] ** (3. / 5) * params["mass2"] ** (3. / 5) * (
-                        params["mass1"] + params["mass2"]) ** (-1. / 5)
+                    params["mass1"] + params["mass2"]) ** (-1. / 5)
         elif Dmax:
             self.D = random.uniform(0, 1) ** (1. / 3) * Dmax
             self.ra = random.uniform(0, 2 * math.pi)
@@ -247,6 +256,7 @@ class Event(object):
     def add_network(self, network):
         """
         calculate the sensitivities and SNRs for the various detectors in network
+
         :param network: structure containing details of the network
         """
         self.threshold = network.threshold
@@ -274,14 +284,16 @@ class Event(object):
     def get_data(self, data):
         """
         get the relevant data for each detector and return it as an array
+
         :param data: string describing required data
-        :return array with the data (for all ifos)
+        :returns: array with the data (for all ifos)
         """
         return array([getattr(getattr(self, i), data) for i in self.ifos])
 
     def get_fsig(self, mirror=False):
         """
-        get the F_plus/cross times sigma for each detetor
+        get the F_plus/cross times sigma for each detector
+
         :param mirror: boolean indicating whether we are considering the mirror location
         :return array with the sensitivities of the detectors
         """
@@ -290,6 +302,7 @@ class Event(object):
     def get_f(self, mirror=False):
         """
         get the network sensitivity to plus and cross in the dominant polarization
+
         :param mirror: boolean indicating whether we are considering the mirror location
         :return length 2 array containing F_+, F_x response
         """
@@ -574,6 +587,7 @@ class Localization(object):
     def approx_like(self, Dmax=1000):
         """
         Calculate the approximate likelihood, based on equations XXX
+
         :param Dmax: maximum distance, used for normalization
         """
         if self.snr == 0:
@@ -605,7 +619,6 @@ class Localization(object):
     def calc_area(self):
         """
         Calculate the localization area
-        :param p: probability for event to be contained in the given area
         """
         # calculate the area of the ellipse
         ellipse = - log(1. - self.p) * 2 * math.pi * (180 / math.pi) ** 2 * \

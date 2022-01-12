@@ -5,12 +5,12 @@ import pylab
 from simple_pe.fstat import fstat
 
 
-
 def like_equal_d_cosi(a_hat, f, d, cosi):
     """
     For a network equally sensitive to plus and cross, calculate the
     likelihood marginalized over the 2 phases.  This a function of d and cosi.
     Note: we use uniform prior on phi, psi (=1/2pi)
+
     :param a_hat: the f-stat parameters of the signal
     :param f: the detector response (f = F+ = Fx)
     :param d: distance of template
@@ -34,6 +34,7 @@ def like_equal_cosi(a_hat, f, x, d_max=1000., make_plot=False):
     likelihood marginalized over the distance and 2 phases.
     This a function of cosi.   We use uniform priors, specifically 1/2pi for
     psi,phi, 1/2 for cosi, 3 d^2dd/d_max^3 for dist.
+
     :param a_hat: the f-stat parameters of the signal
     :param f: the detector response (f = F+ = Fx)
     :param x: cos(inclination) of template
@@ -70,14 +71,13 @@ def like_equal(a_hat, f, d_max=1000):
     return lc
 
 
-
-
 def like_parts_d_cosi_psi(a_hat, f_plus, f_cross, x, psi):
     """
     calculate the two dimensional likelihood, marginalized over phi
     log-likelihood can be written as:
     1/2(ahat^2 - 2*d0/d * f(x, psi) * cos(2phi - phi0) + (d0/d)^2 g(x,psi))
     return: ahat2, f, g
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -106,6 +106,7 @@ def like_parts_d_cosi_psi(a_hat, f_plus, f_cross, x, psi):
 def like_d_cosi_psi(a_hat, f_plus, f_cross, d, x, psi, marg=True):
     """
     Return the likelihood marginalized over phi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -129,6 +130,7 @@ def like_d_cosi(a_hat, f_plus, f_cross, d, x):
     """
     Return the likelihood marginalized over phi and psi, with a uniform
     (1/2pi) prior on both
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -144,6 +146,7 @@ def like_cosi_psi(a_hat, f_plus, f_cross, x, psi, d_max=1000.):
     """
     Return the likelihood marginalized over d and phi, using flat (1/2pi
     prior on phi; uniform volume on d up to d_max.
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -166,6 +169,7 @@ def like_cosi(a_hat, f_plus, f_cross, x, d_max=1000.):
     Return the likelihood marginalized over d, phi and psi.
     Use uniform (1/2pi) prior on phi, psi, uniform in volume prior over d out to
     d_max.
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -182,6 +186,7 @@ def like(a_hat, f_plus, f_cross, d_max=1000.):
     Return the likelihood marginalized over all 4 f-stat parameteras.
     Use uniform (1/2pi) prior on phi, psi, uniform (1/2)on cosi,
     uniform in volume prior over d out to d_max.
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -193,10 +198,11 @@ def like(a_hat, f_plus, f_cross, d_max=1000.):
 
 
 def loglike_approx(a_hat, f_plus, f_cross, d_max=1000., method="coh",
-    correction=False):
+                   correction=False):
     """
     Calculate the approximate likelihood. This works for three cases:
     left and right circularly polarized and the standard coherent analysis.
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -212,16 +218,16 @@ def loglike_approx(a_hat, f_plus, f_cross, d_max=1000., method="coh",
         loglike = 0
     elif method == "coh":
         loglike = log(24 * (d_hat / d_max) ** 3 * d_hat ** 4 /
-                   (f_plus ** 2 * f_cross ** 2) / (1 - cosi_hat ** 2) ** 3)
+                      (f_plus ** 2 * f_cross ** 2) / (1 - cosi_hat ** 2) ** 3)
     else:
         # the width in cos iota:
-        cos_fac = sqrt(sqrt(2) *(f_cross ** 2 + f_plus ** 2) / (f_plus * f_cross))
+        cos_fac = sqrt(sqrt(2) * (f_cross ** 2 + f_plus ** 2) / (f_plus * f_cross))
         cos_width = minimum(cos_fac / snr ** 0.5, 1)
-        cos_int = 1 - (1 - cos_width)**4
+        cos_int = 1 - (1 - cos_width) ** 4
         loglike = log(3) - log(8) + 3 * log(d_hat / d_max) - 2 * log(snr) + log(cos_int)
     if correction:
-            factor = 1 - 75./(2 * snr**2)
-            loglike += log(factor) + 0.2
+        factor = 1 - 75. / (2 * snr ** 2)
+        loglike += log(factor) + 0.2
 
     return loglike, snr
 
@@ -234,16 +240,16 @@ def like_approx(a_hat, f_plus, f_cross, d_max=1000., correction=False):
     snr = {}
     like = {}
     for method in ["left", "right", "coh"]:
-        loglike[method], snr[method] = loglike_approx(a_hat, f_plus, f_cross, d_max, method= method, correction=correction)
-        like[method] = snr[method]**2 / 2 + loglike[method]
+        loglike[method], snr[method] = loglike_approx(a_hat, f_plus, f_cross, d_max, method=method,
+                                                      correction=correction)
+        like[method] = snr[method] ** 2 / 2 + loglike[method]
         if snr[method] < 6:
             like[method] = 0
 
-    if ((snr["coh"] ** 2 - snr["right"] ** 2) < 2) or  \
-       ((snr["coh"] ** 2 - snr["left"] ** 2) < 2):
+    if ((snr["coh"] ** 2 - snr["right"] ** 2) < 2) or \
+            ((snr["coh"] ** 2 - snr["left"] ** 2) < 2):
         like["coh"] = 0
 
     like_approx = logaddexp(logaddexp(like["left"], like["right"]), like["coh"])
-
 
     return like_approx, like

@@ -9,7 +9,10 @@ from pycbc import detector
 def detectors(ifos):
     """
     Set up a dictionary of detector locations and responses.
-    Either put indigo in bangalore or a different site
+
+    :param ifos: a list of IFOs
+    :returns: location: a dictionary of detector locations
+    :return: response: a dictionary of the detector responses
     """
     location = {}
     response = {}
@@ -30,7 +33,7 @@ def calc_location_response(longitude, latitude, arms):
     :param longitude: the longitude
     :param latitude: the latitude
     :param arms: the angle between the arms
-    :return: the detector location and response
+    :returns: location, response: the detector location and response
     """
     phi = np.radians(longitude)
     theta = np.radians(latitude)
@@ -57,7 +60,11 @@ def calc_location_response(longitude, latitude, arms):
 ################################
 def xyz(phi, theta):
     """
-    phi, theta -> x,y,z
+    return cartesian co-ordinates on the unit sphere for a given theta and phi
+
+    :param phi: azimuthal angle
+    :param theta: inclination angle 
+    :return loc: array of (x, y, z) locations
     """
     x = np.cos(theta) * np.cos(phi)
     y = np.cos(theta) * np.sin(phi)
@@ -68,7 +75,11 @@ def xyz(phi, theta):
 
 def phitheta(loc):
     """
-    x,y,z -> phi, theta
+    return spherical co-ordinates for a given set of cartesian coordinates
+
+    :param loc: array of (x, y, z) locations
+    :return phi: azimuthal angle
+    :return theta: inclination angle
     """
     x = loc[0]
     y = loc[1]
@@ -81,7 +92,10 @@ def phitheta(loc):
 
 def range_8(configuration):
     """
-    return the detector ranges for a given configuration
+    Provide the range for a set of detectors based upon the given configuration
+
+    :param configuration: the name of the network configuration
+    :return range_dict: dictionary of ranges for ifos in network
     """
     range_dict_all = {
         "design": {'H1': 197.5, 'L1': 197.5, 'V1': 128.3},
@@ -117,7 +131,10 @@ def range_8(configuration):
 
 def bandwidth(configuration):
     """
-    return the detector bandwidths for a given configuration
+    Provide the bandwidth for a set of detectors based upon the given configuration
+
+    :param configuration: the name of the network configuration
+    :return bandwidth_dict: dictionary of bandwidths for ifos in network
     """
     bandwidth_dict_all = {
         "design": {'H1': 117.4, 'L1': 117.4, 'V1': 148.9},
@@ -153,7 +170,10 @@ def bandwidth(configuration):
 
 def fmean(configuration):
     """
-    return the detector mean frequencies for a given configuration
+    Provide the mean frequency for a set of detectors based upon the given configuration
+
+    :param configuration: the name of the network configuration
+    :returns: fmean_dict: dictionary of mean frequencies for ifos in network
     """
     fmean_dict_all = {
         "steve": {'H1': 100.0, 'L1': 100.0, 'V1': 100.0, "I1": 100.0},
@@ -181,8 +201,10 @@ def sigma_t(configuration):
     return the timing accuracy.  We use SNR of 10 in LIGO, but scale the expected
     SNR in other detectors based on the range.
     It's just 1/(20 pi sigma_f for LIGO.
-    But 1/(20 pi sigma_f)(r_ligo/r_virgo) for Virgo;
-    5 seconds => no localization from det.
+    But 1/(20 pi sigma_f)(r_ligo/r_virgo) for others ;
+
+    :param configuration: the name of the network configuration
+    :return sigma_t_dict: dictionary of timing accuracies for ifos in network
     """
     b = bandwidth(configuration)
     r = range_8(configuration)
