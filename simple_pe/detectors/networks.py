@@ -1,14 +1,7 @@
 from numpy import *
-import numpy as np
-import random as rnd
-import copy
 from simple_pe.detectors import detectors
-from simple_pe.fstat import fstat
 import lal
-from scipy import special
-from astropy.time import Time
-from scipy.optimize import brentq
-from scipy.special import logsumexp
+
 
 
 ##################################################################
