@@ -1,4 +1,3 @@
-from numpy import *
 from simple_pe.detectors import detectors
 from simple_pe.detectors import dets
 

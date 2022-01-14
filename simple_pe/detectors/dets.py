@@ -1,4 +1,4 @@
-from numpy import *
+import numpy as np
 from simple_pe.detectors import detectors
 import lal
 from pycbc import detector
@@ -63,7 +63,7 @@ class Det(detector.Detector):
         """
         self.calculate_sensitivity(event)
         self.snr = (event.mchirp / (1.4 * 2 ** (-1. / 5))) ** (5. / 6) * self.sigma / event.D * \
-                   complex(cos(2 * event.phi), -sin(2 * event.phi)) * \
+                   complex(np.cos(2 * event.phi), -np.sin(2 * event.phi)) * \
                    complex(self.f_plus * (1 + event.cosi ** 2) / 2, self.f_cross * event.cosi)
 
     def get_fsig(self, mirror=False):
@@ -74,6 +74,6 @@ class Det(detector.Detector):
         :returns: length 2 array: sigma * (F_plus, F_cross)
         """
         if mirror:
-            return self.sigma * array([self.mirror_f_plus, self.mirror_f_cross])
+            return self.sigma * np.array([self.mirror_f_plus, self.mirror_f_cross])
         else:
-            return self.sigma * array([self.f_plus, self.f_cross])
+            return self.sigma * np.array([self.f_plus, self.f_cross])
