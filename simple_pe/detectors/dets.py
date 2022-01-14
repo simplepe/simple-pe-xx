@@ -1,23 +1,22 @@
 from numpy import *
 from simple_pe.detectors import detectors
 import lal
-
+from pycbc import detector
 
 
 ##################################################################
 # Class to store detector information
 ##################################################################
-class Det(object):
+class Det(detector.Detector):
     """
     class to hold the details of a detector
     """
 
-    def __init__(self, location, response, det_range, f_mean, f_band,
+    def __init__(self, detector_name, det_range, f_mean, f_band,
                  found_thresh=5.0, loc_thresh=4.0, duty_cycle=1.0):
         """
         Initialize
-        :param location: array with detector location
-        :param response: matrix with detector response
+        :param detector_name: 2 character string for detector
         :param det_range: the BNS range of the detector
         :param f_mean: float, mean frequency
         :param f_band: float, frequency bandwidth
@@ -25,8 +24,7 @@ class Det(object):
         :param loc_thresh: threshold for declaring an event localized
         :param duty_cycle: fraction of time the detector is operational
         """
-        self.location = location
-        self.response = response
+        super().__init__(detector_name)
         self.det_range = det_range
         self.sigma = 2.26 * det_range * 8  # this gives the SNR at 1 Mpc
         self.f_mean = f_mean
