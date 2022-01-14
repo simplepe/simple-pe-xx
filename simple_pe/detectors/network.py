@@ -60,4 +60,4 @@ class Network(object):
         :param data: name of data to return from a detector
         :return array containing requested data
         """
-        return array([getattr(getattr(self, i), data) for i in self.ifos])
+        return np.array([getattr(getattr(self, i), data) for i in self.ifos])
