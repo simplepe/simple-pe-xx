@@ -1,4 +1,3 @@
-from numpy import *
 import numpy as np
 from simple_pe.fstat import fstat
 from scipy import special
@@ -16,18 +15,18 @@ def snr_projection(f_sig, method):
     :param method: the way we project (one of "time", "coh", "left", "right")
     """
     if method == "time":
-        P = identity(len(f_sig))
+        P = np.identity(len(f_sig))
     elif method == "coh":
-        M = zeros((2, 2))
+        M = np.zeros((2, 2))
         for f in f_sig:
-            M += outer(f, f)
-        P = inner(inner(f_sig, linalg.inv(M)), f_sig)
+            M += np.outer(f, f)
+        P = np.inner(np.inner(f_sig, np.linalg.inv(M)), f_sig)
     elif method == "right":
-        cf = array([complex(f[0], f[1]) for f in f_sig])
-        P = outer(cf.conjugate(), cf) / inner(cf.conjugate(), cf)
+        cf = np.array([complex(f[0], f[1]) for f in f_sig])
+        P = np.outer(cf.conjugate(), cf) / np.inner(cf.conjugate(), cf)
     elif method == "left":
-        cf = array([complex(f[0], f[1]) for f in f_sig])
-        P = outer(cf, cf.conjugate()) / inner(cf, cf.conjugate())
+        cf = np.array([complex(f[0], f[1]) for f in f_sig])
+        P = np.outer(cf, cf.conjugate()) / np.inner(cf, cf.conjugate())
     else:
         raise NameError("Invalid projection method: %s" % method)
     return P
@@ -41,9 +40,9 @@ def evec_sigma(M):
     :param M: square matrix for which we calculate the eigen-vectors
     and sigmas
     """
-    ev, evec = linalg.eig(M)
+    ev, evec = np.linalg.eig(M)
     epsilon = 1e-10
-    sigma = 1 / sqrt(ev + epsilon)
+    sigma = 1 / np.sqrt(ev + epsilon)
     evec = evec[:, sigma.argsort()]
     sigma.sort()
     return evec, sigma
@@ -91,14 +90,14 @@ class Localization(object):
 
     def calculate_m(self):
         A_i, C_ij, c_i, c = self.event.localization_factors(self.method, self.mirror)
-        CC = 1. / 2 * (outer(c_i, c_i) / c - C_ij)
+        CC = 1. / 2 * (np.outer(c_i, c_i) / c - C_ij)
         # Calculate the Matrix M (given in the coherent localization paper)
-        M = zeros([3, 3])
+        M = np.zeros([3, 3])
         locations = self.event.get_data("location")
 
         for i1 in range(len(self.event.ifos)):
             for i2 in range(len(self.event.ifos)):
-                M += outer(locations[i1] - locations[i2],
+                M += np.outer(locations[i1] - locations[i2],
                            locations[i1] - locations[i2]) / (3e8) ** 2 \
                      * CC[i1, i2]
         self.M = M
@@ -107,19 +106,19 @@ class Localization(object):
         self.z = self.event.projected_snr(self.method, self.mirror)
         A_i, C_ij, c_i, c = self.event.localization_factors(self.method, self.mirror)
         try:
-            self.dt_i = 1. / 2 * inner(linalg.inv(C_ij), A_i)
+            self.dt_i = 1. / 2 * np.inner(np.linalg.inv(C_ij), A_i)
         except:
             print("for method %s: Unable to invert C, setting dt=0" % self.method)
-            self.dt_i = zeros_like(A_i)
+            self.dt_i = np.zeros_like(A_i)
         z = self.event.projected_snr(self.method, self.mirror)
         f_band = self.event.get_data("f_band")
-        if max(abs(self.dt_i * (2 * pi * f_band))) < 1. / sqrt(2):
-            extra_snr = inner(self.dt_i, inner(C_ij, self.dt_i))
+        if max(abs(self.dt_i * (2 * np.pi * f_band))) < 1. / np.sqrt(2):
+            extra_snr = np.inner(self.dt_i, np.inner(C_ij, self.dt_i))
             if extra_snr > 0:
                 # location of second peak is reasonable -- use it
                 z = self.event.projected_snr(self.method, self.mirror, self.dt_i)
         self.z = z
-        self.snr = linalg.norm(z)
+        self.snr = np.linalg.norm(z)
 
     def calculate_dt0(self, dt_i):
         """
@@ -129,7 +128,7 @@ class Localization(object):
         """
         A_i, C_ij, c_i, c = self.event.localization_factors(self.method, self.mirror)
         a = sum(A_i)
-        dt0 = a / (2 * c) - inner(c_i, dt_i) / c
+        dt0 = a / (2 * c) - np.inner(c_i, dt_i) / c
         return dt0
 
     def calculate_snr(self, dt):
@@ -137,12 +136,12 @@ class Localization(object):
 
         # See if the calculation is valid:
         f_band = self.event.get_data("f_band")
-        if max(abs(dt * (2 * pi * f_band))) > 1. / sqrt(2):
+        if max(abs(dt * (2 * np.pi * f_band))) > 1. / np.sqrt(2):
             # location of second peak is outside linear regime, return zero
-            z = zeros_like(dt)
+            z = np.zeros_like(dt)
         else:
             z = self.event.projected_snr(self.method, self.mirror, dt)
-        snr = linalg.norm(z)
+        snr = np.linalg.norm(z)
         return z, snr
 
     def approx_like(self, Dmax=1000):
@@ -157,11 +156,11 @@ class Localization(object):
         Fp, Fc = self.event.get_f(self.mirror)
         self.like = self.snr ** 2 / 2
         if (self.method == "left") or (self.method == "right"):
-            cos_fac = sqrt((Fp ** 2 + Fc ** 2) / (Fp * Fc))
-            cosf = min(cos_fac / sqrt(self.snr), 0.5)
-            self.like += log((self.D / Dmax) ** 3 / self.snr ** 2 * cosf)
+            cos_fac = np.sqrt((Fp ** 2 + Fc ** 2) / (Fp * Fc))
+            cosf = min(cos_fac / np.sqrt(self.snr), 0.5)
+            self.like += np.log((self.D / Dmax) ** 3 / self.snr ** 2 * cosf)
         else:
-            self.like += log(32. * (self.D / Dmax) ** 3 * self.D ** 4 / (Fp ** 2 * Fc ** 2)
+            self.like += np.log(32. * (self.D / Dmax) ** 3 * self.D ** 4 / (Fp ** 2 * Fc ** 2)
                              / (1 - self.cosi ** 2) ** 3)
 
     def sky_project(self):
@@ -173,8 +172,8 @@ class Localization(object):
             source = self.event.mirror_xyz
         else:
             source = self.event.xyz
-        P = identity(3) - outer(source, source)
-        self.PMP = inner(inner(P, self.M), P)
+        P = np.identity(3) - np.outer(source, source)
+        self.PMP = np.inner(np.inner(P, self.M), P)
         self.evec, self.sigma = evec_sigma(self.PMP)
 
     def calc_area(self):
@@ -182,10 +181,10 @@ class Localization(object):
         Calculate the localization area
         """
         # calculate the area of the ellipse
-        ellipse = - log(1. - self.p) * 2 * math.pi * (180 / math.pi) ** 2 * \
+        ellipse = - np.log(1. - self.p) * 2 * np.pi * (180 / np.pi) ** 2 * \
                   self.sigma[0] * self.sigma[1]
         # calculate the area of the band
-        band = 4 * math.pi * (180 / math.pi) ** 2 * sqrt(2) * special.erfinv(self.p) * self.sigma[0]
+        band = 4 * np.pi * (180 / np.pi) ** 2 * np.sqrt(2) * special.erfinv(self.p) * self.sigma[0]
         # use the minimum (that's not nan)
         self.area = nanmin((ellipse, band))
 
