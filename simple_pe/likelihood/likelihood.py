@@ -1,4 +1,4 @@
-from numpy import *
+import numpy as np
 from scipy import special
 from scipy.integrate import quad
 import pylab
@@ -22,9 +22,9 @@ def like_equal_d_cosi(a_hat, f, d, cosi):
     d0 = a_hat[0]
     al = (d0 / d) * (1 - cosi) ** 2 / 4
     ar = (d0 / d) * (1 + cosi) ** 2 / 4
-    like = exp(- f ** 2 * (al - al_hat) ** 2) * \
-           exp(- f ** 2 * (ar - ar_hat) ** 2) * \
-           special.i0e(2 * f ** 2 * al * al_hat) * special.i0e(2 * f ** 2 * ar * ar_hat)
+    like = np.exp(- f ** 2 * (al - al_hat) ** 2) * \
+           np.exp(- f ** 2 * (ar - ar_hat) ** 2) * \
+           np.special.i0e(2 * f ** 2 * al * al_hat) * np.special.i0e(2 * f ** 2 * ar * ar_hat)
     return like
 
 
@@ -46,14 +46,14 @@ def like_equal_cosi(a_hat, f, x, d_max=1000., make_plot=False):
     # we want to choose sensible ranges of integration:
     x4 = (1 + 6 * x ** 2 + x ** 4)
     a_peak = 2 * (al_hat * (1 - x) ** 2 + ar_hat * (1 + x) ** 2) / x4
-    a_width = 2. * sqrt(2) / (f * sqrt(x4))
+    a_width = 2. * np.sqrt(2) / (f * np.sqrt(x4))
     l_circ = quad(lambda a: (3 * d0 ** 3) / d_max ** 3 * a ** -4 *
                             like_equal_d_cosi(a_hat, f, d0 / a, x),
-                  max(a_peak - 5 * a_width, 0), a_peak + 5 * a_width,
+                  np.max(a_peak - 5 * a_width, 0), a_peak + 5 * a_width,
                   epsabs=1e-8, epsrel=1e-8)[0]
     if make_plot:
-        a = linspace(max(a_peak - 5 * a_width, 0), a_peak + 5 * a_width)
-        lc = zeros_like(a)
+        a = np.linspace(np.max(a_peak - 5 * a_width, 0), a_peak + 5 * a_width)
+        lc = np.zeros_like(a)
         for (i, a) in enumerate(a):
             lc[i] = a ** -4 * like_equal_d_cosi(a_hat, f, d0 / a, x)
         pylab.figure()
@@ -84,8 +84,8 @@ def like_parts_d_cosi_psi(a_hat, f_plus, f_cross, x, psi):
     :param x: cos(inclination)
     :param psi: polarization
     """
-    c2p = cos(2 * psi)
-    s2p = sin(2 * psi)
+    c2p = np.cos(2 * psi)
+    s2p = np.sin(2 * psi)
     x2 = (1 + x ** 2) / 2
     c2phi_fac = a_hat[1] * f_plus ** 2 * x2 * c2p \
                 + a_hat[2] * f_cross ** 2 * x2 * s2p \
@@ -121,7 +121,7 @@ def like_d_cosi_psi(a_hat, f_plus, f_cross, d, x, psi, marg=True):
     # Marginalizing over phi (from zero to 2 pi) gives:
     # 2 pi  i0e(a f) exp(-1/2(ahat^2 - 2 f a + g a^2))
     a = d0 / d
-    like = exp(f * a - 0.5 * (ahat2 + g * a ** 2))
+    like = np.exp(f * a - 0.5 * (ahat2 + g * a ** 2))
     if marg: like *= special.i0e(f * a)
     return like
 
@@ -158,8 +158,8 @@ def like_cosi_psi(a_hat, f_plus, f_cross, x, psi, d_max=1000.):
     d0 = a_hat[0]
     # Marginalizing over phi gives:
     # 2 pi  i0e(a f) exp(-1/2(ahat^2 - 2 f a + g a^2))
-    like = lambda a: 3 * d0 ** 2 / d_max ** 3 * a ** (-4) * special.i0e(f * a) * \
-                     exp(f * a - 0.5 * (ahat2 + g * a ** 2))
+    like = lambda a: 3 * d0 ** 2 / d_max ** 3 * a ** (-4) * np.special.i0e(f * a) * \
+                     np.exp(f * a - 0.5 * (ahat2 + g * a ** 2))
     l_psix = quad(like, max(0, f / g - 5 / sqrt(g)), f / g + 5 / sqrt(g))
     return l_psix[0]
 
@@ -221,13 +221,13 @@ def loglike_approx(a_hat, f_plus, f_cross, d_max=1000., method="coh",
                       (f_plus ** 2 * f_cross ** 2) / (1 - cosi_hat ** 2) ** 3)
     else:
         # the width in cos iota:
-        cos_fac = sqrt(sqrt(2) * (f_cross ** 2 + f_plus ** 2) / (f_plus * f_cross))
-        cos_width = minimum(cos_fac / snr ** 0.5, 1)
+        cos_fac = np.sqrt(np.sqrt(2) * (f_cross ** 2 + f_plus ** 2) / (f_plus * f_cross))
+        cos_width = np.minimum(cos_fac / snr ** 0.5, 1)
         cos_int = 1 - (1 - cos_width) ** 4
-        loglike = log(3) - log(8) + 3 * log(d_hat / d_max) - 2 * log(snr) + log(cos_int)
+        loglike = np.log(3) - np.log(8) + 3 * np.log(d_hat / d_max) - 2 * np.log(snr) + np.log(cos_int)
     if correction:
         factor = 1 - 75. / (2 * snr ** 2)
-        loglike += log(factor) + 0.2
+        loglike += np.log(factor) + 0.2
 
     return loglike, snr
 
