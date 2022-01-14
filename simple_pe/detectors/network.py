@@ -1,5 +1,6 @@
 from numpy import *
 from simple_pe.detectors import detectors
+from simple_pe.detectors import dets
 
 ##################################################################
 # Class to store network information
@@ -17,7 +18,7 @@ class Network(object):
         self.threshold = threshold
         self.ifos = []
 
-    def add_ifo(self, ifo, location, response, det_range, f_mean, f_band,
+    def add_ifo(self, ifo, det_range, f_mean, f_band,
                 found_thresh=5.0, loc_thresh=4.0, duty_cycle=1.0):
         """
         :param ifo: name of ifo
@@ -30,7 +31,7 @@ class Network(object):
         :param loc_thresh: threshold for declaring an event localized
         :param duty_cycle: fraction of time the detector is operational
         """
-        d = Det(location, response, det_range, f_mean, f_band,
+        d = dets.Det(ifo, det_range, f_mean, f_band,
                 found_thresh, loc_thresh, duty_cycle)
         setattr(self, ifo, d)
         self.ifos.append(ifo)
@@ -48,12 +49,10 @@ class Network(object):
         """
         ranges = detectors.range_8(configuration)
         ifos = ranges.keys()
-        location, response = detectors.detectors(ifos)
         fmeans = detectors.fmean(configuration)
         fbands = detectors.bandwidth(configuration)
         for ifo in ifos:
-            self.add_ifo(ifo, location[ifo], response[ifo], ranges[ifo], fmeans[ifo],
-                         fbands[ifo], found_thresh, loc_thresh, duty_cycle)
+            self.add_ifo(ifo, ranges[ifo], fmeans[ifo], fbands[ifo], found_thresh, loc_thresh, duty_cycle)
 
     def get_data(self, data):
         """
