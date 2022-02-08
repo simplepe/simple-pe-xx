@@ -1,11 +1,8 @@
 import numpy as np
-import math
 from pycbc import waveform
 from pycbc.psd import aLIGOZeroDetHighPower as advdet
 from sympy import Symbol, nsolve
-import sympy, mpmath
-import lal
-from matplotlib import pyplot
+import mpmath
 import h5py
 
 mpmath.mp.dps = 15
