@@ -238,13 +238,13 @@ class Event(object):
         P = snr_projection(f_sig, method)
 
         # work out the localization factors
-        B_i = 4 * np.pi ** 2 * np.real(sum(np.outer(f_sq * z.conjugate(), z) * P, axis=1))
+        B_i = 4 * np.pi ** 2 * np.real(np.sum(np.outer(f_sq * z.conjugate(), z) * P, axis=1))
         c_ij = 4 * np.pi ** 2 * np.real(np.outer(f_mean * z.conjugate(), f_mean * z) * P)
         C_ij = B_i * np.eye(len(B_i)) - c_ij
-        c_i = sum(C_ij, axis=1)
-        c = sum(c_i)
+        c_i = np.sum(C_ij, axis=1)
+        c = np.sum(c_i)
 
-        A_i = 4 * np.pi * np.imag(sum(np.outer(f_mean * z.conjugate(), z) * P, axis=1))
+        A_i = 4 * np.pi * np.imag(np.sum(np.outer(f_mean * z.conjugate(), z) * P, axis=1))
 
         return A_i, C_ij, c_i, c
 

@@ -186,7 +186,7 @@ class Localization(object):
         # calculate the area of the band
         band = 4 * np.pi * (180 / np.pi) ** 2 * np.sqrt(2) * special.erfinv(self.p) * self.sigma[0]
         # use the minimum (that's not nan)
-        self.area = nanmin((ellipse, band))
+        self.area = np.nanmin((ellipse, band))
 
     def make_ellipse(self):
         """
