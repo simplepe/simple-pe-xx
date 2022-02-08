@@ -202,7 +202,7 @@ def circ_project(a, f_plus, f_cross, hand):
     a_proj = np.zeros_like(a)
     a_proj[0] = a[:,0]
     a_proj[1:] = fa_proj / f
-    a_proj[isnan(a_proj)] = 0
+    a_proj[np.isnan(a_proj)] = 0
     return a_proj
 
 
@@ -216,11 +216,11 @@ def snr_f_to_a(z, f_sig):
     :param f_sig: sensitivity of detectors sigma * (F+, Fx)
     :returns: the f-stat A parameters
     """
-    m = zeros((2, 2))
+    m = np.zeros((2, 2))
     for f in f_sig:
-        m += outer(f, f)
+        m += np.outer(f, f)
     s_h = np.inner(z, f_sig.transpose())
-    a_max = np.inner(s_h, linalg.inv(m))
+    a_max = np.inner(s_h, np.linalg.inv(m))
     a = np.array([1.0, a_max[0].real, a_max[1].real, a_max[0].imag, a_max[1].imag])
     return a
 
@@ -252,9 +252,9 @@ def dominant_polarization(f_sig):
 
     :param f_sig: sensitivity of detectors: sigma * (F+, Fx)
     """
-    m = zeros((2, 2))
+    m = np.zeros((2, 2))
     for f in f_sig:
-        m += outer(f, f)
-    f_cross, f_plus = sort(np.sqrt(linalg.eig(m)[0]))
+        m += np.outer(f, f)
+    f_cross, f_plus = np.sort(np.sqrt(np.linalg.eig(m)[0]))
     chi = 1. / 4 * np.arctan2(2 * m[0, 1], m[0, 0] - m[1, 1])
     return f_plus, f_cross, chi
