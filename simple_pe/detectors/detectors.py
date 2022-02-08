@@ -24,6 +24,10 @@ def detectors(ifos):
 
     return location, response
 
+# Need to add EL, EV (L-shaped ET equivalent)
+# AL, AV, UL, UV (for 3-et config)
+# For CE, use hanford/livingston
+# for Voyager use existing sites
 
 def calc_location_response(longitude, latitude, arms):
     """
