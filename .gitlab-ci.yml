@@ -14,6 +14,9 @@ tarball:
     - .python:build
   stage: build
   needs: []
+  before_script:
+    - pip install -r requirements.txt
+    - pip install -r optional_requirements.txt
 
 documentation:
   stage: basic
