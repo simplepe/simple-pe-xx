@@ -1,8 +1,9 @@
-astropy
+astropy>=3.2.3
 h5py
 lalsuite
 mpmath
-numpy
+numpy>=1.15.4
+python-ligo-lw<=1.7.1
 scipy
 sympy
 pycbc
