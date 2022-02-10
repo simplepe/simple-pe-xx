@@ -1,0 +1,8 @@
+astropy
+h5py
+lalsuite
+mpmath
+numpy
+scipy
+sympy
+pycbc
