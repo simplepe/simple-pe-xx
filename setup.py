@@ -19,4 +19,14 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
+    install_requires=[
+        'astropy>=3.2.3',
+        'h5py',
+        'lalsuite',
+        'numpy>=1.15.4',
+        'mpmath',
+        'scipy',
+        'sympy',
+        'pycbc'
+    ]
 )
