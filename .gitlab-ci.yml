@@ -16,7 +16,7 @@ tarball:
   needs: []
 
 conda:
-extends:
+  extends:
     - .conda:base
   stage: build
   needs: []
