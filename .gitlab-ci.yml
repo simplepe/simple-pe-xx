@@ -1,8 +1,9 @@
 stages:
+  - basic
   - deploy
 
-pages:
-  stage: deploy
+documentation:
+  stage: basic
   image: python:3.8-slim
   before_script:
     - apt-get update && apt-get install make --no-install-recommends -y
@@ -11,7 +12,17 @@ pages:
     - python setup.py install
   script:
     - cd docs && make html
-  after_script:
+  artifacts:
+    paths:
+      - docs/build/html/
+
+pages:
+  stage: deploy
+  image: python:3.8-slim
+  dependencies:
+    - documentation
+  script:
+    - mkdir public/
     - mv docs/build/html/ ./public/
   artifacts:
     paths:
