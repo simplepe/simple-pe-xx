@@ -31,7 +31,7 @@ conda:
 documentation:
   stage: basic
   image: python:3.7
-  dependencies:
+  needs:
     - tarball
   before_script:
     - python -m pip install -r requirements.txt
