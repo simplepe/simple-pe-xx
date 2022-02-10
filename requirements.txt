@@ -1,8 +1,6 @@
 astropy>=3.2.3
 h5py
 lalsuite
-mpmath
 numpy>=1.15.4
 scipy
-sympy
 pycbc
