@@ -4,9 +4,8 @@ stages:
 
 documentation:
   stage: basic
-  image: python:3.8-slim
+  image: python:3.7
   before_script:
-    - apt-get update && apt-get install make --no-install-recommends -y
     - python -m pip install -r requirements.txt
     - python -m pip install -r optional_requirements.txt
     - python setup.py install
