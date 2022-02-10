@@ -14,9 +14,6 @@ tarball:
     - .python:build
   stage: build
   needs: []
-  before_script:
-    - pip install -r requirements.txt
-    - pip install -r optional_requirements.txt
 
 documentation:
   stage: basic
@@ -24,9 +21,9 @@ documentation:
   dependencies:
     - tarball
   before_script:
-    - pip install -r requirements.txt
-    - pip install -r optional_requirements.txt
-    - pip install simple-pe*.tar.*
+    - python -m pip install -r requirements.txt
+    - python -m pip install -r optional_requirements.txt
+    - python -m pip install simple-pe*.tar.*
   script:
     - cd docs && make html
   artifacts:
