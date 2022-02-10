@@ -15,6 +15,19 @@ tarball:
   stage: build
   needs: []
 
+conda:
+extends:
+    - .conda:base
+  stage: build
+  needs: []
+  script:
+    - conda create --name py37 python=3.7
+    - conda activate py38
+    - python -m pip install pip2conda
+    - python -m pip2conda --output environment.txt
+    - conda install --file environment.txt
+    - python -m pip install .
+
 documentation:
   stage: basic
   image: python:3.7
