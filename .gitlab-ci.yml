@@ -21,7 +21,7 @@ conda:
   stage: build
   needs: []
   script:
-    - conda create --name py37 python=3.8
+    - conda create --name py38 python=3.8
     - conda activate py38
     - conda install -c conda-forge pip2conda
     - python -m pip2conda --output environment.txt
