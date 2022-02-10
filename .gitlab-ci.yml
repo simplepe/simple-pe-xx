@@ -8,6 +8,7 @@ pages:
     - apt-get update && apt-get install make --no-install-recommends -y
     - python -m pip install sphinx furo
     - python -m pip install sphinx_rtd_theme
+    - python setup.py install
   script:
     - cd docs && make html
   after_script:
