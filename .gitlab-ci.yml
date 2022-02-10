@@ -47,6 +47,7 @@ pages:
   stage: deploy
   image: python:3.8-slim
   dependencies:
+    - conda
     - tarball
     - documentation
   script:
