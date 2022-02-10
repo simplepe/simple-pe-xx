@@ -1,14 +1,29 @@
+include:
+  - project: computing/gitlab-ci-templates
+    file:
+      - conda.yml
+      - python.yml
+
 stages:
+  - build
   - basic
   - deploy
+
+tarball:
+  extends:
+    - .python:build
+  stage: build
+  needs: []
 
 documentation:
   stage: basic
   image: python:3.7
+  dependencies:
+    - tarball
   before_script:
     - python -m pip install -r requirements.txt
     - python -m pip install -r optional_requirements.txt
-    - python setup.py install
+    - python -m pip install simple-pe*.tar.*
   script:
     - cd docs && make html
   artifacts:
@@ -19,6 +34,7 @@ pages:
   stage: deploy
   image: python:3.8-slim
   dependencies:
+    - tarball
     - documentation
   script:
     - mkdir public/
