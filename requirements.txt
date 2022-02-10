@@ -3,7 +3,6 @@ h5py
 lalsuite
 mpmath
 numpy>=1.15.4
-python-ligo-lw<=1.7.1
 scipy
 sympy
 pycbc
