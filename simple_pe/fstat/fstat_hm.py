@@ -62,12 +62,17 @@ def params_to_a44(d, cosi, psi, phi=0, sigma_44=1., d0=1.):
     iota = np.arccos(cosi)
     a_plus = sigma_44 * d0 / d * amp['44+'](iota)
     a_cross = sigma_44 * d0 / d * amp['44x'](iota)
-    a44 = np.zeros(5)
-    a44[0] = sigma_44
-    a44[1] = a_plus * np.cos(4 * phi) * np.cos(2 * psi) - a_cross * np.sin(4 * phi) * np.sin(2 * psi)
-    a44[2] = a_plus * np.cos(4 * phi) * np.sin(2 * psi) + a_cross * np.sin(4 * phi) * np.cos(2 * psi)
-    a44[3] = - a_plus * np.sin(4 * phi) * np.cos(2 * psi) - a_cross * np.cos(4 * phi) * np.sin(2 * psi)
-    a44[4] = - a_plus * np.sin(4 * phi) * np.sin(2 * psi) + a_cross * np.cos(4 * phi) * np.cos(2 * psi)
+
+    try:
+        n = len(d)
+    except:
+        n = 1
+    a44 = np.zeros((n, 5))
+    a44[:, 0] = sigma_44
+    a44[:, 1] = a_plus * np.cos(4 * phi) * np.cos(2 * psi) - a_cross * np.sin(4 * phi) * np.sin(2 * psi)
+    a44[:, 2] = a_plus * np.cos(4 * phi) * np.sin(2 * psi) + a_cross * np.sin(4 * phi) * np.cos(2 * psi)
+    a44[:, 3] = - a_plus * np.sin(4 * phi) * np.cos(2 * psi) - a_cross * np.cos(4 * phi) * np.sin(2 * psi)
+    a44[:, 4] = - a_plus * np.sin(4 * phi) * np.sin(2 * psi) + a_cross * np.cos(4 * phi) * np.cos(2 * psi)
     return a44
 
 
@@ -91,12 +96,17 @@ def params_to_a33(d, cosi, psi, phi=0, sigma_33=1., d0=1.):
     iota = np.arccos(cosi)
     a_plus = sigma_33 * d0 / d * amp['33+'](iota)
     a_cross = sigma_33 * d0 / d * amp['33x'](iota)
-    a33 = np.zeros(5)
-    a33[0] = sigma_33
-    a33[1] = a_plus * np.cos(3 * phi) * np.cos(2 * psi) - a_cross * np.sin(3 * phi) * np.sin(2 * psi)
-    a33[2] = a_plus * np.cos(3 * phi) * np.sin(2 * psi) + a_cross * np.sin(3 * phi) * np.cos(2 * psi)
-    a33[3] = - a_plus * np.sin(3 * phi) * np.cos(2 * psi) - a_cross * np.cos(3 * phi) * np.sin(2 * psi)
-    a33[4] = - a_plus * np.sin(3 * phi) * np.sin(2 * psi) + a_cross * np.cos(3 * phi) * np.cos(2 * psi)
+    try:
+        n = len(d)
+    except:
+        n = 1
+    a33 = np.zeros((n, 5))
+
+    a33[:, 0] = sigma_33
+    a33[:, 1] = a_plus * np.cos(3 * phi) * np.cos(2 * psi) - a_cross * np.sin(3 * phi) * np.sin(2 * psi)
+    a33[:, 2] = a_plus * np.cos(3 * phi) * np.sin(2 * psi) + a_cross * np.sin(3 * phi) * np.cos(2 * psi)
+    a33[:, 3] = - a_plus * np.sin(3 * phi) * np.cos(2 * psi) - a_cross * np.cos(3 * phi) * np.sin(2 * psi)
+    a33[:, 4] = - a_plus * np.sin(3 * phi) * np.sin(2 * psi) + a_cross * np.cos(3 * phi) * np.cos(2 * psi)
     return a33
 
 
@@ -120,12 +130,18 @@ def params_to_a21(d, cosi, psi, phi=0, sigma_21=1., d0=1.):
     iota = np.arccos(cosi)
     a_plus = sigma_21 * d0 / d * amp['21+'](iota)
     a_cross = sigma_21 * d0 / d * amp['21x'](iota)
-    a21 = np.zeros(5)
-    a21[0] = sigma_21
-    a21[1] = a_plus * np.cos(1 * phi) * np.cos(2 * psi) - a_cross * np.sin(1 * phi) * np.sin(2 * psi)
-    a21[2] = a_plus * np.cos(1 * phi) * np.sin(2 * psi) + a_cross * np.sin(1 * phi) * np.cos(2 * psi)
-    a21[3] = - a_plus * np.sin(1 * phi) * np.cos(2 * psi) - a_cross * np.cos(1 * phi) * np.sin(2 * psi)
-    a21[4] = - a_plus * np.sin(1 * phi) * np.sin(2 * psi) + a_cross * np.cos(1 * phi) * np.cos(2 * psi)
+
+    try:
+        n = len(d)
+    except:
+        n = 1
+    a21 = np.zeros((n, 5))
+
+    a21[:, 0] = sigma_21
+    a21[:, 1] = a_plus * np.cos(1 * phi) * np.cos(2 * psi) - a_cross * np.sin(1 * phi) * np.sin(2 * psi)
+    a21[:, 2] = a_plus * np.cos(1 * phi) * np.sin(2 * psi) + a_cross * np.sin(1 * phi) * np.cos(2 * psi)
+    a21[:, 3] = - a_plus * np.sin(1 * phi) * np.cos(2 * psi) - a_cross * np.cos(1 * phi) * np.sin(2 * psi)
+    a21[:, 4] = - a_plus * np.sin(1 * phi) * np.sin(2 * psi) + a_cross * np.cos(1 * phi) * np.cos(2 * psi)
     return a21
 
 
@@ -141,8 +157,8 @@ def expected_snr_2244(a22, a44, f_plus, f_cross):
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
     """
-    f = np.array([0, f_plus, f_cross, f_plus, f_cross])
-    snrsq = sum(f ** 2 * (a22 ** 2 + a44 ** 2))
+    f = np.array([np.zeros_like(f_plus), f_plus, f_cross, f_plus, f_cross])
+    snrsq = sum(f ** 2 * (a22.T ** 2 + a44.T ** 2))
     return np.sqrt(snrsq)
 
 
@@ -155,8 +171,8 @@ def expected_snr_223344(a22, a33, a44, f_plus, f_cross):
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
     """
-    f = np.array([0, f_plus, f_cross, f_plus, f_cross])
-    snrsq = sum(f ** 2 * (a22 ** 2 + a33 ** 2 + a44 ** 2))
+    f = np.array([np.zeros_like(f_plus), f_plus, f_cross, f_plus, f_cross])
+    snrsq = sum(f ** 2 * (a22.T ** 2 + a33.T ** 2 + a44.T ** 2))
     return np.sqrt(snrsq)
 
 
@@ -171,8 +187,8 @@ def expected_snr_all_modes(a22, a33, a44, a21, f_plus, f_cross):
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
     """
-    f = np.array([0, f_plus, f_cross, f_plus, f_cross])
-    snrsq = sum(f ** 2 * (a22 ** 2 + a33 ** 2 + a44 ** 2 + a21 ** 2))
+    f = np.array([np.zeros_like(f_plus), f_plus, f_cross, f_plus, f_cross])
+    snrsq = sum(f ** 2 * (a22.T ** 2 + a33.T ** 2 + a44.T ** 2 + a21.T ** 2))
     return np.sqrt(snrsq)
 
 
@@ -186,11 +202,11 @@ def expected_snr_in_each_mode(a22, a33, a44, a21, f_plus, f_cross):
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
     """
-    f = np.array([0, f_plus, f_cross, f_plus, f_cross])
-    snrsq22 = sum(f ** 2 * (a22 ** 2))
-    snrsq33 = sum(f ** 2 * (a33 ** 2))
-    snrsq44 = sum(f ** 2 * (a44 ** 2))
-    snrsq21 = sum(f ** 2 * (a21 ** 2))
+    f = np.array([np.zeros_like(f_plus), f_plus, f_cross, f_plus, f_cross])
+    snrsq22 = sum(f ** 2 * (a22.T ** 2))
+    snrsq33 = sum(f ** 2 * (a33.T ** 2))
+    snrsq44 = sum(f ** 2 * (a44.T ** 2))
+    snrsq21 = sum(f ** 2 * (a21.T ** 2))
     return np.sqrt(snrsq22), np.sqrt(snrsq33), np.sqrt(snrsq44), np.sqrt(snrsq21)
 
 
@@ -207,8 +223,8 @@ def set_snr_2244(a22, a44, f_plus, f_cross, snr):
     scaling_factor = snr / s
     a22_scale = a22 * scaling_factor
     a44_scale = a44 * scaling_factor
-    a22_scale[0] = a22[0]
-    a44_scale[0] = a44[0]
+    a22_scale[:, 0] = a22[:, 0]
+    a44_scale[:, 0] = a44[:, 0]
     return a22_scale, a44_scale, scaling_factor
 
 
@@ -227,9 +243,9 @@ def set_snr_223344(a22, a33, a44, f_plus, f_cross, snr):
     a22_scale = a22 * scaling_factor
     a44_scale = a44 * scaling_factor
     a33_scale = a33 * scaling_factor
-    a22_scale[0] = a22[0]
-    a44_scale[0] = a44[0]
-    a33_scale[0] = a33[0]
+    a22_scale[:, 0] = a22[:, 0]
+    a44_scale[:, 0] = a44[:, 0]
+    a33_scale[:, 0] = a33[:, 0]
     return a22_scale, a33_scale, a44_scale, scaling_factor
 
 
@@ -240,6 +256,7 @@ def set_snr_all_modes(a22, a33, a44, a21, f_plus, f_cross, snr):
     :param a22: the F-stat A parameters
     :param a33: the 33 mode A parameters
     :param a44: the 44 mode A parameters
+    :param a21: the 21 mode A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
     :param snr: the desired SNR
@@ -250,10 +267,10 @@ def set_snr_all_modes(a22, a33, a44, a21, f_plus, f_cross, snr):
     a33_scale = a33 * scaling_factor
     a44_scale = a44 * scaling_factor
     a21_scale = a21 * scaling_factor
-    a22_scale[0] = a22[0]
-    a33_scale[0] = a33[0]
-    a44_scale[0] = a44[0]
-    a21_scale[0] = a21[0]
+    a22_scale[:, 0] = a22[:, 0]
+    a33_scale[:, 0] = a33[:, 0]
+    a44_scale[:, 0] = a44[:, 0]
+    a21_scale[:, 0] = a21[:, 0]
     return a22_scale, a33_scale, a44_scale, a21_scale, scaling_factor
 
 
