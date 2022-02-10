@@ -22,8 +22,8 @@ conda:
   needs: []
   script:
     - conda create --name py37 python=3.7
-    - conda activate py38
-    - python -m pip install pip2conda
+    - conda activate py37
+    - conda install -c conda-forge pip2conda
     - python -m pip2conda --output environment.txt
     - conda install --file environment.txt
     - python -m pip install .
