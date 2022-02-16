@@ -15,10 +15,23 @@ tarball:
   stage: build
   needs: []
 
+conda:
+  extends:
+    - .conda:base
+  stage: build
+  needs: []
+  script:
+    - conda create --name py38 python=3.8
+    - conda activate py38
+    - conda install -c conda-forge pip2conda
+    - python -m pip2conda --output environment.txt
+    - conda install --file environment.txt
+    - python -m pip install .
+
 documentation:
   stage: basic
   image: python:3.7
-  dependencies:
+  needs:
     - tarball
   before_script:
     - python -m pip install -r requirements.txt
@@ -34,6 +47,7 @@ pages:
   stage: deploy
   image: python:3.8-slim
   dependencies:
+    - conda
     - tarball
     - documentation
   script:
