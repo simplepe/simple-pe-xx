@@ -3,7 +3,7 @@ from scipy import interpolate
 
 from pycbc.filter import sigma, sigmasq
 from pycbc.waveform import get_fd_waveform
-from pycbc.cosmology import cosmology
+from simple_pe.cosmology import cosmology
 
 
 def calc_reach_bandwidth(mass1, mass2, approx, power_spec, fmin, thresh=8.):
@@ -184,7 +184,7 @@ def interpolate_source_horizon(min_mass, max_mass, hor_interp, snr_factor=1.):
     # add a safety margin so interpolation definetely covers range
     masses = np.logspace(np.log10(0.5 * min_mass), np.log10(1.5 * max_mass), 1000)
     d_horizon = hor_interp(masses) * snr_factor
-    z_horizon = cosmology.redshift(d_horizon)
+    z_horizon = cosmology.redshift_at_lum_dist(d_horizon)
     m_horizon = masses / (1 + z_horizon)
 
     h_interp = interpolate.interp1d(m_horizon, z_horizon)
