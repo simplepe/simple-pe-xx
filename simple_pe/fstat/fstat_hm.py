@@ -1,7 +1,8 @@
 import numpy as np
 
 # The following functions all convert between physical parameters and f-stat values
-# In particular, they do not need anything about a detector or network.
+# In particular, they do not need anything about a detector or network other than the relative
+# sensitivity to the modes, encoded in the sigmas
 
 t = lambda iota: np.tan(iota / 2.)
 sqri43 = lambda iota: np.sin(iota / 2.) * np.cos(iota / 2.) ** 5 * (1 - 2 * np.cos(iota))
@@ -104,7 +105,7 @@ def set_snr_in_modes(a_dict, f_plus, f_cross, snr):
     return a_scale, scaling_factor
 
 
-def lost_snrsq_in_modes(a_hat, a, f_plus, f_cross):
+def lost_snr_in_modes(a_hat, a, f_plus, f_cross):
     """
     Calculate the difference in SNRSQ between the true parameters a_hat
     and the templates a for the given modes (ignoring cross terms), and
@@ -122,6 +123,7 @@ def lost_snrsq_in_modes(a_hat, a, f_plus, f_cross):
     a_diff = np.zeros_like(a['22'])
     for mode in a.keys():
         a_diff += a_hat[mode] - a[mode]
-        
-    snrsq = sum(f ** 2 * (a_diff) ** 2)
-    return snrsq
+
+    lost_snr, _ = expected_snr_in_modes(a_diff, f_plus, f_cross)
+
+    return lost_snr
