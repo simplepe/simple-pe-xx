@@ -78,12 +78,12 @@ def expected_snr_in_modes(a_dict, f_plus, f_cross):
     """
     f = np.array([np.zeros_like(f_plus), f_plus, f_cross, f_plus, f_cross])
     snr = {}
-    total_snr = 0
+    total_snrsq = 0
     for mode, a in a_dict.items():
         snr[mode] = np.sqrt(sum(f**2 * a.T**2))
-        total_snr += snr[mode]**2
+        total_snrsq += snr[mode]**2
 
-    return total_snr, snr
+    return total_snrsq ** 0.5, snr
 
 
 def set_snr_in_modes(a_dict, f_plus, f_cross, snr):
