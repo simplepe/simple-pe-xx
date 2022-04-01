@@ -10,7 +10,7 @@ from scipy import optimize
 def make_waveform(x, dx, dist, df, f_low, flen, waveform="IMRPhenomD"):
     """
     This function makes a waveform for the given parameters and
-    returns h_plus generated at value (x + dx).  Currently defaults to
+    returns h_plus generated at value (x + dx).
 
     Parameters
     ----------
@@ -463,7 +463,7 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
     steps = np.zeros(ndim)
     df = psd[ifos[0]].delta_f
 
-    flen = len(psd[ifos[0]])
+    flen = int(len(data[ifos[0]])/2 + 1)
 
     while True:
         h = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, waveform)
@@ -565,6 +565,7 @@ def matched_filter_network(data, psd, ifos, t_start, t_end, h, f_low, f_high):
      ifos: list of ifos
      t_start: start time to consider SNR peak
      t_end: end time to consider SNR peak
+     h: waveform
      f_low: low frequency cutoff
      f_high: high frequency cutoff
 
@@ -584,3 +585,51 @@ def matched_filter_network(data, psd, ifos, t_start, t_end, h, f_low, f_high):
         snrsq += smax[ifo] ** 2
 
     return np.sqrt(snrsq), smax
+
+
+def network_snr(mc_eta_sz, data, psd, t_start, t_end, f_low, approximant="IMRPhenomD"):
+    """
+     A function to find the network SNR for a given chirp mass, eta, spin_z
+     in the network within a given time range
+
+     Parameters
+     ----------
+     mc_eta_sz: vector containing (chirp mass, eta, spin_1z [optionally spin2z])
+     data: the data containing the waveform of interest
+     psd: the power spectrum to use in calculating the match
+     t_start: start time to consider SNR peak
+     t_end: end time to consider SNR peak
+     f_low: low frequency cutoff
+
+     Returns
+     -------
+     snr: the network snr
+     """
+
+    mc = mc_eta_sz[0]
+    eta = mc_eta_sz[1]
+    s1z = mc_eta_sz[2]
+    if len(mc_eta_sz) == 3:
+        s2z = mc_eta_sz[2]
+    else:
+        s2z = mc_eta_sz[3]
+
+    mass1 = conversions.mass1_from_mchirp_eta(mc, eta)
+    mass2 = conversions.mass2_from_mchirp_eta(mc, eta)
+    distance = 1.
+
+    ifos = list(data.keys())
+
+    f_high = psd[ifos[0]].sample_frequencies[-1]
+    df = psd[ifos[0]].delta_f
+
+
+
+    hp, hc = get_fd_waveform(approximant=approximant,
+                                            mass1=mass1, mass2=mass2, spin1z=s1z, spin2z=s2z,
+                                            distance=distance,
+                                            delta_f=df, f_lower=f_low,
+                                            f_final=f_high)
+
+    return matched_filter_network(data, psd, ifos, t_start, t_end, hp, f_low, f_high)
+
