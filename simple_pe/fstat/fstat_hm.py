@@ -25,7 +25,7 @@ amp = {
 }
 
 
-def params_to_mode_a(mode, d, cosi, psi, phi=0, sigma=1, d0=1):
+def params_to_mode_a(mode, d, cosi, psi, phi=0, alpha=1, d0=1):
     """
     Calculate the mode A params given the physical parameters and a choice of
     d0 to set the overall scaling
@@ -56,12 +56,12 @@ def params_to_mode_a(mode, d, cosi, psi, phi=0, sigma=1, d0=1):
         return a
 
     iota = np.arccos(cosi)
-    a_plus = sigma * d0 / d * amp[mode+'+'](iota)
-    a_cross = sigma * d0 / d * amp[mode+'x'](iota)
+    a_plus = alpha * d0 / d * amp[mode+'+'](iota)
+    a_cross = alpha * d0 / d * amp[mode+'x'](iota)
 
     mode_m = int(mode[1])
 
-    a[:, 0] = sigma
+    a[:, 0] = alpha
     a[:, 1] = a_plus * np.cos(mode_m * phi) * np.cos(2 * psi) - a_cross * np.sin(mode_m * phi) * np.sin(2 * psi)
     a[:, 2] = a_plus * np.cos(mode_m * phi) * np.sin(2 * psi) + a_cross * np.sin(mode_m * phi) * np.cos(2 * psi)
     a[:, 3] = - a_plus * np.sin(mode_m * phi) * np.cos(2 * psi) - a_cross * np.cos(mode_m * phi) * np.sin(2 * psi)

@@ -164,7 +164,7 @@ def interpolate_hm_horizon(min_mass, max_mass, q, spin, power_spec, fmin, snr=8,
     :param waveform: the waveform used to calculate the horizon
     :param triangle: scale horizon for a triangular detector (True/False)
     """
-    # add a safety margin so interpolation definetely covers range
+    # add a safety margin so interpolation definitely covers range
     masses = np.logspace(np.log10(0.5 * min_mass), np.log10(1.5 * max_mass), 100)
     horizon = np.array([calc_hm_horizon(mass * q/(1. + q), mass * 1/(1. + q), spin,
                                               power_spec, fmin, snr, mode, waveform, triangle)
