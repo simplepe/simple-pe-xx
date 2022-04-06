@@ -336,6 +336,7 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist,
 
     return g, v, tol
 
+
 def find_peak(data, xx, gij, basis, mismatch, dist, f_low, psd,
               waveform="IMRPhenomD", verbose=False):
     """
@@ -463,7 +464,7 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
     steps = np.zeros(ndim)
     df = psd[ifos[0]].delta_f
 
-    flen = int(len(data[ifos[0]])/2 + 1)
+    flen = int(len(data[ifos[0]]) / 2 + 1)
 
     while True:
         h = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, waveform)
@@ -554,6 +555,72 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
     return x_peak, np.sqrt(snrsq_peak), steps
 
 
+def maximize_network_snr(mc_initial, eta_initial, chi_eff_initial, ifos, strain, psd, t_start, t_end, f_low,
+                         approximant):
+    """
+    A function to find the maximum SNR in the network within a given time range
+
+    Parameters
+    ----------
+    mc_initial: starting position for chirp mass
+    eta_initial: starting position for eta
+    chi_eff_initial: starting position for chi_eff
+    ifos: list of ifos
+    strain: dictionary of strain data from the ifos
+    psd: the power spectra for the ifos
+    t_start: start time to consider SNR peak
+    t_end: end time to consider SNR peak
+    f_low: low frequency cutoff
+    approximant: the waveform to use
+
+    Returns
+    -------
+    x: the parameters of the peak
+    snr: the network snr
+    ifo_snr: the max snr in each ifo
+    """
+
+    x = np.asarray([mc_initial, eta_initial, chi_eff_initial])
+    trigger_snr, ifo_snr = network_snr(x, strain, psd, t_start, t_end, f_low)
+
+    # initial directions and initial spacing
+    v0 = np.array([(1., 0., 0.),
+                   (0., 0.01, 0.),
+                   (0., 0., 0.1)])
+    scale = 2.1  # appropriate for 3 dimensions
+    dist = 1.0
+    mismatch = scale / trigger_snr ** 2
+    min_mis = 1e-2 / trigger_snr ** 2
+    tolerance = 0.05
+    max_iter = 8
+
+    hm_psd = len(ifos) / sum([1. / psd[ifo] for ifo in ifos])
+    f_high = hm_psd.sample_frequencies[-1]
+
+
+    while mismatch > min_mis:
+        basis = scale_vectors(x, v0, dist, mismatch, f_low, hm_psd, waveform=approximant)
+        gij = calculate_metric(x, basis, dist, f_low, hm_psd, waveform=approximant)
+        gij, v, t = iteratively_update_metric(x, gij, basis, mismatch, tolerance,
+                                              dist, f_low, hm_psd, waveform=approximant, max_iter=max_iter)
+        x, snr_now, steps = find_peak_snr(strain, psd, ifos, t_start, t_end, x, gij, basis, mismatch, dist,
+                                          f_low, f_high,
+                                          waveform=approximant)
+
+        if x[1] == 0.25:
+            x -= np.dot([0., 0.001, 0.], basis)
+            # break
+        if np.linalg.norm(steps) < 1:
+            # didn't move much so reduce step size
+            mismatch /= 4.
+
+    h = make_waveform(x, np.zeros_like(x), dist, hm_psd.delta_f, f_low, len(hm_psd),
+                      waveform=approximant)
+    snr, ifo_snr = matched_filter_network(strain, psd, ifos, t_start, t_end, h, f_low, f_high)
+
+    return x, snr, ifo_snr
+
+
 def matched_filter_network(data, psd, ifos, t_start, t_end, h, f_low, f_high):
     """
      A function to find the maximum SNR in the network within a given time range
@@ -623,13 +690,10 @@ def network_snr(mc_eta_sz, data, psd, t_start, t_end, f_low, approximant="IMRPhe
     f_high = psd[ifos[0]].sample_frequencies[-1]
     df = psd[ifos[0]].delta_f
 
-
-
     hp, hc = get_fd_waveform(approximant=approximant,
-                                            mass1=mass1, mass2=mass2, spin1z=s1z, spin2z=s2z,
-                                            distance=distance,
-                                            delta_f=df, f_lower=f_low,
-                                            f_final=f_high)
+                             mass1=mass1, mass2=mass2, spin1z=s1z, spin2z=s2z,
+                             distance=distance,
+                             delta_f=df, f_lower=f_low,
+                             f_final=f_high)
 
     return matched_filter_network(data, psd, ifos, t_start, t_end, hp, f_low, f_high)
-
