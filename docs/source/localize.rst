@@ -7,7 +7,7 @@ Submodules
 simple_pe.localization.localize module
 --------------------------------------
 
-.. automodule:: simple_pe.localization.localize
+.. automodule:: simple_pe.localization.loc
     :members:
     :undoc-members:
     :show-inheritance:
