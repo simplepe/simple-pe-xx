@@ -3,10 +3,10 @@ import random as rnd
 import copy
 from simple_pe.detectors import detectors
 from simple_pe.localization import loc
-import lal
 from astropy.time import Time
 from scipy.optimize import brentq
 from scipy.special import logsumexp
+
 
 ##################################################################
 # Helper functions
@@ -16,7 +16,7 @@ def snr_projection(f_sig, method):
     Function to calculate the SNR projection matrix P for a given set
     of detector responses, f_sig
 
-    :param f_sig: an Nx2 array of detector responses
+    :param f_sig: a Nx2 array of detector responses [F+, Fx] x sigma
     :param method: the way we project (one of "time", "coh", "left", "right")
     """
     if method == "time":
@@ -37,35 +37,22 @@ def snr_projection(f_sig, method):
     return P
 
 
-def evec_sigma(M):
-    """
-    Calculate the eigenvalues and vectors of M.
-    sigma is defined as the reciprocal of the eigenvalue
-
-    :param M: square matrix for which we calculate the eigen-vectors
-    and sigmas
-    """
-    ev, evec = np.linalg.eig(M)
-    epsilon = 1e-10
-    sigma = 1 / np.sqrt(ev + epsilon)
-    evec = evec[:, sigma.argsort()]
-    sigma.sort()
-    return evec, sigma
-
 ##################################################################
 # Class to store event information
 ##################################################################
 class Event(object):
     """
-    class to hold the events that we want to localize
+    class to hold the details of the event
     """
 
     def __init__(self, Dmax=0, gps=1000000000, params=None):
         """
-        Initialize event
+        Initialize event.
+        Either give a set of parameters, as used in the first 2 years paper
+        or give Dmax and then the parameters are randomly generated
 
         :param Dmax: maximum distance to consider
-        :param gmst: greenwich mean sidereal time
+        :param gps: gps time for the event
         :param params: parameters in form used by first 2 years paper
         """
         if params is not None:
@@ -73,12 +60,11 @@ class Event(object):
             self.ra = np.radians(params["RAdeg"])
             self.dec = np.radians(params["DEdeg"])
             try:
-                self.gps = params['gps']
+                t = Time(gps, format='gps')
             except:
                 t = Time(params["MJD"], format='mjd')
-                self.gps = lal.LIGOTimeGPS(int(t.gps), int(1e9 * (t.gps % 1)))
-            self.gmst = lal.GreenwichMeanSiderealTime(self.gps)
-            # self.gmst = float(t.sidereal_time("mean", "greenwich")/units.hourangle)
+            self.gps = t.gps
+            self.gmst = t.sidereal_time('mean', 'greenwich').rad
             self.phi = np.radians(params["coa-phase"])
             self.psi = np.radians(params["polarization"])
             self.cosi = np.cos(np.radians(params["inclination"]))
@@ -88,8 +74,9 @@ class Event(object):
             self.D = rnd.uniform(0, 1) ** (1. / 3) * Dmax
             self.ra = rnd.uniform(0, 2 * np.pi)
             self.dec = np.arcsin(rnd.uniform(-1, 1))
-            self.gps = lal.LIGOTimeGPS(gps, 0)
-            self.gmst = lal.GreenwichMeanSiderealTime(self.gps)
+            t = Time(gps, format='gps')
+            self.gps = t.gps
+            self.gmst = t.sidereal_time('mean', 'greenwich').rad
             self.psi = rnd.uniform(0, 2 * np.pi)
             self.phi = rnd.uniform(0, 2 * np.pi)
             self.cosi = rnd.uniform(-1, 1)
@@ -101,7 +88,10 @@ class Event(object):
         self.ifos = []
         self.mirror = False
         self.detected = False
+        self.mirror_sensitivity = None
+        self.sensitivity = None
         self.localization = {}
+        self.mirror_loc = {}
         self.area = {}
         self.patches = {}
 
@@ -161,9 +151,9 @@ class Event(object):
         M = np.zeros((2, 2))
         for f in self.get_fsig(mirror):
             M += np.outer(f, f)
-        F = np.sqrt(np.linalg.eig(M)[0])
-        F.sort()
-        return F[::-1]
+        f_pc = np.sqrt(np.linalg.eig(M)[0])
+        f_pc.sort()
+        return f_pc[::-1]
 
     def get_snr(self, dt_i=None):
         """
@@ -186,14 +176,13 @@ class Event(object):
         f_sig = self.get_fsig(mirror)
         P = snr_projection(f_sig, method)
         zp = np.inner(self.get_snr(dt_i), P)
-        return (zp)
+        return zp
 
     def calculate_mirror(self):
         """
         calculate the mirror location and detector sensitivity there
         """
         if len(self.ifos) == 3:
-            self.mirror_loc = {}
             l = self.get_data("location")
             x = l[1] - l[0]
             y = l[2] - l[0]
@@ -218,7 +207,7 @@ class Event(object):
 
     def localization_factors(self, method, mirror=False):
         """
-        Calculate all of the localization factors for a given source
+        Calculate all the localization factors for a given source
         and network of detectors, given the
         complex snr, sensitivity, bandwidth, mean frequency, location
         of the detectors.
@@ -231,7 +220,6 @@ class Event(object):
         f_sq = (f_mean ** 2 + f_band ** 2)
 
         z = self.get_snr()
-        locations = self.get_data("location")
 
         # calculate projection:
         f_sig = self.get_fsig(mirror)

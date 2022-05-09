@@ -6,32 +6,6 @@ from scipy import special
 ##################################################################
 # Helper functions
 ##################################################################
-def snr_projection(f_sig, method):
-    """
-    Function to calculate the SNR projection matrix P for a given set
-    of detector responses, f_sig
-
-    :param f_sig: an Nx2 array of detector responses
-    :param method: the way we project (one of "time", "coh", "left", "right")
-    """
-    if method == "time":
-        P = np.identity(len(f_sig))
-    elif method == "coh":
-        M = np.zeros((2, 2))
-        for f in f_sig:
-            M += np.outer(f, f)
-        P = np.inner(np.inner(f_sig, np.linalg.inv(M)), f_sig)
-    elif method == "right":
-        cf = np.array([complex(f[0], f[1]) for f in f_sig])
-        P = np.outer(cf.conjugate(), cf) / np.inner(cf.conjugate(), cf)
-    elif method == "left":
-        cf = np.array([complex(f[0], f[1]) for f in f_sig])
-        P = np.outer(cf, cf.conjugate()) / np.inner(cf, cf.conjugate())
-    else:
-        raise NameError("Invalid projection method: %s" % method)
-    return P
-
-
 def evec_sigma(M):
     """
     Calculate the eigenvalues and vectors of M.
@@ -53,14 +27,14 @@ def evec_sigma(M):
 ##################################################################
 class Localization(object):
     """
-    class to hold the details of a localization method
+    class to hold the details and results of localization based on a given method
     """
 
     def __init__(self, method, event, mirror=False, p=0.9, Dmax=1000, area=0):
         """
         Initialization
 
-        :param method: how we do localization, one of "time", "coh", "left, "right", "marg"
+        param method: how we do localization, one of "time", "coh", "left, "right", "marg"
         :param event: details of event
         :param mirror: are we looking in the mirror location
         :param p: probability
@@ -89,6 +63,12 @@ class Localization(object):
             self.approx_like(Dmax)
 
     def calculate_m(self):
+        """
+        Calculate the localization matrix as given in
+        "Localization of transient gravitational wave sources: beyond triangulation",
+        Class. Quantum Grav. 35 (2018) 105002
+        this is a generalization of the timing based localization
+        """
         A_i, C_ij, c_i, c = self.event.localization_factors(self.method, self.mirror)
         CC = 1. / 2 * (np.outer(c_i, c_i) / c - C_ij)
         # Calculate the Matrix M (given in the coherent localization paper)
@@ -132,8 +112,6 @@ class Localization(object):
         return dt0
 
     def calculate_snr(self, dt):
-        A_i, C_ij, c_i, c = self.event.localization_factors(self.method, self.mirror)
-
         # See if the calculation is valid:
         f_band = self.event.get_data("f_band")
         if max(abs(dt * (2 * np.pi * f_band))) > 1. / np.sqrt(2):
