@@ -1,5 +1,4 @@
 import numpy as np
-from simple_pe.detectors import detectors
 import lal
 from pycbc import detector
 
