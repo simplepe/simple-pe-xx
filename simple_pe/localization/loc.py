@@ -56,7 +56,9 @@ class Localization(object):
                 self.area = 1e6
 
             A = fstat.snr_f_to_a(self.z, self.event.get_fsig(mirror))
-            self.D, self.cosi, _, _ = fstat.a_to_params(A)
+            D, cosi, _, _ = fstat.a_to_params(A)
+            self.D = float(D)
+            self.cosi = float(cosi)
 
         self.like = 0.
         if method != "time" and method != "marg":
