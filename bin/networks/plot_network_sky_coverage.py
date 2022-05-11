@@ -1,9 +1,11 @@
-get_ipython().run_line_magic('matplotlib', 'inline')
+# get_ipython().run_line_magic('matplotlib', 'inline')
 import numpy as np
 import pylab as plt
 from simple_pe.detectors import network
 from simple_pe.localization import event
 import cartopy.crs as ccrs
+from matplotlib.path import Path
+
 
 # Set the plotting parameters:
 plt.rcParams.update({
@@ -24,8 +26,8 @@ def calc_network_response(events):
     Calculate the network alignment factor for a 2D list of events sorted by the 2d ra and dec grids.
     """
     response = np.zeros_like(events, dtype=float)
-    for i,ev in np.ndenumerate(events):
-            response[i] = np.linalg.norm(ev.get_f())
+    for i, ev in np.ndenumerate(events):
+        response[i] = np.linalg.norm(ev.get_f())
     response /= np.linalg.norm(ev.get_data('sigma'))
     return response
 
@@ -35,8 +37,8 @@ def calc_alignment_factor(events):
     Calculate the network alignment factor for a 2D list of events sorted by the 2d ra and dec grids.
     """
     alignment = np.zeros_like(events, dtype=float)
-    for i,ev in np.ndenumerate(events):
-            alignment[i]= ev.get_f()[1] / ev.get_f()[0]
+    for i, ev in np.ndenumerate(events):
+        alignment[i] = ev.get_f()[1] / ev.get_f()[0]
     return alignment
 
 
@@ -49,7 +51,6 @@ a_max = 200.
 a_step = 1.0
 a_window = 5.0
 w = np.hanning(2 * a_window / a_step)
-
 
 savefig = True
 savetxt = True
@@ -74,11 +75,10 @@ params = {'distance': Dco,
           'mass1': 1.35,
           'mass2': 1.35}
 
-
 n = network.Network()
 n.set_configuration(net_state, found_thresh, loc_thresh, duty_cycle)
 all_events = np.zeros_like(ra, dtype=object)
-for i,r in np.ndenumerate(ra):
+for i, r in np.ndenumerate(ra):
     params['RAdeg'] = np.degrees(r)
     params['DEdeg'] = np.degrees(dec[i])
     x = event.Event(params=params)
@@ -96,9 +96,9 @@ if savetxt:
 # ## Calculate alignment factors
 
 alphas = calc_alignment_factor(all_events)
-pol_sky= np.sum((alphas > np.amax(alphas) / np.sqrt(2)) * np.cos(dec)) / np.sum(np.cos(dec))
+pol_sky = np.sum((alphas > np.amax(alphas) / np.sqrt(2)) * np.cos(dec)) / np.sum(np.cos(dec))
 pol_source = np.sum((alphas > np.amax(alphas) / np.sqrt(2)) * np.cos(dec) * f_response ** 3) / np.sum(
-        np.cos(dec) * f_response ** 3)
+    np.cos(dec) * f_response ** 3)
 if savetxt:
     f.write('%s: mean alpha = %.2f, fract of sky with alpha > alpha_max/sqrt(2) = %.2f\n'
             % (net_state, np.sum(alphas * np.cos(dec)) / np.sum(np.cos(dec)), pol_sky))
@@ -107,10 +107,8 @@ if savetxt:
                / np.sum(np.cos(dec) * f_response ** 3)))
     f.close()
 
-
 '''For plotting the L shaped interferometer marker have to manually draw them as in this cell:
 '''
-from matplotlib.path import Path
 
 verts = [
     (0., 1.),  # left, top
@@ -137,7 +135,6 @@ cf = ax.contourf(np.degrees(ra), np.degrees(dec), f_response, v, cmap=plt.cm.vir
 plt.colorbar(cf, fraction=0.046, pad=0.04)
 plt.savefig("%s_sky_sens.png" % net_state, dpi=200, bbox_inches='tight')
 
-
 plt.figure(figsize=(10, 10))
 
 ax = plt.axes(projection=ccrs.Mollweide())
@@ -150,7 +147,6 @@ cf = ax.contourf(np.degrees(ra), np.degrees(dec), f_response ** 3, v, cmap=plt.c
 plt.colorbar(cf, fraction=0.046, pad=0.04)
 
 plt.savefig(".%s_sky_rate.png" % net_state, dpi=200, bbox_inches='tight')
-
 
 plt.figure(figsize=(10, 10))
 
