@@ -45,55 +45,74 @@ class Event(object):
     class to hold the details of the event
     """
 
-    def __init__(self, Dmax=0, gps=1000000000, params=None):
+    def __init__(self, dist, ra, dec, phi, psi, cosi, mchirp, t_gps):
         """
         Initialize event.
-        Either give a set of parameters, as used in the first 2 years paper
-        or give Dmax and then the parameters are randomly generated
-
-        :param Dmax: maximum distance to consider
-        :param gps: gps time for the event
-        :param params: parameters in form used by first 2 years paper
         """
-        if params is not None:
-            self.D = params["distance"]
-            self.ra = np.radians(params["RAdeg"])
-            self.dec = np.radians(params["DEdeg"])
-            try:
-                t = Time(gps, format='gps')
-            except:
-                t = Time(params["MJD"], format='mjd')
-            self.gps = t.gps
-            self.gmst = t.sidereal_time('mean', 'greenwich').rad
-            self.phi = np.radians(params["coa-phase"])
-            self.psi = np.radians(params["polarization"])
-            self.cosi = np.cos(np.radians(params["inclination"]))
-            self.mchirp = params["mass1"] ** (3. / 5) * params["mass2"] ** (3. / 5) * (
-                    params["mass1"] + params["mass2"]) ** (-1. / 5)
-        elif Dmax:
-            self.D = rnd.uniform(0, 1) ** (1. / 3) * Dmax
-            self.ra = rnd.uniform(0, 2 * np.pi)
-            self.dec = np.arcsin(rnd.uniform(-1, 1))
-            t = Time(gps, format='gps')
-            self.gps = t.gps
-            self.gmst = t.sidereal_time('mean', 'greenwich').rad
-            self.psi = rnd.uniform(0, 2 * np.pi)
-            self.phi = rnd.uniform(0, 2 * np.pi)
-            self.cosi = rnd.uniform(-1, 1)
-            self.mchirp = 1.4 * 2 ** (-1. / 5)
-        else:
-            raise ValueError("Must provide either list of params or maximum distance")
-        # general content:
+        self.D = dist
+        self.ra = ra
+        self.dec = dec
+        self.psi = psi
+        self.phi = phi
+        self.cosi = cosi
+        self.mchirp = mchirp
+        t = Time(t_gps, format='gps')
+        self.gps = t.gps
+        self.gmst = t.sidereal_time('mean', 'greenwich').rad
+
         self.xyz = detectors.xyz(self.ra - self.gmst, self.dec)
         self.ifos = []
         self.mirror = False
         self.detected = False
-        self.mirror_sensitivity = None
         self.sensitivity = None
+        self.mirror_sensitivity = None
         self.localization = {}
         self.mirror_loc = {}
         self.area = {}
         self.patches = {}
+
+    @classmethod
+    def from_first2years(cls, params):
+        """
+        Give a set of parameters, as used in the first 2 years paper,
+        and use these to initialize an event
+        :param params: parameters in form used by first 2 years paper
+        """
+        try:
+            t = Time(gps, format='gps')
+        except:
+            t = Time(params["MJD"], format='mjd')
+
+        return cls(dist = params["distance"],
+                ra = np.radians(params["RAdeg"]),
+                dec = np.radians(params["DEdeg"]),
+                phi = np.radians(params["coa-phase"]),
+                psi = np.radians(params["polarization"]),
+                cosi = np.cos(np.radians(params["inclination"])),
+                mchirp = params["mass1"] ** (3. / 5) * params["mass2"] ** (3. / 5) * (
+                    params["mass1"] + params["mass2"]) ** (-1. / 5),
+                t_gps=t.gps,
+
+                )
+
+    @classmethod
+    def random_values(cls, d_max=1000, mass = 1.4, t_gps=1000000000):
+        """
+        Generate an event with random distance, orientation at given time and mass
+        :param d_max: maximum distance
+        :param mass: component mass (assumed equal mass)
+        :param t_gps: GPS time of event
+        """
+        return cls(dist = rnd.uniform(0, 1) ** (1. / 3) * d_max,
+                ra = rnd.uniform(0, 2 * np.pi),
+                dec = np.arcsin(rnd.uniform(-1, 1)),
+                psi = rnd.uniform(0, 2 * np.pi),
+                phi = rnd.uniform(0, 2 * np.pi),
+                cosi = rnd.uniform(-1, 1),
+                mchirp = mass * 2 ** (-1. / 5),
+                t_gps=t_gps
+                )
+
 
     def add_network(self, network):
         """
