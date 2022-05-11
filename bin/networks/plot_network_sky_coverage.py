@@ -81,9 +81,9 @@ all_events = np.zeros_like(ra, dtype=object)
 for i, r in np.ndenumerate(ra):
     params['RAdeg'] = np.degrees(r)
     params['DEdeg'] = np.degrees(dec[i])
-    x = event.Event(params=params)
-    x.add_network(n)
-    all_events[i] = x
+    ev = event.Event.from_params(params=params)
+    ev.add_network(n)
+    all_events[i] = ev
 
 f_response = calc_network_response(all_events)
 sky_coverage = np.sum((f_response > (np.amax(f_response) / np.sqrt(2))) * np.cos(dec)) / np.sum(np.cos(dec))
