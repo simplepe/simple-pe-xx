@@ -79,40 +79,39 @@ class Event(object):
         :param params: parameters in form used by first 2 years paper
         """
         try:
-            t = Time(gps, format='gps')
+            t = Time(params['gps'], format='gps')
         except:
             t = Time(params["MJD"], format='mjd')
 
-        return cls(dist = params["distance"],
-                ra = np.radians(params["RAdeg"]),
-                dec = np.radians(params["DEdeg"]),
-                phi = np.radians(params["coa-phase"]),
-                psi = np.radians(params["polarization"]),
-                cosi = np.cos(np.radians(params["inclination"])),
-                mchirp = params["mass1"] ** (3. / 5) * params["mass2"] ** (3. / 5) * (
-                    params["mass1"] + params["mass2"]) ** (-1. / 5),
-                t_gps=t.gps,
+        return cls(dist=params["distance"],
+                   ra=np.radians(params["RAdeg"]),
+                   dec=np.radians(params["DEdeg"]),
+                   phi=np.radians(params["coa-phase"]),
+                   psi=np.radians(params["polarization"]),
+                   cosi=np.cos(np.radians(params["inclination"])),
+                   mchirp=params["mass1"] ** (3. / 5) * params["mass2"] ** (3. / 5) * (
+                           params["mass1"] + params["mass2"]) ** (-1. / 5),
+                   t_gps=t.gps,
 
-                )
+                   )
 
     @classmethod
-    def random_values(cls, d_max=1000, mass = 1.4, t_gps=1000000000):
+    def random_values(cls, d_max=1000, mass=1.4, t_gps=1000000000):
         """
         Generate an event with random distance, orientation at given time and mass
         :param d_max: maximum distance
         :param mass: component mass (assumed equal mass)
         :param t_gps: GPS time of event
         """
-        return cls(dist = rnd.uniform(0, 1) ** (1. / 3) * d_max,
-                ra = rnd.uniform(0, 2 * np.pi),
-                dec = np.arcsin(rnd.uniform(-1, 1)),
-                psi = rnd.uniform(0, 2 * np.pi),
-                phi = rnd.uniform(0, 2 * np.pi),
-                cosi = rnd.uniform(-1, 1),
-                mchirp = mass * 2 ** (-1. / 5),
-                t_gps=t_gps
-                )
-
+        return cls(dist=rnd.uniform(0, 1) ** (1. / 3) * d_max,
+                   ra=rnd.uniform(0, 2 * np.pi),
+                   dec=np.arcsin(rnd.uniform(-1, 1)),
+                   psi=rnd.uniform(0, 2 * np.pi),
+                   phi=rnd.uniform(0, 2 * np.pi),
+                   cosi=rnd.uniform(-1, 1),
+                   mchirp=mass * 2 ** (-1. / 5),
+                   t_gps=t_gps
+                   )
 
     def add_network(self, network):
         """
