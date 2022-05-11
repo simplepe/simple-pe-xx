@@ -72,7 +72,7 @@ class Event(object):
         self.patches = {}
 
     @classmethod
-    def from_first2years(cls, params):
+    def from_params(cls, params):
         """
         Give a set of parameters, as used in the first 2 years paper,
         and use these to initialize an event
