@@ -46,7 +46,7 @@ class Localization(object):
         self.p = p
         self.snr = 0
         self.area = area
-        if method is not "marg":
+        if method != "marg":
             self.calculate_m()
             self.calculate_max_snr()
             if self.M is not None:
@@ -59,7 +59,7 @@ class Localization(object):
             self.D, self.cosi, _, _ = fstat.a_to_params(A)
 
         self.like = 0.
-        if method is not "time" and method is not "marg":
+        if method != "time" and method != "marg":
             self.approx_like(Dmax)
 
     def calculate_m(self):
