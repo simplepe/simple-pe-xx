@@ -221,7 +221,7 @@ def snr_f_to_a(z, f_sig):
         m += np.outer(f, f)
     s_h = np.inner(z, f_sig.transpose())
     a_max = np.inner(s_h, np.linalg.inv(m))
-    a = np.array([1.0, a_max[0].real, a_max[1].real, a_max[0].imag, a_max[1].imag])
+    a = np.array([1.0, a_max[0].real, a_max[1].real, a_max[0].imag, a_max[1].imag]).reshape([1,5])
     return a
 
 
