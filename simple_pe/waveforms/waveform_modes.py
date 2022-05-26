@@ -3,13 +3,14 @@ from pycbc.waveform import td_approximants, fd_approximants, get_fd_waveform, ge
 from pycbc.filter.matchedfilter import sigma, overlap_cplx, matched_filter
 
 mode_array_dict = {
-        '22': [[2, 2]],# [2, -2]]
-        '44': [[4, 4]], #, [4, -4]],
-        '33': [[3, 3]], #[3, -3]],
-        '21': [[2, 1]], #[2, -1]]
-    }
+    '22': [[2, 2]],  # [2, -2]]
+    '44': [[4, 4]],  # , [4, -4]],
+    '33': [[3, 3]],  # [3, -3]],
+    '21': [[2, 1]],  # [2, -1]]
+}
 
-def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low = 20.,
+
+def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low=20.,
                             modes=['22', '33', '44'], approximant="IMRPhenomXPHM",
                             dominant_mode='22',
                             spin1x=0., spin1y=0., spin2x=0., spin2y=0.):
@@ -44,37 +45,37 @@ def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low = 20.,
                 # Pv3 required 22.  But, as we're doing spin aligned, HM only is OK
                 approximant = "IMRPhenomHM"
             if approximant == "IMRPhenomPv3HM":
-                h[lm], _ =get_fd_waveform(approximant=approximant,
-                                                    mass1=mass1, mass2=mass2, spin1x=spin1x, spin1y=spin1y,
-                                                    spin1z=spin1z,
-                                                    spin2x=spin2x, spin2y=spin2y, spin2z=spin2z,
-                                                    distance=1, delta_f=ifo_psd.delta_f, f_lower=f_low,
-                                                    f_final=ifo_psd.sample_frequencies[-1],
-                                                    inclination=np.pi / 3, mode_array=[[2, 2]])
+                h[lm], _ = get_fd_waveform(approximant=approximant,
+                                           mass1=mass1, mass2=mass2, spin1x=spin1x, spin1y=spin1y,
+                                           spin1z=spin1z,
+                                           spin2x=spin2x, spin2y=spin2y, spin2z=spin2z,
+                                           distance=1, delta_f=ifo_psd.delta_f, f_lower=f_low,
+                                           f_final=ifo_psd.sample_frequencies[-1],
+                                           inclination=np.pi / 3, mode_array=[[2, 2]])
 
                 if lm != '22':
                     _h, _ = get_fd_waveform(approximant=approximant,
-                                                     mass1=mass1, mass2=mass2, spin1x=spin1x, spin1y=spin1y,
-                                                     spin1z=spin1z,
-                                                     spin2x=spin2x, spin2y=spin2y, spin2z=spin2z,
-                                                     distance=1, delta_f=ifo_psd.delta_f, f_lower=f_low,
-                                                     f_final=ifo_psd.sample_frequencies[-1],
-                                                     inclination=np.pi / 3, mode_array=mode_array_dict[lm] + [[2, 2]])
+                                            mass1=mass1, mass2=mass2, spin1x=spin1x, spin1y=spin1y,
+                                            spin1z=spin1z,
+                                            spin2x=spin2x, spin2y=spin2y, spin2z=spin2z,
+                                            distance=1, delta_f=ifo_psd.delta_f, f_lower=f_low,
+                                            f_final=ifo_psd.sample_frequencies[-1],
+                                            inclination=np.pi / 3, mode_array=mode_array_dict[lm] + [[2, 2]])
                     h[lm] = _h - h[lm]
             else:
                 h[lm], _ = get_fd_waveform(approximant=approximant,
-                                                    mass1=mass1, mass2=mass2, spin1x=spin1x, spin1y=spin1y,
-                                                    spin1z=spin1z,
-                                                    spin2x=spin2x, spin2y=spin2y, spin2z=spin2z,
-                                                    distance=1, delta_f=ifo_psd.delta_f, f_lower=f_low,
-                                                    f_final=ifo_psd.sample_frequencies[-1],
-                                                    inclination=np.pi / 3, mode_array=mode_array_dict[lm])
+                                           mass1=mass1, mass2=mass2, spin1x=spin1x, spin1y=spin1y,
+                                           spin1z=spin1z,
+                                           spin2x=spin2x, spin2y=spin2y, spin2z=spin2z,
+                                           distance=1, delta_f=ifo_psd.delta_f, f_lower=f_low,
+                                           f_final=ifo_psd.sample_frequencies[-1],
+                                           inclination=np.pi / 3, mode_array=mode_array_dict[lm])
         elif approximant in td_approximants():
             h[lm], _ = get_td_waveform(approximant=approximant,
-                                                mass1=mass1, mass2=mass2, spin1x=spin1x, spin1y=spin1y, spin1z=spin1z,
-                                                spin2x=spin2x, spin2y=spin2y, spin2z=spin2z,
-                                                distance=1, delta_t=ifo_psd.delta_t, f_lower=f_low,
-                                                inclination=np.pi / 3, mode_array=mode_array_dict[lm])
+                                       mass1=mass1, mass2=mass2, spin1x=spin1x, spin1y=spin1y, spin1z=spin1z,
+                                       spin2x=spin2x, spin2y=spin2y, spin2z=spin2z,
+                                       distance=1, delta_t=ifo_psd.delta_t, f_lower=f_low,
+                                       inclination=np.pi / 3, mode_array=mode_array_dict[lm])
             h[lm].resize(2 * (len(ifo_psd) - 1))
         else:
             print("Bad approximant")
@@ -85,7 +86,7 @@ def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low = 20.,
     return h, zeta, h_perp
 
 
-def orthogonalize_modes(modes, h, ifo_psd, f_low = 20., dominant_mode='22'):
+def orthogonalize_modes(modes, h, ifo_psd, f_low=20., dominant_mode='22'):
     """
     Orthogonalize a set of waveforms for a give PSD
     Return waveforms orthogonal to the dominant mode and overlaps
@@ -109,7 +110,7 @@ def orthogonalize_modes(modes, h, ifo_psd, f_low = 20., dominant_mode='22'):
     h_perp = {}
     for mode in modes:
         zeta[mode] = overlap_cplx(h[dominant_mode], h[mode], psd=ifo_psd, low_frequency_cutoff=f_low,
-                                high_frequency_cutoff=ifo_psd.sample_frequencies[-1], normalized=True)
+                                  high_frequency_cutoff=ifo_psd.sample_frequencies[-1], normalized=True)
 
         # generate the orthogonal waveform
         if mode == dominant_mode:
@@ -121,7 +122,7 @@ def orthogonalize_modes(modes, h, ifo_psd, f_low = 20., dominant_mode='22'):
 
 
 def calculate_mode_snr(strain_data, ifo_psd, waveform_modes, t_start, t_end, f_low=20.,
-                     dominant_mode='22'):
+                       dominant_mode='22'):
     """
     Calculate the SNR in each of the modes, and also the orthogonal SNR
     strain_data: time series data from ifo
@@ -178,7 +179,8 @@ def network_mode_snr(ifos, modes, z, z_perp, dominant_mode='22'):
     net_snr_perp = {}
 
     for mode in modes:
-        net_snr[mode] = np.abs(np.inner(z_array[dominant_mode], z_array[mode].conjugate()))/rss_snr[dominant_mode]
-        net_snr_perp[mode] = np.abs(np.inner(z_perp_array[dominant_mode], z_perp_array[mode].conjugate()))/rss_snr_perp[dominant_mode]
+        net_snr[mode] = np.abs(np.inner(z_array[dominant_mode], z_array[mode].conjugate())) / rss_snr[dominant_mode]
+        net_snr_perp[mode] = np.abs(np.inner(z_perp_array[dominant_mode], z_perp_array[mode].conjugate())) / \
+                             rss_snr_perp[dominant_mode]
 
     return rss_snr, rss_snr_perp, net_snr, net_snr_perp

@@ -18,8 +18,8 @@ amp = {
     '33x': lambda iota: 2 * np.sin(iota) * amp['22x'](iota),
     '32+': lambda iota: 1 - 2 * np.cos(iota) ** 2,
     '32x': lambda iota: 0.5 * (np.cos(iota) - 3 * np.cos(iota) ** 3),
-    '44+': lambda iota: 2 * np.sin(iota) **2 * amp['22+'](iota),
-    '44x': lambda iota: 2 * np.sin(iota) **2 * amp['22x'](iota),
+    '44+': lambda iota: 2 * np.sin(iota) ** 2 * amp['22+'](iota),
+    '44x': lambda iota: 2 * np.sin(iota) ** 2 * amp['22x'](iota),
     '43+': lambda iota: 4 * (sqri43(iota) + sqri4m3(iota)),
     '43x': lambda iota: 4 * (sqri43(iota) - sqri4m3(iota)),
 }
@@ -34,6 +34,7 @@ def params_to_mode_a(mode, d, cosi, psi, phi=0, alpha=1, d0=1):
     Therefore this factor never appears in the equations. For the other modes, however, there is no
     iota for which both polarizations are equal to 1, but we use their respective values at iota=pi/2
     as reference.
+
     :param mode: the mode for which to calculate As
     :param d: distance to source
     :param cosi: cos(inclination) of source
@@ -50,14 +51,14 @@ def params_to_mode_a(mode, d, cosi, psi, phi=0, alpha=1, d0=1):
         n = 1
     a = np.zeros((n, 5))
 
-    if mode+'+' not in amp.keys():
+    if mode + '+' not in amp.keys():
         print('Invalid mode, choose one of')
         print(amp.keys())
         return a
 
     iota = np.arccos(cosi)
-    a_plus = alpha * d0 / d * amp[mode+'+'](iota)
-    a_cross = alpha * d0 / d * amp[mode+'x'](iota)
+    a_plus = alpha * d0 / d * amp[mode + '+'](iota)
+    a_cross = alpha * d0 / d * amp[mode + 'x'](iota)
 
     mode_m = int(mode[1])
 
@@ -72,6 +73,7 @@ def params_to_mode_a(mode, d, cosi, psi, phi=0, alpha=1, d0=1):
 def expected_snr_in_modes(a_dict, f_plus, f_cross):
     """
     Calculate the SNR for a given set of A parameters and network sensitivity.
+
     :param a_dict: a dictionary, labelled by the modes, of the amplitude parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -80,8 +82,8 @@ def expected_snr_in_modes(a_dict, f_plus, f_cross):
     snr = {}
     total_snrsq = 0
     for mode, a in a_dict.items():
-        snr[mode] = np.sqrt(sum(f**2 * a.T**2))
-        total_snrsq += snr[mode]**2
+        snr[mode] = np.sqrt(sum(f ** 2 * a.T ** 2))
+        total_snrsq += snr[mode] ** 2
 
     return total_snrsq ** 0.5, snr
 
@@ -90,6 +92,7 @@ def set_snr_in_modes(a_dict, f_plus, f_cross, snr):
     """
     FIXME: for now ignoring all the cross terms.
     rescale distance to give desired SNR, return rescaled as and distance
+
     :param a_dict: a dictionary, labelled by the modes, of the amplitude parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -110,6 +113,7 @@ def lost_snr_in_modes(a_hat, a, f_plus, f_cross):
     Calculate the difference in SNRSQ between the true parameters a_hat
     and the templates a for the given modes (ignoring cross terms), and
     network sensitivity f_plus, f_cross
+
     :param a_hat: the observed F-stat A parameters for the modes
     :param a: the "template" F-stat A parameters for the modes
     :param f_plus: sensitivity to plus polarization
