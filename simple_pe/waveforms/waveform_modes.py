@@ -3,11 +3,30 @@ from pycbc.waveform import td_approximants, fd_approximants, get_fd_waveform, ge
 from pycbc.filter.matchedfilter import sigma, overlap_cplx, matched_filter
 
 mode_array_dict = {
-    '22': [[2, 2]],  # [2, -2]]
-    '44': [[4, 4]],  # , [4, -4]],
-    '33': [[3, 3]],  # [3, -3]],
-    '21': [[2, 1]],  # [2, -1]]
+    '22': [[2, 2], [2, -2]],
+    '21': [[2, 1], [2, -1]],
+    '33': [[3, 3], [3, -3]],
+    '32': [[3, 2], [3, -2]],
+    '44': [[4, 4], [4, -4]],
+    '43': [[4, 3], [4, -3]]
 }
+
+
+def mode_array(mode, approx):
+    """
+    Return the mode array for a given approximant
+
+    :param mode: the mode of interest
+    :param approx: the waveform approximant
+    """
+    # don't include negative m modes in Phenom models as will throw an error
+    # - they are automatically added by these models anyway
+    if approx in ['IMRPhenomPv3HM', 'IMRPhenomHM']:
+        mode_array_idx = -1
+    else:
+        mode_array_idx = None
+
+    return mode_array_dict[mode][:mode_array_idx]
 
 
 def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low=20.,
@@ -17,19 +36,24 @@ def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low=20.,
     """
     Calculate the higher harmonic waveforms for given set of modes.
     Return waveforms and parts orthogonal to the (2,2)
-    mass1: mass1
-    mass2: mass2
-    spin1z: spin1z
-    spin2z: spin2z
-    ifo_psd: psd to use when orthogonalizing
-    f_low: low frequency cutoff
-    modes: modes to consider
-    approximant: waveform to use
-    dominant_mode: mode to use when orthogonalizing
-    spin1x:
-    spin1y:
-    spin2x:
-    spin2y:
+
+    :param mass1: mass1
+    :param mass2: mass2
+    :param spin1z: spin1z
+    :param spin2z: spin2z
+    :param ifo_psd: psd to use when orthogonalizing
+    :param f_low: low frequency cutoff
+    :param modes: modes to consider
+    :param approximant: waveform to use
+    :param dominant_mode: mode to use when orthogonalizing
+    :param spin1x: spin1x
+    :param spin1y: spin1y
+    :param spin2x: spin2x
+    :param spin2y: spin2y
+    :return h: normalized waveform modes
+    :return h_perp: orthonormalized waveform modes
+    :return sigmas: waveform normalizations
+    :return zetas: complex overlap with dominant mode
     """
     h = {}
 
@@ -40,6 +64,10 @@ def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low=20.,
 
     # generate the waveforms and normalize
     for lm in modes:
+        if lm == '22':
+            inc = 0.
+        else:
+            inc = np.pi / 2
         if approximant in fd_approximants():
             if approximant == "IMRPhenomPv3HM" and all(_ for _ in [spin1x, spin1y, spin2x, spin2y]):
                 # Pv3 required 22.  But, as we're doing spin aligned, HM only is OK
@@ -51,8 +79,7 @@ def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low=20.,
                                            spin2x=spin2x, spin2y=spin2y, spin2z=spin2z,
                                            distance=1, delta_f=ifo_psd.delta_f, f_lower=f_low,
                                            f_final=ifo_psd.sample_frequencies[-1],
-                                           inclination=np.pi / 3, mode_array=[[2, 2]])
-
+                                           inclination=inc, mode_array=mode_array('22', approximant))
                 if lm != '22':
                     _h, _ = get_fd_waveform(approximant=approximant,
                                             mass1=mass1, mass2=mass2, spin1x=spin1x, spin1y=spin1y,
@@ -60,7 +87,8 @@ def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low=20.,
                                             spin2x=spin2x, spin2y=spin2y, spin2z=spin2z,
                                             distance=1, delta_f=ifo_psd.delta_f, f_lower=f_low,
                                             f_final=ifo_psd.sample_frequencies[-1],
-                                            inclination=np.pi / 3, mode_array=mode_array_dict[lm] + [[2, 2]])
+                                            inclination=inc, mode_array=mode_array(lm, approximant) +
+                                                                        mode_array('22', approximant))
                     h[lm] = _h - h[lm]
             else:
                 h[lm], _ = get_fd_waveform(approximant=approximant,
@@ -69,56 +97,98 @@ def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low=20.,
                                            spin2x=spin2x, spin2y=spin2y, spin2z=spin2z,
                                            distance=1, delta_f=ifo_psd.delta_f, f_lower=f_low,
                                            f_final=ifo_psd.sample_frequencies[-1],
-                                           inclination=np.pi / 3, mode_array=mode_array_dict[lm])
+                                           inclination=inc, mode_array=mode_array(lm, approximant))
         elif approximant in td_approximants():
             h[lm], _ = get_td_waveform(approximant=approximant,
                                        mass1=mass1, mass2=mass2, spin1x=spin1x, spin1y=spin1y, spin1z=spin1z,
                                        spin2x=spin2x, spin2y=spin2y, spin2z=spin2z,
                                        distance=1, delta_t=ifo_psd.delta_t, f_lower=f_low,
-                                       inclination=np.pi / 3, mode_array=mode_array_dict[lm])
+                                       inclination=inc, mode_array=mode_array(lm, approximant))
             h[lm].resize(2 * (len(ifo_psd) - 1))
         else:
             print("Bad approximant")
             return -1
 
-    h_perp, zeta = orthogonalize_modes(modes, h, ifo_psd, f_low, dominant_mode)
+    h_perp, sigmas, zetas = orthonormalize_modes(modes, h, ifo_psd, f_low, dominant_mode)
+    return h, h_perp, sigmas, zetas
 
-    return h, zeta, h_perp
 
-
-def orthogonalize_modes(modes, h, ifo_psd, f_low=20., dominant_mode='22'):
+def orthonormalize_modes(modes, h, ifo_psd, f_low=20., dominant_mode='22'):
     """
-    Orthogonalize a set of waveforms for a give PSD
-    Return waveforms orthogonal to the dominant mode and overlaps
-    modes: modes to consider
-    h: dictionary of waveform modes
-    ifo_psd: psd to use when orthogonalizing
-    f_low: low frequency cutoff
-    dominant_mode: mode to use when orthogonalizing
+    Orthonormalize a set of waveforms for a given PSD
+    Return normalized waveforms orthogonal to the dominant mode,
+    sigmas and (complex) overlaps of original waveforms
+
+    :param modes: modes to consider
+    :param h: dictionary of waveform modes
+    :param ifo_psd: psd to use for orthonormalization
+    :param f_low: low frequency cutoff
+    :param dominant_mode: mode to use for orthonormalization
+    :return h_perp: orthonormalized waveforms
+    :return sigmas: waveform normalizations
+    :return zetas: complex overlap with dominant mode
     """
+    sigmas = {}
     for mode in modes:
 
         try:
-            sig = sigma(h[mode], ifo_psd, low_frequency_cutoff=f_low,
-                        high_frequency_cutoff=ifo_psd.sample_frequencies[-1])
-            h[mode] /= sig
+            sigmas[mode] = sigma(h[mode], ifo_psd, low_frequency_cutoff=f_low,
+                                 high_frequency_cutoff=ifo_psd.sample_frequencies[-1])
+            h[mode] /= sigmas[mode]
         except:
             print("No power in mode %s" % mode)
             h.pop(mode)
 
-    zeta = {}
+    zetas = {}
     h_perp = {}
     for mode in modes:
-        zeta[mode] = overlap_cplx(h[dominant_mode], h[mode], psd=ifo_psd, low_frequency_cutoff=f_low,
-                                  high_frequency_cutoff=ifo_psd.sample_frequencies[-1], normalized=True)
+        zetas[mode] = overlap_cplx(h[dominant_mode], h[mode], psd=ifo_psd, low_frequency_cutoff=f_low,
+                                   high_frequency_cutoff=ifo_psd.sample_frequencies[-1], normalized=True)
 
         # generate the orthogonal waveform
         if mode == dominant_mode:
             h_perp[mode] = h[mode]
         else:
-            h_perp[mode] = (h[mode] - zeta[mode] * h[dominant_mode]) / (np.sqrt(1 - np.abs(zeta[mode]) ** 2))
+            h_perp[mode] = (h[mode] - zetas[mode] * h[dominant_mode]) / (np.sqrt(1 - np.abs(zetas[mode]) ** 2))
 
-    return h_perp, zeta
+    return h_perp, sigmas, zetas
+
+
+def calculate_alpha_lm_and_overlaps(mass1, mass2, spin1z, spin2z, ifo_psd, f_low=20.,
+                                    modes=['22', '33', '44'], approximant="IMRPhenomXPHM",
+                                    dominant_mode='22',
+                                    spin1x=0., spin1y=0., spin2x=0., spin2y=0.):
+    """
+    Calculate the higher harmonic waveforms for given set of modes.
+    Return waveforms and parts orthogonal to the (2,2)
+
+    :param mass1: mass1
+    :param mass2: mass2
+    :param spin1z: spin1z
+    :param spin2z: spin2z
+    :param ifo_psd: psd to use when orthogonalizing
+    :param f_low: low frequency cutoff
+    :param modes: modes to consider
+    :param approximant: waveform to use
+    :param dominant_mode: mode to use when orthogonalizing
+    :param spin1x: spin1x
+    :param spin1y: spin1y
+    :param spin2x: spin2x
+    :param spin2y: spin2y
+    :return alpha_lm: relative amplitudes of modes
+    :return overlap_lm: overlap of lm with 22
+    """
+    h, h_perp, sigmas, zetas = calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low,
+                                                       modes, approximant, dominant_mode,
+                                                       spin1x, spin1y, spin2x, spin2y)
+
+    alpha_lm = {}
+    overlap_lm = {}
+    for k, s in sigmas.items():
+        alpha_lm[k] = s / sigmas[dominant_mode]
+        overlap_lm[k] = abs(zetas[k])
+
+    return alpha_lm, overlap_lm
 
 
 def calculate_mode_snr(strain_data, ifo_psd, waveform_modes, t_start, t_end, f_low=20.,
@@ -126,12 +196,14 @@ def calculate_mode_snr(strain_data, ifo_psd, waveform_modes, t_start, t_end, f_l
     """
     Calculate the SNR in each of the modes, and also the orthogonal SNR
     strain_data: time series data from ifo
-    ifo_psd: PSD for ifo
-    waveform_modes: dictionary of waveform modes (time/frequency series)
-    t_start: beginning of time window to look for SNR peak
-    t_end: end of time window to look for SNR peak
-    f_low: low frequency cutoff
-    dominant_mode: mode that is used to define the peak time
+
+    :param strain_data: the ifo data
+    :param ifo_psd: PSD for ifo
+    :param waveform_modes: dictionary of waveform modes (time/frequency series)
+    :param t_start: beginning of time window to look for SNR peak
+    :param t_end: end of time window to look for SNR peak
+    :param f_low: low frequency cutoff
+    :param dominant_mode: mode that is used to define the peak time
     """
 
     if dominant_mode not in waveform_modes.keys():
@@ -158,9 +230,10 @@ def network_mode_snr(ifos, modes, z, z_perp, dominant_mode='22'):
     """
     Calculate the SNR in each of the modes for the network and also project onto space proportional to dominant mode
     ifos: list of ifos
-    z: dictionary of dictionaries of SNRs in each mode (in each ifo)
-    z_perp: dictionary of dictionaries of perpendicular SNRs in each mode (in each ifo)
-    dominant_mode: the mode with most power (for orthogonalization)
+
+    :param z: dictionary of dictionaries of SNRs in each mode (in each ifo)
+    :param z_perp: dictionary of dictionaries of perpendicular SNRs in each mode (in each ifo)
+    :param dominant_mode: the mode with most power (for orthogonalization)
     """
 
     z_array = {}
