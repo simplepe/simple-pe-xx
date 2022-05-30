@@ -52,7 +52,8 @@ def like_parts_d_cosi_psi(a_hat, f_plus, f_cross, x, psi):
     calculate the two dimensional likelihood, marginalized over phi
     log-likelihood can be written as:
     1/2(ahat^2 - 2*d0/d * f(x, psi) * cos(2phi - phi0) + (d0/d)^2 g(x,psi))
-    return: ahat2, f, g
+
+    :return: ahat2, f, g
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -89,6 +90,7 @@ def like_parts_d_cosi_psi(a_hat, f_plus, f_cross, x, psi):
 def like_d_cosi_psi(a_hat, f_plus, f_cross, d, x, psi, marg=True):
     """
     Return the likelihood marginalized over phi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -96,7 +98,7 @@ def like_d_cosi_psi(a_hat, f_plus, f_cross, d, x, psi, marg=True):
     :param x: cos(inclination)
     :param psi: polarization
     :param marg: do or don't do the marginalization
-    :returns: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
+    :return: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
     """
     ahat2, f, g = like_parts_d_cosi_psi(a_hat, f_plus, f_cross, x, psi)
     d0 = a_hat[0]
@@ -112,6 +114,7 @@ def like_d_cosi_psi(a_hat, f_plus, f_cross, d, x, psi, marg=True):
 def like_22_d_cosi_psi_phi(a_hat, f_plus, f_cross, d, x, psi, phi):
     """
     Return the un-marginalized likelihood for a 2,2 waveform model.
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -214,6 +217,7 @@ def like_d_cosi_alpha_33_alpha_44_psi_phi(
 def like_d_cosi_alpha_33_phi(a_hat, j_hat, f_plus, f_cross, d, x, phi, alpha_33_prime):
     """
     Return the likelihood marginalized over psi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -221,7 +225,7 @@ def like_d_cosi_alpha_33_phi(a_hat, j_hat, f_plus, f_cross, d, x, phi, alpha_33_
     :param x: cos(inclination)
     :param psi: polarization
     :param marg: do or don't do the marginalization
-    :returns: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
+    :return: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
     """
     integrand = lambda psi: like_d_cosi_alpha_33_psi_phi(
         a_hat, j_hat, f_plus, f_cross, d, x, psi, phi, alpha_33_prime
@@ -235,6 +239,7 @@ def like_d_cosi_alpha_33_alpha_44_phi(
 ):
     """
     Return the likelihood marginalized over psi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -267,6 +272,7 @@ def like_d_cosi_alpha_33(
     """
     Return the likelihood marginalized over phi and psi, with a uniform
     (1/2pi) prior on both
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -295,6 +301,7 @@ def like_d_cosi_alpha_33_alpha_44(
     """
     Return the likelihood marginalized over phi and psi, with a uniform
     (1/2pi) prior on both
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -330,6 +337,7 @@ def like_d_alpha_33(a_hat, j_hat, f_plus, f_cross, d, alpha_33_prime):
     """
     Return the likelihood marginalized over phi, psi, with a uniform
     (1/2pi) prior on both, and cosi with uniform 1/2 prior.
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -358,6 +366,7 @@ def like_d_alpha_33_alpha_44(
     """
     Return the likelihood marginalized over phi, psi, with a uniform
     (1/2pi) prior on both, and cosi with uniform 1/2 prior.
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -419,6 +428,7 @@ def like_d_cosi_alpha_33_phi_with_noise(
 ):
     """
     Return the likelihood marginalized over psi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -441,6 +451,7 @@ def like_d_cosi_alpha_33_with_noise(
     """
     Return the likelihood marginalized over phi and psi, with a uniform
     (1/2pi) prior on both
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -529,6 +540,7 @@ def like_cosi_alpha_44_phi(
 ):
     """
     Return the likelihood marginalized over d and psi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -536,7 +548,7 @@ def like_cosi_alpha_44_phi(
     :param x: cos(inclination)
     :param psi: polarization
     :param marg: do or don't do the marginalization
-    :returns: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
+    :return: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
     """
     integrand = lambda psi: like_cosi_alpha_44_psi_phi(
         a_hat, g_hat, f_plus, f_cross, x, psi, phi, alpha_44_prime, d_max
@@ -549,6 +561,7 @@ def like_cosi_alpha_44(a_hat, g_hat, f_plus, f_cross, x, alpha_44_prime, d_max=1
     """
     Return the likelihood marginalized over phi and psi, with a uniform
     (1/2pi) prior on both
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -618,6 +631,7 @@ def like_marg_over_alpha_44_phi(
 ):
     """
     Return the likelihood marginalized over psi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -625,7 +639,7 @@ def like_marg_over_alpha_44_phi(
     :param x: cos(inclination)
     :param psi: polarization
     :param marg: do or don't do the marginalization
-    :returns: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
+    :return: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
     """
     integrand = lambda psi: like_marg_over_alpha_44_psi_phi(
         a_hat, g_hat, f_plus, f_cross, d, x, psi, phi, alpha_44_hat, marg
@@ -640,6 +654,7 @@ def like_marg_over_alpha_44(
     """
     Return the likelihood marginalized over phi and psi, with a uniform
     (1/2pi) prior on both
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -679,6 +694,7 @@ def like_d_cosi(a_hat, f_plus, f_cross, d, x):
     """
     Return the likelihood marginalized over phi and psi, with a uniform
     (1/2pi) prior on both
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -699,6 +715,7 @@ def like_d(a_hat, f_plus, f_cross, d):
     """
     Return the likelihood marginalized over phi, psi, with a uniform
     (1/2pi) prior on both, and cosi with uniform 1/2 prior.
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -721,6 +738,7 @@ def like_d(a_hat, f_plus, f_cross, d):
 def like_d_cosi_phi(a_hat, f_plus, f_cross, d, x, phi, marg=True):
     """
     Return the likelihood marginalized over psi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -728,7 +746,7 @@ def like_d_cosi_phi(a_hat, f_plus, f_cross, d, x, phi, marg=True):
     :param x: cos(inclination)
     :param psi: polarization
     :param marg: do or don't do the marginalization
-    :returns: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
+    :return: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
     """
     ahat2, f, g = like_parts_d_cosi_phi(a_hat, f_plus, f_cross, x, phi)
     d0 = a_hat[0]
@@ -744,6 +762,7 @@ def like_d_cosi_phi(a_hat, f_plus, f_cross, d, x, phi, marg=True):
 def like_d_cosi_2(a_hat, f_plus, f_cross, d, x):
     """
     Return the likelihood marginalized over phi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -751,7 +770,7 @@ def like_d_cosi_2(a_hat, f_plus, f_cross, d, x):
     :param x: cos(inclination)
     :param psi: polarization
     :param marg: do or don't do the marginalization
-    :returns: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
+    :return: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
     """
     integrand = lambda phi: like_d_cosi_phi(a_hat, f_plus, f_cross, d, x, phi)
     l = 1 / (pi) * quad(integrand, 0, pi)[0]
@@ -766,7 +785,8 @@ def l4422_parts_d_cosi_psi(a_hat, g_hat, f_plus, f_cross, d, x, psi, phi):
     calculate the two dimensional likelihood, marginalized over phi
     log-likelihood can be written as:
     1/2(ahat^2 - 2*d0/d * f(x, psi) * cos(2phi - phi0) + (d0/d)^2 g(x,psi))
-    return: ahat2, f, g
+
+    :return: ahat2, f, g
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -853,6 +873,7 @@ def l4422_parts_d_cosi_psi(a_hat, g_hat, f_plus, f_cross, d, x, psi, phi):
 def l4422_d_cosi_psi(a_hat, g_hat, f_plus, f_cross, d, x, psi, marg=True):
     """
     Return the likelihood marginalized over phi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -860,7 +881,7 @@ def l4422_d_cosi_psi(a_hat, g_hat, f_plus, f_cross, d, x, psi, marg=True):
     :param x: cos(inclination)
     :param psi: polarization
     :param marg: do or don't do the marginalization
-    :returns: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
+    :return: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
     """
     integrand = lambda phi: l4422_parts_d_cosi_psi(
         a_hat, g_hat, f_plus, f_cross, d, x, psi, phi
@@ -873,6 +894,7 @@ def l4422_d_cosi(a_hat, g_hat, f_plus, f_cross, d, x):
     """
     Return the likelihood marginalized over phi and psi, with a uniform
     (1/2pi) prior on both
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -911,7 +933,8 @@ def lhm_parts_d_cosi_psi(
     calculate the two dimensional likelihood, marginalized over phi
     log-likelihood can be written as:
     1/2(ahat^2 - 2*d0/d * f(x, psi) * cos(2phi - phi0) + (d0/d)^2 g(x,psi))
-    return: ahat2, f, g
+
+    :return: ahat2, f, g
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -920,7 +943,8 @@ def lhm_parts_d_cosi_psi(
     :param g_hat: the 44 mode G Params
     :param j_hat: the 33 mode J Params
     :param k_hat: the 21 mode K Params
-    :param cross_term_alphas: dictionary containing a tuple of the additional pair of alpha values required for each mode (one each at 0 and pi/2. phase offset).
+    :param cross_term_alphas: dictionary containing a tuple of the additional pair of
+    alpha values required for each mode (one each at 0 and pi/2. phase offset).
     """
     ########################### 22 mode #####################
 
@@ -1210,6 +1234,7 @@ def lhm_d_cosi_psi(
 ):
     """
     Return the likelihood marginalized over phi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -1217,7 +1242,7 @@ def lhm_d_cosi_psi(
     :param x: cos(inclination)
     :param psi: polarization
     :param marg: do or don't do the marginalization
-    :returns: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
+    :return: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
     """
     integrand = lambda phi: lhm_parts_d_cosi_psi(
         a_hat, f_plus, f_cross, d, x, psi, phi, g_hat, j_hat, k_hat, cross_term_alphas
@@ -1240,6 +1265,7 @@ def lhm_d_cosi_phi(
 ):
     """
     Return the likelihood marginalized over psi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -1247,7 +1273,7 @@ def lhm_d_cosi_phi(
     :param x: cos(inclination)
     :param psi: polarization
     :param marg: do or don't do the marginalization
-    :returns: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
+    :return: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
     """
     integrand = lambda psi: lhm_parts_d_cosi_psi(
         a_hat, f_plus, f_cross, d, x, psi, phi, g_hat, j_hat, k_hat, cross_term_alphas
@@ -1270,6 +1296,7 @@ def lhm_d_cosi(
     """
     Return the likelihood marginalized over phi and psi, with a uniform
     (1/2pi) prior on both
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -1328,7 +1355,8 @@ def like_parts_d_cosi_psi_phi(
     calculate the two dimensional likelihood, marginalized over phi
     log-likelihood can be written as:
     1/2(ahat^2 - 2*d0/d * f(x, psi) * cos(2phi - phi0) + (d0/d)^2 g(x,psi))
-    return: ahat2, f, g
+
+    :return: ahat2, f, g
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -1413,6 +1441,7 @@ def like_parts_d_cosi_psi_phi(
 def l_d_c_phi(a_hat, f_plus, f_cross, d, x, phi, numerical=False):
     """
     Return the likelihood marginalized over phi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -1420,7 +1449,7 @@ def l_d_c_phi(a_hat, f_plus, f_cross, d, x, phi, numerical=False):
     :param x: cos(inclination)
     :param psi: polarization
     :param marg: do or don't do the marginalization
-    :returns: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
+    :return: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
     """
     if numerical:
         l = (
@@ -1442,6 +1471,7 @@ def l_d_c_phi(a_hat, f_plus, f_cross, d, x, phi, numerical=False):
 def l_d_c_psi(a_hat, f_plus, f_cross, d, x, psi, numerical=False):
     """
     Return the likelihood marginalized over phi, using flat (1/2pi) prior
+
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
@@ -1449,7 +1479,7 @@ def l_d_c_psi(a_hat, f_plus, f_cross, d, x, psi, numerical=False):
     :param x: cos(inclination)
     :param psi: polarization
     :param marg: do or don't do the marginalization
-    :returns: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
+    :return: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
     """
     if numerical:
         l = (

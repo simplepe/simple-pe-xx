@@ -12,19 +12,14 @@ def make_waveform(x, dx, dist, df, f_low, flen, waveform="IMRPhenomD"):
     This function makes a waveform for the given parameters and
     returns h_plus generated at value (x + dx).
 
-    Parameters
-    ----------
-    x : np.array with four values assumed to be mchirp, eta, s1z, s2z
-    dx: same as x.
-    dist: distance to the signal
-    df: frequency spacing of points
-    f_low: low frequency cutoff
-    flen: length of the frequency domain array to generate
-    waveform: the waveform generator to use
-
-    Returns
-    -------
-    h_plus: waveform as a frequency series with the requested df, flen
+    :param x: np.array with four values assumed to be mchirp, eta, s1z, s2z
+    :param dx: same as x.
+    :param dist: distance to the signal
+    :param df: frequency spacing of points
+    :param f_low: low frequency cutoff
+    :param flen: length of the frequency domain array to generate
+    :param waveform: the waveform generator to use
+    :return h_plus: waveform as a frequency series with the requested df, flen
     """
 
     mc = x[0] + dx[0]
@@ -44,20 +39,15 @@ def scale_vectors(x, vec, dist, mismatch, f_low, psd,
     a waveform at point x and one at x + v[i] is equal to the specified
     mismatch, up to the specified tolerance.
 
-    Parameters
-    ----------
-    x : np.array with four values assumed to be mchirp, eta, s1z, s2z
-    vec: an array of directions dx in which to vary the waveform parameters
-    dist: distance to the signal
-    mismatch: the desired mismatch (1 - match)
-    f_low: low frequency cutoff
-    psd: the power spectrum to use in calculating the match
-    waveform: the waveform generator to use
-    tolerance: the maximum fractional error in the mismatch
-
-    Returns
-    -------
-    v: A set of vectors in the directions given by v but normalized to give the
+    :param x: np.array with four values assumed to be mchirp, eta, s1z, s2z
+    :param vec: an array of directions dx in which to vary the waveform parameters
+    :param dist: distance to the signal
+    :param mismatch: the desired mismatch (1 - match)
+    :param f_low: low frequency cutoff
+    :param psd: the power spectrum to use in calculating the match
+    :param waveform: the waveform generator to use
+    :param tolerance: the maximum fractional error in the mismatch
+    :return v: A set of vectors in the directions given by v but normalized to give the
     desired mismatch
     """
     ndim = len(vec)
@@ -77,16 +67,11 @@ def check_physical(x, dx, maxs=[1e4, 0.25, 0.98, 0.98],
     A function to check whether ther point described by the positions x + dx is
     physically permitted.  If not, rescale and return the scaling factor
 
-    Parameters
-    ----------
-    x : np.array with four values assumed to be mchirp, eta, s1z, s2z
-    dx: same as x.
-    maxs: the maximum permitted values of the physical parameters
-    mins: the minimum physical values of the physical parameters
-
-    Returns
-    -------
-    alpha: the scaling factor required to make x + dx physically permissable
+    :param x : np.array with four values assumed to be mchirp, eta, s1z, s2z
+    :param dx: same as x.
+    :param maxs: the maximum permitted values of the physical parameters
+    :param mins: the minimum physical values of the physical parameters
+    :return alpha: the scaling factor required to make x + dx physically permissable
     """
     alpha = 1.
     for i in range(3):
@@ -100,14 +85,9 @@ def scale_match(m_alpha, alpha):
     A function to scale the match calculated at an offset alpha to the
     match at unit offset
 
-    Parameters
-    ----------
-    m_alpha: the match at an offset alpha
-    alpha: the value of alpha
-
-    Returns
-    -------
-    m : the match at unit offset
+    :param m_alpha: the match at an offset alpha
+    :param alpha: the value of alpha
+    :return m : the match at unit offset
     """
     m = (alpha ** 2 - 1 + m_alpha) / alpha ** 2
     return m
@@ -117,22 +97,17 @@ def average_mismatch(x, dx, dist, f_low, psd,
                      waveform="IMRPhenomD", verbose=False):
     """
     This function calculated the average match for steps of +dx and -dx
-    It also takes care of times where one of the steps moves beyond the
-    edge of the physical paramter space
+    It also takes care of times when one of the steps moves beyond the
+    edge of the physical parameter space
 
-    Parameters
-    ----------
-    x : np.array with four values assumed to be mchirp, eta, chi_eff
-    dx: the change in the values x
-    dist: distance to the signal
-    f_low: low frequency cutoff
-    flen: length of the frequency domain array to generate
-    psd: the power spectrum to use in calculating the match
-    waveform: the waveform generator to use
-
-    Returns
-    -------
-    m: The average match from steps of +/-dx
+    :param x : np.array with four values assumed to be mchirp, eta, chi_eff
+    :param dx: the change in the values x
+    :param dist: distance to the signal
+    :param f_low: low frequency cutoff
+    :param flen: length of the frequency domain array to generate
+    :param psd: the power spectrum to use in calculating the match
+    :param waveform: the waveform generator to use
+    :return m: The average match from steps of +/-dx
     """
     a = {}
     m = {}
@@ -157,19 +132,13 @@ def calculate_metric(x, vec, dist, f_low, psd, waveform="IMRPhenomD"):
     """
     A function to calculate the metric at a point x, associated to a given set
     of variations in the directions given by vec.
-
-    Parameters
-    ----------
-    x : np.array with three values assumed to be mchirp, eta, sz
-    vec: an array of directions dx in which to vary the waveform parameters
-    dist: distance to the signal
-    f_low: low frequency cutoff
-    psd: the power spectrum to use in calculating the match
-    waveform: the waveform generator to use
-
-    Returns
-    -------
-    gij: a square matrix, with size given by the length of vec, that gives the
+    :param x : np.array with three values assumed to be mchirp, eta, sz
+    :param vec: an array of directions dx in which to vary the waveform parameters
+    :param dist: distance to the signal
+    :param f_low: low frequency cutoff
+    :param psd: the power spectrum to use in calculating the match
+    :param waveform: the waveform generator to use
+    :return gij: a square matrix, with size given by the length of vec, that gives the
          metric at x along the directions given by vec
     """
     ndim = len(vec)
@@ -200,14 +169,9 @@ def physical_metric(gij, basis):
     """
     A function to calculate the metric in physical coordinates
 
-    Parameters
-    ----------
-    gij: the metric calculated with respect to a set of basis vectors
-    basis: the basis vectors expressed in terms of the physical coordinates
-
-    Returns
-    -------
-    gphys: the metric in physical coordinates
+    :param gij: the metric calculated with respect to a set of basis vectors
+    :param basis: the basis vectors expressed in terms of the physical coordinates
+    :return gphys: the metric in physical coordinates
     """
     vnorm = np.linalg.norm(basis, axis=1)
     ghatij = gij / vnorm / vnorm.reshape((-1, 1))
@@ -217,16 +181,12 @@ def physical_metric(gij, basis):
 def calculate_evecs(gij, mismatch):
     """
     A function to calculate the eigenvectors of the metric gij normalized
-    so that the match along the eigendirection is given by mismatch
+    so that the match along the eigen-direction is given by mismatch
 
-    Parameters
-    ----------
-    gij: the metric
-    mismatch: the required mismatch
 
-    Returns
-    -------
-    v: the appropriately scaled eigenvectors
+    :param gij: the metric
+    :param mismatch: the required mismatch
+    :return v: the appropriately scaled eigenvectors
     """
     evals, evec = np.linalg.eig(gij)
     # remove any negative evals
@@ -241,21 +201,16 @@ def update_metric(x, gij, basis, mismatch, dist, f_low, psd,
     A function to re-calculate the metric gij based on the matches obtained
     for the eigenvectors of the original metric
 
-    Parameters
-    ----------
-    x: the point in parameter space used to calculate the metric
-    gij: the original metric
-    basis: the basis relating the directions of the metric to the physical space
-    mismatch: the desired mismatch
-    dist: distance to the signal
-    f_low: low frequency cutoff
-    psd: the power spectrum to use in calculating the match
-    waveform: the waveform generator to use
-
-    Returns
-    -------
-    gij_prime: the updated metric
-    ev_scale: a scaled set of eigenvectors
+    :param x: the point in parameter space used to calculate the metric
+    :param gij: the original metric
+    :param basis: the basis relating the directions of the metric to the physical space
+    :param mismatch: the desired mismatch
+    :param dist: distance to the signal
+    :param f_low: low frequency cutoff
+    :param psd: the power spectrum to use in calculating the match
+    :param waveform: the waveform generator to use
+    :return gij_prime: the updated metric
+    :return ev_scale: a scaled set of eigenvectors
     """
     evecs = calculate_evecs(gij, mismatch)
     v_phys = np.inner(evecs, basis.T)
@@ -274,15 +229,10 @@ def metric_error(gij, evecs, mismatch):
     A function to calculate the inner products between the evecs and check
     they are orthogonal and correctly normalized
 
-    Parameters
-    ----------
-    gij: the metric
-    evecs: the eigenvectors
-    misnatch: the desired mismatch (equivalently, norm of evecs)
-
-    Returns
-    -------
-    max_err: the maximum error in the inner products
+    :param gij: the metric
+    :param evecs: the eigenvectors
+    :param mismatch: the desired mismatch (equivalently, norm of evecs)
+    :return max_err: the maximum error in the inner products
     """
     vgv = np.inner(np.inner(evecs, gij), evecs)
     off_diag = np.max(abs(vgv[~np.eye(gij.shape[0], dtype=bool)]))
@@ -297,22 +247,17 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist,
     A function to re-calculate the metric gij based on the matches obtained
     for the eigenvectors of the original metric
 
-    Parameters
-    ----------
-    x: the point in parameter space used to calculate the metric
-    gij: the original metric
-    basis: the basis relating the directions of the metric to the physical space
-    mismatch: the desired mismatch
-    tolerance: the allowed error in the metric is (tolerance * mismatch)
-    dist: distance to the signal
-    f_low: low frequency cutoff
-    psd: the power spectrum to use in calculating the match
-    waveform: the waveform generator to use
-
-    Returns
-    -------
-    g_prime: the updated metric
-    v: scaled eigenvectors
+    :param x: the point in parameter space used to calculate the metric
+    :param gij: the original metric
+    :param basis: the basis relating the directions of the metric to the physical space
+    :param mismatch: the desired mismatch
+    :param tolerance: the allowed error in the metric is (tolerance * mismatch)
+    :param dist: distance to the signal
+    :param f_low: low frequency cutoff
+    :param psd: the power spectrum to use in calculating the match
+    :param waveform: the waveform generator to use
+    :return g_prime: the updated metric
+    :return v: scaled eigenvectors
     """
     g = gij
     v = np.eye(len(basis))
@@ -345,23 +290,18 @@ def find_peak(data, xx, gij, basis, mismatch, dist, f_low, psd,
     by the metric gij (and given mismatch) that gives the highest match.
     Second, we approximate the match as quadratic and find the maximum.
 
-    Parameters
-    ----------
-    data: the data containing the waveform of interest
-    xx: the point in parameter space used to calculate the metric
-    gij: the parameter space metric
-    basis: the basis relating the directions of the metric to the physical space
-    mismatch: the desired mismatch
-    dist: distance to the signal
-    f_low: low frequency cutoff
-    psd: the power spectrum to use in calculating the match
-    waveform: the waveform generator to use
-
-    Returns
-    -------
-    x_prime: the point in the grid with the highest match
-    m_0: the match at this point
-    steps: the number of steps taken in each eigendirection
+    :param data: the data containing the waveform of interest
+    :param xx: the point in parameter space used to calculate the metric
+    :param gij: the parameter space metric
+    :param basis: the basis relating the directions of the metric to the physical space
+    :param mismatch: the desired mismatch
+    :param dist: distance to the signal
+    :param f_low: low frequency cutoff
+    :param psd: the power spectrum to use in calculating the match
+    :param waveform: the waveform generator to use
+    :return x_prime: the point in the grid with the highest match
+    :return m_0: the match at this point
+    :return steps: the number of steps taken in each eigen-direction
     """
 
     x = copy.deepcopy(xx)
@@ -434,27 +374,22 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
     initial metric).  If any are higher, then move.  If not, then reduce step size.
     Repeat until step size reaches requested mismatch.
 
-    Parameters
-    ----------
-    data: the data containing the waveform of interest
-    psd: the power spectrum to use in calculating the match
-    t_start: start time to consider SNR peak
-    t_end: end time to consider SNR peak
-    xx: the point in parameter space used to calculate the metric
-    gij: the parameter space metric
-    basis: the basis relating the directions of the metric to the physical space
-    mismatch: the desired mismatch
-    dist: distance to the signal
-    f_low: low frequency cutoff
-    f_high: high frequency cutoff
-    waveform: the waveform generator to use
-    verbose: print debugging information (if True)
-
-    Returns
-    -------
-    x_prime: the point in the grid with the highest snr
-    snrsq_peak: the match at this point
-    steps: the number of steps taken in each eigendirection
+    :param data: the data containing the waveform of interest
+    :param psd: the power spectrum to use in calculating the match
+    :param t_start: start time to consider SNR peak
+    :param t_end: end time to consider SNR peak
+    :param xx: the point in parameter space used to calculate the metric
+    :param gij: the parameter space metric
+    :param basis: the basis relating the directions of the metric to the physical space
+    :param mismatch: the desired mismatch
+    :param dist: distance to the signal
+    :param f_low: low frequency cutoff
+    :param f_high: high frequency cutoff
+    :param waveform: the waveform generator to use
+    :param verbose: print debugging information (if True)
+    :return x_prime: the point in the grid with the highest snr
+    :return snrsq_peak: the match at this point
+    :return steps: the number of steps taken in each eigendirection
     """
 
     x = copy.deepcopy(xx)
@@ -560,24 +495,19 @@ def maximize_network_snr(mc_initial, eta_initial, chi_eff_initial, ifos, strain,
     """
     A function to find the maximum SNR in the network within a given time range
 
-    Parameters
-    ----------
-    mc_initial: starting position for chirp mass
-    eta_initial: starting position for eta
-    chi_eff_initial: starting position for chi_eff
-    ifos: list of ifos
-    strain: dictionary of strain data from the ifos
-    psd: the power spectra for the ifos
-    t_start: start time to consider SNR peak
-    t_end: end time to consider SNR peak
-    f_low: low frequency cutoff
-    approximant: the waveform to use
-
-    Returns
-    -------
-    x: the parameters of the peak
-    snr: the network snr
-    ifo_snr: the max snr in each ifo
+    :param mc_initial: starting position for chirp mass
+    :param eta_initial: starting position for eta
+    :param chi_eff_initial: starting position for chi_eff
+    :param ifos: list of ifos
+    :param strain: dictionary of strain data from the ifos
+    :param psd: the power spectra for the ifos
+    :param t_start: start time to consider SNR peak
+    :param t_end: end time to consider SNR peak
+    :param f_low: low frequency cutoff
+    :param approximant: the waveform to use
+    :return x: the parameters of the peak
+    :return snr: the network snr
+    :return ifo_snr: the max snr in each ifo
     """
 
     x = np.asarray([mc_initial, eta_initial, chi_eff_initial])
@@ -625,21 +555,16 @@ def matched_filter_network(data, psd, ifos, t_start, t_end, h, f_low, f_high):
     """
      A function to find the maximum SNR in the network within a given time range
 
-     Parameters
-     ----------
-     data: the data containing the waveform of interest
-     psd: the power spectrum to use in calculating the match
-     ifos: list of ifos
-     t_start: start time to consider SNR peak
-     t_end: end time to consider SNR peak
-     h: waveform
-     f_low: low frequency cutoff
-     f_high: high frequency cutoff
-
-     Returns
-     -------
-     snr: the network snr
-     smax: the max snr in each ifo
+     :param data: the data containing the waveform of interest
+     :param psd: the power spectrum to use in calculating the match
+     :param ifos: list of ifos
+     :param t_start: start time to consider SNR peak
+     :param t_end: end time to consider SNR peak
+     :param h: waveform
+     :param f_low: low frequency cutoff
+     :param f_high: high frequency cutoff-
+     :return snr: the network snr
+     :return smax: the max snr in each ifo
      """
     snrsq = 0
     smax = {}
@@ -659,18 +584,13 @@ def network_snr(mc_eta_sz, data, psd, t_start, t_end, f_low, approximant="IMRPhe
      A function to find the network SNR for a given chirp mass, eta, spin_z
      in the network within a given time range
 
-     Parameters
-     ----------
-     mc_eta_sz: vector containing (chirp mass, eta, spin_1z [optionally spin2z])
-     data: the data containing the waveform of interest
-     psd: the power spectrum to use in calculating the match
-     t_start: start time to consider SNR peak
-     t_end: end time to consider SNR peak
-     f_low: low frequency cutoff
-
-     Returns
-     -------
-     snr: the network snr
+     :param mc_eta_sz: vector containing (chirp mass, eta, spin_1z [optionally spin2z])
+     :param data: the data containing the waveform of interest
+     :param psd: the power spectrum to use in calculating the match
+     :param t_start: start time to consider SNR peak
+     :param t_end: end time to consider SNR peak
+     :param f_low: low frequency cutoff
+     :return snr: the network snr
      """
 
     mc = mc_eta_sz[0]
