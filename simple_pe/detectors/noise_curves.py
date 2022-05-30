@@ -15,6 +15,9 @@ def calc_reach_bandwidth(mass1, mass2, approx, power_spec, fmin, thresh=8.):
     :param power_spec: the power spectrum to use
     :param fmin: the minimum frequency
     :param thresh: the SNR at which to calculate the horizon
+    :return max_dist: the horizon for the signal
+    :return meanf: the mean frequency
+    :return sigf: the frequency bandwidth
     """
     fmax = power_spec.sample_frequencies[-1]
     df = power_spec.delta_f
@@ -23,11 +26,11 @@ def calc_reach_bandwidth(mass1, mass2, approx, power_spec, fmin, thresh=8.):
     ss = float(sigmasq(hpf, power_spec,
                        low_frequency_cutoff=fmin,
                        high_frequency_cutoff=hpf.sample_frequencies[-1]))
-    hpf *= hpf.sample_frequencies ** (0.5)
+    hpf *= hpf.sample_frequencies ** 0.5
     ssf = float(sigmasq(hpf, power_spec,
                         low_frequency_cutoff=fmin,
                         high_frequency_cutoff=hpf.sample_frequencies[-1]))
-    hpf *= hpf.sample_frequencies ** (0.5)
+    hpf *= hpf.sample_frequencies ** 0.5
     ssf2 = float(sigmasq(hpf, power_spec,
                          low_frequency_cutoff=fmin,
                          high_frequency_cutoff=hpf.sample_frequencies[-1]))
@@ -48,6 +51,7 @@ def calc_detector_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, waveform=
     :param snr: the SNR at which to calculate the horizon
     :param waveform: the waveform used to calculate the horizon
     :param triangle: scale horizon for a triangular detector (True/False)
+    :return horizon: the horizon distance for the given system
     """
     fmax = power_spec.sample_frequencies[-1]
     df = power_spec.delta_f
@@ -79,18 +83,20 @@ def interpolate_horizon(min_mass, max_mass, q, spin, power_spec, fmin, snr, wave
     Generate an interpolation function for the horizon [in the detector frame] for a binary
     with total mass between min_mass and max_mass, with given mass ratio
     and spin from a frequency fmin in a detector with given power_spec
+
     :param min_mass: the minimum total mass
     :param max_mass: the maximum total mass
-    :poram q: the mass ratio
+    :param q: the mass ratio
     :param spin: the z-component of spin for both components
     :param fmin: the minimum frequency
     :param snr: the SNR at which to calculate the horizon
     :param waveform: the waveform used to calculate the horizon
     :param triangle: scale horizon for a triangular detector (True/False)
+    :return horizon_interp: horizon interpolation function
     """
     # add a safety margin so interpolation definetely covers range
     masses = np.logspace(np.log10(0.5 * min_mass), np.log10(1.5 * max_mass), 100)
-    horizon = np.array([calc_detector_horizon(mass * q/(1. + q), mass * 1/(1. + q), spin,
+    horizon = np.array([calc_detector_horizon(mass * q / (1. + q), mass * 1 / (1. + q), spin,
                                               power_spec, fmin, snr, waveform, triangle)
                         for mass in masses])
     horizon_interp = interpolate.interp1d(masses, horizon)
@@ -100,6 +106,7 @@ def interpolate_horizon(min_mass, max_mass, q, spin, power_spec, fmin, snr, wave
 def calc_hm_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, mode='22', waveform='IMRPhenomXHM', triangle=False):
     """
     Calculate the horizon for a given PSD [in the detector frame]
+
     :param mass1: the mass of the first component
     :param mass2: the mass ratio of second component
     :param spin: the z-component of spin for both components
@@ -109,6 +116,7 @@ def calc_hm_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, mode='22', wave
     :param mode: the mode for which to calculate horizon
     :param waveform: the waveform used to calculate the horizon
     :param triangle: scale horizon for a triangular detector (True/False)
+    :return horizon: the higher mode horizon in detector frame for given masses and spin
     """
     fmax = power_spec.sample_frequencies[-1]
     df = power_spec.delta_f
@@ -142,9 +150,9 @@ def calc_hm_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, mode='22', wave
             sig *= 2
     except:
         sig = 0.
-    if triangle == True:
+    if triangle:
         return 1.5 * sig / snr
-    if triangle == False:
+    else:
         return sig / snr
 
 
@@ -154,20 +162,22 @@ def interpolate_hm_horizon(min_mass, max_mass, q, spin, power_spec, fmin, snr=8,
     Generate an interpolation function for the horizon [in the detector frame] for a binary
     with total mass between min_mass and max_mass, with given mass ratio
     and spin from a frequency fmin in a detector with given power_spec
+
     :param min_mass: the minimum total mass
     :param max_mass: the maximum total mass
-    :poram q: the mass ratio
+    :param q: the mass ratio
     :param spin: the z-component of spin for both components
     :param fmin: the minimum frequency
     :param snr: the SNR at which to calculate the horizon
     :param mode: the mode to calculate the horizon for
     :param waveform: the waveform used to calculate the horizon
     :param triangle: scale horizon for a triangular detector (True/False)
+    :return horizon_interp: horizon interpolation in detector frame for higher modes
     """
     # add a safety margin so interpolation definitely covers range
     masses = np.logspace(np.log10(0.5 * min_mass), np.log10(1.5 * max_mass), 100)
-    horizon = np.array([calc_hm_horizon(mass * q/(1. + q), mass * 1/(1. + q), spin,
-                                              power_spec, fmin, snr, mode, waveform, triangle)
+    horizon = np.array([calc_hm_horizon(mass * q / (1. + q), mass * 1 / (1. + q), spin,
+                                        power_spec, fmin, snr, mode, waveform, triangle)
                         for mass in masses])
     horizon_interp = interpolate.interp1d(masses, horizon)
     return horizon_interp
@@ -180,6 +190,12 @@ def interpolate_source_horizon(min_mass, max_mass, hor_interp, snr_factor=1.):
     given the detector frame horizon.  The SNR factor takes into account the difference
     in threshold between the horizon and requested contour (either through
     wanting a different SNR limit or through sky averaging)
+
+    :param min_mass: the minimum total mass
+    :param max_mass: the maximum total mass
+    :param hor_interp: detector frame interpolator
+    :param snr_factor: ratio between SNR for horizon and requested contour
+    :return h_interp: horizon interpolation in source frame
     """
     # add a safety margin so interpolation definetely covers range
     masses = np.logspace(np.log10(0.5 * min_mass), np.log10(1.5 * max_mass), 1000)
