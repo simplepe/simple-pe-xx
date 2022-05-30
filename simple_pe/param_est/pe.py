@@ -43,24 +43,6 @@ def waveform_distances(tau, b, a_net, a_33, snrs, d_o, tau_o):
     return dist, dt
 
 
-def a33(mchirp, eta, chi_eff, psd, f_low, distance=1.0):
-    mass1 = conversions.mass1_from_mchirp_eta(mchirp, eta)
-    mass2 = conversions.mass2_from_mchirp_eta(mchirp, eta)
-
-    f_high = psd.sample_frequencies[-1]
-    hm = get_fd_waveform(mass1=mass1, mass2=mass2, spin1z=chi_eff, spin2z=chi_eff,
-                         distance=1.0, inclination=np.pi/2, approximant="IMRPhenomHM",
-                         f_lower = f_low, delta_f = psd.delta_f, f_final= f_high, mode_array=[[3,3]])[0]
-
-    twotwo = get_fd_waveform(mass1=mass1, mass2=mass2, spin1z=chi_eff, spin2z=chi_eff,
-                         distance=1.0, inclination=0., approximant="IMRPhenomD",
-                         f_lower = f_low, delta_f = psd.delta_f, f_final= f_high)[0]
-    hm_sigmasq = sigmasq(hm, psd, low_frequency_cutoff=f_low, high_frequency_cutoff= f_high)
-    twotwo_sigmasq = sigmasq(twotwo, psd, low_frequency_cutoff=f_low, high_frequency_cutoff= f_high)
-    alpha_33 = np.sqrt(hm_sigmasq/twotwo_sigmasq)
-    return alpha_33
-
-
 def a33_vs_theta(a_33, snrs):
     """
     Calculate the allowed thetas vs a_33
