@@ -20,12 +20,3 @@ simple_pe.param_est.pe module
     :members:
     :undoc-members:
     :show-inheritance:
-
-
-simple_pe.param_est.snr_time module
------------------------------------------
-
-.. automodule:: simple_pe.param_est.snr_time
-    :members:
-    :undoc-members:
-    :show-inheritance:

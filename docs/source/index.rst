@@ -14,11 +14,12 @@ Welcome to simple-pe's documentation!
 
 
 .. toctree::
-   test
-   detectors 
+   detectors
    fstat
    likelihood
    localize
+   param_est
+   waveforms
    :maxdepth: 2
    :caption: Contents:
 
