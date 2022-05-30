@@ -30,7 +30,7 @@ def mode_array(mode, approx):
 
 
 def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low,
-                            approximant="IMRPhenomXPHM", modes, dominant_mode='22',
+                            approximant, modes, dominant_mode='22',
                             spin1x=0., spin1y=0., spin2x=0., spin2y=0.):
     """
     Calculate the higher harmonic waveforms for given set of modes.
@@ -154,7 +154,7 @@ def orthonormalize_modes( h, ifo_psd, f_low, modes, dominant_mode='22'):
 
 
 def calculate_alpha_lm_and_overlaps(mass1, mass2, spin1z, spin2z, ifo_psd, f_low,
-                                    approximant="IMRPhenomXPHM", modes, dominant_mode='22',
+                                    approximant, modes, dominant_mode='22',
                                     spin1x=0., spin1y=0., spin2x=0., spin2y=0.):
     """
     Calculate the higher harmonic waveforms for given set of modes.
