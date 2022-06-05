@@ -201,6 +201,7 @@ def calculate_mode_snr(strain_data, ifo_psd, waveform_modes, t_start, t_end, f_l
     :param t_start: beginning of time window to look for SNR peak
     :param t_end: end of time window to look for SNR peak
     :param f_low: low frequency cutoff
+    :param modes: the modes to calculate SNR for
     :param dominant_mode: mode that is used to define the peak time
     """
 
