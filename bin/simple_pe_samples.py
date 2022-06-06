@@ -19,7 +19,7 @@ snrs = {'22': 17.98,
         'V1': 3.55,
         '33': 3.5,
         'prec': 2.25,
-        'right': 17.88,
+        'right': 17.92,
         'left': 13.30}
 
 params = {'mchirp': 15.288,
@@ -108,7 +108,7 @@ if 'prec' in snrs.keys():
 
 if ('left' in snrs.keys()) and ('right' in snrs.keys()):
     rho_2pol = pe.calculate_rho_2nd_pol(theta, alphas['network'], snrs['22'])
-    snrs['2pol'] = np.sqrt(snrs['22'] - max(snrs['left'], snrs['right']))
+    snrs['2pol'] = np.sqrt(snrs['22'] ** 2 - max(snrs['left'], snrs['right']) ** 2)
     rv_2pol = ncx2(2, snrs['2pol'] ** 2)
     p_2pol = rv_2pol.pdf(rho_2pol ** 2)
     p_2pol /= p_2pol.max()
