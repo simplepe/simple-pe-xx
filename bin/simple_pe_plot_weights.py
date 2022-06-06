@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import h5py
-import corner
 import numpy as np
 
 # import the weighted samples, plot the weights
