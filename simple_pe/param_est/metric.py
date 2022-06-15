@@ -3,36 +3,48 @@ from pycbc.waveform import get_fd_waveform
 from pycbc.filter import match
 from pycbc import conversions
 from pycbc.filter.matchedfilter import matched_filter
+from simple_pe.waveforms import waveform_modes
 import copy
 from scipy import optimize
 
 
-def make_waveform(x, dx, dist, df, f_low, flen, approximant="IMRPhenomD"):
+def make_waveform(x, dx, dist, df, f_low, flen, mass="chirp", approximant="IMRPhenomD"):
     """
     This function makes a waveform for the given parameters and
     returns h_plus generated at value (x + dx).
 
-    :param x: np.array with four values assumed to be mchirp, eta, s1z, s2z
+    :param x: np.array with three values assumed to be mchirp/mtotal, eta, chi_eff
     :param dx: same as x.
     :param dist: distance to the signal
     :param df: frequency spacing of points
     :param f_low: low frequency cutoff
     :param flen: length of the frequency domain array to generate
+    :param mass: mass parameter to use, either "chirp" or "total"
     :param approximant: the approximant generator to use
     :return h_plus: waveform as a frequency series with the requested df, flen
     """
-
-    mc = x[0] + dx[0]
     eta = x[1] + dx[1]
-    m1 = conversions.mass1_from_mchirp_eta(mc, eta)
-    m2 = conversions.mass2_from_mchirp_eta(mc, eta)
+
+    if mass == "chirp":
+        mc = x[0] + dx[0]
+        m1 = conversions.mass1_from_mchirp_eta(mc, eta)
+        m2 = conversions.mass2_from_mchirp_eta(mc, eta)
+    elif mass == "total":
+        mt = x[0] + dx[0]
+        m1 = conversions.mass1_from_mtotal_eta(mt, eta)
+        m2 = conversions.mass2_from_mtotal_eta(mt, eta)
+    else:
+        print("Mass must be either 'chirp' or 'total'")
+        return -1
+
     h_plus, h_cross = get_fd_waveform(approximant=approximant, mass1=m1, mass2=m2, spin1z=x[2] + dx[2],
-                                      spin2z=x[2] + dx[2], delta_f=df, distance=dist, f_lower=f_low)
+                                      spin2z=x[2] + dx[2], delta_f=df, distance=dist, f_lower=f_low,
+                                      mode_array=waveform_modes.mode_array('22', approximant))
     h_plus.resize(flen)
     return h_plus
 
 
-def scale_vectors(x, vec, dist, mismatch, f_low, psd,
+def scale_vectors(x, vec, dist, mismatch, f_low, psd, mass="chirp",
                   approximant="IMRPhenomD", tolerance=1e-2):
     """
     This function scales the input vectors so that the mismatch between
@@ -45,6 +57,7 @@ def scale_vectors(x, vec, dist, mismatch, f_low, psd,
     :param mismatch: the desired mismatch (1 - match)
     :param f_low: low frequency cutoff
     :param psd: the power spectrum to use in calculating the match
+    :param mass: either use chirp or total mass
     :param approximant: the approximant generator to use
     :param tolerance: the maximum fractional error in the mismatch
     :return v: A set of vectors in the directions given by v but normalized to give the
@@ -53,16 +66,15 @@ def scale_vectors(x, vec, dist, mismatch, f_low, psd,
     ndim = len(vec)
     v = copy.deepcopy(vec)
     for i in range(ndim):
-        opt = optimize.root_scalar(lambda a: average_mismatch(x, a * v[i], dist,
-                                                              f_low, psd, approximant) - mismatch,
+        opt = optimize.root_scalar(lambda a: average_mismatch(x, a * v[i], dist, f_low, psd, mass,
+                                                              approximant=approximant) - mismatch,
                                    bracket=[0, 20], method='brentq', rtol=tolerance)
         v[i] *= opt.root
 
     return v
 
 
-def check_physical(x, dx, maxs=[1e4, 0.25, 0.98, 0.98],
-                   mins=[1., 0.05, -0.98, -0.98]):
+def check_physical(x, dx, maxs=None, mins=None):
     """
     A function to check whether ther point described by the positions x + dx is
     physically permitted.  If not, rescale and return the scaling factor
@@ -73,10 +85,18 @@ def check_physical(x, dx, maxs=[1e4, 0.25, 0.98, 0.98],
     :param mins: the minimum physical values of the physical parameters
     :return alpha: the scaling factor required to make x + dx physically permissable
     """
+    if mins is None:
+        mins = [1., 0.05, -0.98, -0.98]
+    if maxs is None:
+        maxs = [1e4, 0.25, 0.98, 0.98]
+
     alpha = 1.
     for i in range(3):
-        if (x + dx)[i] < mins[i]: alpha = min(alpha, (x[i] - mins[i]) / abs(dx[i]))
-        if (x + dx)[i] > maxs[i]: alpha = min(alpha, (maxs[i] - x[i]) / abs(dx[i]))
+        if (x + dx)[i] < mins[i]:
+            alpha = min(alpha, (x[i] - mins[i]) / abs(dx[i]))
+        if (x + dx)[i] > maxs[i]:
+            alpha = min(alpha, (maxs[i] - x[i]) / abs(dx[i]))
+
     return alpha
 
 
@@ -93,33 +113,34 @@ def scale_match(m_alpha, alpha):
     return m
 
 
-def average_mismatch(x, dx, dist, f_low, psd,
+def average_mismatch(x, dx, dist, f_low, psd, mass="chirp",
                      approximant="IMRPhenomD", verbose=False):
     """
-    This function calculated the average match for steps of +dx and -dx
+    This function calculates the average match for steps of +dx and -dx
     It also takes care of times when one of the steps moves beyond the
     edge of the physical parameter space
 
-    :param x : np.array with four values assumed to be mchirp, eta, chi_eff
+    :param x : np.array with three values assumed to be mchirp, eta, chi_eff
     :param dx: the change in the values x
     :param dist: distance to the signal
     :param f_low: low frequency cutoff
-    :param flen: length of the frequency domain array to generate
     :param psd: the power spectrum to use in calculating the match
+    :param mass: use either chirp or total mass
     :param approximant: the approximant generator to use
+    :param verbose: print debugging information
     :return m: The average match from steps of +/-dx
     """
     a = {}
     m = {}
-    h0 = make_waveform(x, np.zeros_like(x), dist, psd.delta_f, f_low, len(psd), approximant)
+    h0 = make_waveform(x, np.zeros_like(x), dist, psd.delta_f, f_low, len(psd), mass, approximant)
     for s in [1., -1.]:
         a[s] = check_physical(x, s * dx)
-        h = make_waveform(x, s * a[s] * dx, dist, psd.delta_f, f_low, len(psd), approximant)
+        h = make_waveform(x, s * a[s] * dx, dist, psd.delta_f, f_low, len(psd), mass, approximant)
         m[s], _ = match(h0, h, psd, low_frequency_cutoff=f_low)
     if verbose:
         print("Had to scale steps to %.2f, %.2f" % (a[-1], a[1]))
         print("Mismatches %.3f, %.3f" % (1 - m[-1], 1 - m[1]))
-    if (min(a.values()) < 1e-2):
+    if min(a.values()) < 1e-2:
         if verbose:
             print("we're really close to the boundary, so down-weight match contribution")
         mm = (2 - m[1] - m[-1]) / (a[1] ** 2 + a[-1] ** 2)
@@ -128,7 +149,7 @@ def average_mismatch(x, dx, dist, f_low, psd,
     return mm
 
 
-def calculate_metric(x, vec, dist, f_low, psd, approximant="IMRPhenomD"):
+def calculate_metric(x, vec, dist, f_low, psd, mass="chirp", approximant="IMRPhenomD"):
     """
     A function to calculate the metric at a point x, associated to a given set
     of variations in the directions given by vec.
@@ -137,6 +158,7 @@ def calculate_metric(x, vec, dist, f_low, psd, approximant="IMRPhenomD"):
     :param dist: distance to the signal
     :param f_low: low frequency cutoff
     :param psd: the power spectrum to use in calculating the match
+    :param mass: either chirp or total
     :param approximant: the approximant generator to use
     :return gij: a square matrix, with size given by the length of vec, that gives the
          metric at x along the directions given by vec
@@ -149,17 +171,17 @@ def calculate_metric(x, vec, dist, f_low, psd, approximant="IMRPhenomD"):
     for i in range(ndim):
         dx = vec[i]
 
-        gij[i, i] += average_mismatch(x, dx, dist, f_low, psd, approximant)
+        gij[i, i] += average_mismatch(x, dx, dist, f_low, psd, mass, approximant)
 
     # off diagonal
-    # g_ij = 0.25 * [- m(1/sqrt(2) (dx_i + dx_j)) - m(-1/sqrt(2) (dx_i + dx_j))
-    #               + m(1/sqrt(2) (dx_i - dx_j)) - m(-1/sqrt(2) (dx_i - dx_j))]
+    # g_ij = 0.25 * [- m(1/sqrt(2) (+ dx_i + dx_j)) - m(1/sqrt(2) (- dx_i - dx_j))
+    #                + m(1/sqrt(2) (+ dx_i - dx_j)) + m(1/sqrt(2) (- dx_i + dx_j))]
     for i in range(ndim):
         for j in range(i + 1, ndim):
             for s in ([[1, 1], [1, -1]]):
                 dx = (s[0] * vec[i] + s[1] * vec[j]) / np.sqrt(2)
                 gij[i, j] += 0.5 * s[0] / s[1] * \
-                             average_mismatch(x, dx, dist, f_low, psd, approximant)
+                             average_mismatch(x, dx, dist, f_low, psd, mass, approximant)
             gij[j, i] = gij[i, j]
 
     return gij
@@ -183,7 +205,6 @@ def calculate_evecs(gij, mismatch):
     A function to calculate the eigenvectors of the metric gij normalized
     so that the match along the eigen-direction is given by mismatch
 
-
     :param gij: the metric
     :param mismatch: the required mismatch
     :return v: the appropriately scaled eigenvectors
@@ -195,7 +216,7 @@ def calculate_evecs(gij, mismatch):
     return v
 
 
-def update_metric(x, gij, basis, mismatch, dist, f_low, psd,
+def update_metric(x, gij, basis, mismatch, dist, f_low, psd, mass="chirp",
                   approximant="IMRPhenomD", tolerance=1e-2):
     """
     A function to re-calculate the metric gij based on the matches obtained
@@ -208,17 +229,18 @@ def update_metric(x, gij, basis, mismatch, dist, f_low, psd,
     :param dist: distance to the signal
     :param f_low: low frequency cutoff
     :param psd: the power spectrum to use in calculating the match
+    :param mass: either use chirp or total mass
     :param approximant: the approximant generator to use
     :return gij_prime: the updated metric
     :return ev_scale: a scaled set of eigenvectors
     """
     evecs = calculate_evecs(gij, mismatch)
     v_phys = np.inner(evecs, basis.T)
-    v_scale = scale_vectors(x, v_phys, dist, mismatch, f_low, psd,
+    v_scale = scale_vectors(x, v_phys, dist, mismatch, f_low, psd, mass,
                             approximant, tolerance)
     ev_scale = (evecs.T *
                 np.linalg.norm(v_scale, axis=1) / np.linalg.norm(v_phys, axis=1)).T
-    g_prime = calculate_metric(x, v_scale, dist, f_low, psd, approximant)
+    g_prime = calculate_metric(x, v_scale, dist, f_low, psd, mass, approximant)
     evec_inv = np.linalg.inv(ev_scale)
     gij_prime = np.inner(np.inner(evec_inv, g_prime), evec_inv)
     return gij_prime, ev_scale
@@ -242,7 +264,7 @@ def metric_error(gij, evecs, mismatch):
 
 
 def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist,
-                              f_low, psd, approximant="IMRPhenomD", max_iter=20, verbose=False):
+                              f_low, psd, mass="chirp", approximant="IMRPhenomD", max_iter=20, verbose=False):
     """
     A function to re-calculate the metric gij based on the matches obtained
     for the eigenvectors of the original metric
@@ -255,7 +277,9 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist,
     :param dist: distance to the signal
     :param f_low: low frequency cutoff
     :param psd: the power spectrum to use in calculating the match
+    :param mass: either chirp or total
     :param approximant: the approximant generator to use
+    :param max_iter: maximum number of iterations before stopping
     :return g_prime: the updated metric
     :return v: scaled eigenvectors
     """
@@ -269,7 +293,7 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist,
     op = 0
     while (err > tol) and (op < max_iter):
         g, v = update_metric(x, g, basis, mismatch, dist,
-                             f_low, psd, approximant, tolerance)
+                             f_low, psd, mass, approximant, tolerance)
         err = metric_error(g, v, mismatch)
         op += 1
         if verbose:
@@ -282,7 +306,7 @@ def iteratively_update_metric(x, gij, basis, mismatch, tolerance, dist,
     return g, v, tol
 
 
-def find_eigendirections(mchirp, eta, chi_eff, snr, n_sig, f_low, psd, approximant="IMRPhenomD",
+def find_eigendirections(mchirp, eta, chi_eff, snr, n_sig, f_low, psd, mass="chirp", approximant="IMRPhenomD",
                          tolerance=0.05, max_iter=20):
     """
     Calculate the eigendirections in parameter space, normalized to enclose a 90% confidence
@@ -295,6 +319,7 @@ def find_eigendirections(mchirp, eta, chi_eff, snr, n_sig, f_low, psd, approxima
     :param n_sig: number of sigma to use in scaling eigenvectors
     :param f_low: low frequency cutoff
     :param psd: the power spectrum to use in calculating the match
+    :param mass: either chirp or total
     :param approximant: the approximant to use
     :param tolerance: the allowed error in the metric is (tolerance * mismatch)
     :param max_iter: the maximum number of iterations
@@ -306,22 +331,21 @@ def find_eigendirections(mchirp, eta, chi_eff, snr, n_sig, f_low, psd, approxima
                    (0., 0., 0.1)])
 
     dist = 1.
-    scale = 3.1
-    mismatch = n_sig / snr ** 2
+    mismatch = n_sig / (2 * snr ** 2)
 
     tmplt_peak = np.array([mchirp, eta, chi_eff])
 
-    basis = scale_vectors(tmplt_peak, v0, dist, mismatch, f_low, psd, approximant, tolerance)
+    basis = scale_vectors(tmplt_peak, v0, dist, mismatch, f_low, psd, mass, approximant, tolerance)
     gij = calculate_metric(tmplt_peak, basis, dist, f_low, psd)
     g, v, t = iteratively_update_metric(tmplt_peak, gij, basis, mismatch, tolerance,
-                                        dist, f_low, psd, approximant, max_iter)
+                                        dist, f_low, psd, mass, approximant, max_iter)
     v_phys = np.inner(v, basis)
 
     return v_phys
 
 
 def find_peak(data, xx, gij, basis, mismatch, dist, f_low, psd,
-              approximant="IMRPhenomD", verbose=False):
+              mass="chirp", approximant="IMRPhenomD", verbose=False):
     """
     A function to find the maximum match.
     This is done in two steps, first by finding the point in the grid defined
@@ -336,7 +360,9 @@ def find_peak(data, xx, gij, basis, mismatch, dist, f_low, psd,
     :param dist: distance to the signal
     :param f_low: low frequency cutoff
     :param psd: the power spectrum to use in calculating the match
+    :param mass: either use chirp or total mass
     :param approximant: the approximant generator to use
+    :param verbose: print some debugging information
     :return x_prime: the point in the grid with the highest match
     :return m_0: the match at this point
     :return steps: the number of steps taken in each eigen-direction
@@ -349,7 +375,7 @@ def find_peak(data, xx, gij, basis, mismatch, dist, f_low, psd,
     steps = np.zeros(ndim)
 
     while True:
-        h = make_waveform(x, np.zeros_like(x), dist, psd.delta_f, f_low, len(psd), approximant)
+        h = make_waveform(x, np.zeros_like(x), dist, psd.delta_f, f_low, len(psd), mass, approximant)
         m_0, _ = match(data, h, psd, low_frequency_cutoff=f_low)
         matches = np.zeros([ndim, 2])
         alphas = np.zeros([ndim, 2])
@@ -359,7 +385,7 @@ def find_peak(data, xx, gij, basis, mismatch, dist, f_low, psd,
                 dx = (-1) ** j * v_phys[i]
                 alphas[i, j] = check_physical(x, dx)
                 h = make_waveform(x, alphas[i, j] * dx, dist, psd.delta_f, f_low, len(psd),
-                                  approximant)
+                                  mass, approximant)
                 matches[i, j], _ = match(data, h, psd,
                                          low_frequency_cutoff=f_low)
 
@@ -379,7 +405,8 @@ def find_peak(data, xx, gij, basis, mismatch, dist, f_low, psd,
                 print(x)
                 print("")
         else:
-            if verbose: print("Maximum at the centre, stopping")
+            if verbose:
+                print("Maximum at the centre, stopping")
             break
 
     s = (matches[:, 0] - matches[:, 1]) * 0.25 / \
@@ -396,7 +423,7 @@ def find_peak(data, xx, gij, basis, mismatch, dist, f_low, psd,
         print("New position"),
         print(x + delta_x)
 
-    h = make_waveform(x, delta_x, dist, psd.delta_f, f_low, len(psd), approximant)
+    h = make_waveform(x, delta_x, dist, psd.delta_f, f_low, len(psd), mass, approximant)
     m_peak = match(data, h, psd, low_frequency_cutoff=f_low)[0]
     x_peak = x + delta_x
 
@@ -404,7 +431,7 @@ def find_peak(data, xx, gij, basis, mismatch, dist, f_low, psd,
 
 
 def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dist, f_low, f_high,
-                  approximant="IMRPhenomD", verbose=False):
+                  mass="chirp", approximant="IMRPhenomD", verbose=False):
     """
     A function to find the maximum SNR.
     Start at the point with parameters xx and use the metric gij to calculate eigen-directions.
@@ -414,6 +441,7 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
 
     :param data: the data containing the waveform of interest
     :param psd: the power spectrum to use in calculating the match
+    :param ifos: list of ifos to use
     :param t_start: start time to consider SNR peak
     :param t_end: end time to consider SNR peak
     :param xx: the point in parameter space used to calculate the metric
@@ -423,6 +451,7 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
     :param dist: distance to the signal
     :param f_low: low frequency cutoff
     :param f_high: high frequency cutoff
+    :param mass: either use chirp or total mass
     :param approximant: the approximant generator to use
     :param verbose: print debugging information (if True)
     :return x_prime: the point in the grid with the highest snr
@@ -440,7 +469,7 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
     flen = int(len(data[ifos[0]]) / 2 + 1)
 
     while True:
-        h = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, approximant)
+        h = make_waveform(x, np.zeros_like(x), dist, df, f_low, flen, mass, approximant)
         snrsq_0 = 0
         for ifo in ifos:
             snr = matched_filter(h, data[ifo], psd=psd[ifo], low_frequency_cutoff=f_low,
@@ -456,7 +485,7 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
             for j in range(2):
                 dx = (-1) ** j * v_phys[i]
                 alphas[i, j] = check_physical(x, dx)
-                h = make_waveform(x, alphas[i, j] * dx, dist, df, f_low, flen,
+                h = make_waveform(x, alphas[i, j] * dx, dist, df, f_low, flen, mass,
                                   approximant)
                 for ifo in ifos:
                     snr = matched_filter(h, data[ifo], psd=psd[ifo], low_frequency_cutoff=f_low,
@@ -506,7 +535,7 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
         print("New position"),
         print(x + delta_x)
 
-    h = make_waveform(x, delta_x, dist, df, f_low, flen, approximant)
+    h = make_waveform(x, delta_x, dist, df, f_low, flen, mass, approximant)
     snrsq_peak = 0
     for ifo in ifos:
         snr = matched_filter(h, data[ifo], psd=psd[ifo], low_frequency_cutoff=f_low,
@@ -529,7 +558,7 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, mismatch, dis
 
 
 def maximize_network_snr(mc_initial, eta_initial, chi_eff_initial, ifos, strain, psd, t_start, t_end, f_low,
-                         approximant):
+                         mass, approximant):
     """
     A function to find the maximum SNR in the network within a given time range
 
@@ -542,6 +571,7 @@ def maximize_network_snr(mc_initial, eta_initial, chi_eff_initial, ifos, strain,
     :param t_start: start time to consider SNR peak
     :param t_end: end time to consider SNR peak
     :param f_low: low frequency cutoff
+    :param mass: either chirp or total
     :param approximant: the approximant to use
     :return x: the parameters of the peak
     :return snr: the network snr
@@ -566,13 +596,12 @@ def maximize_network_snr(mc_initial, eta_initial, chi_eff_initial, ifos, strain,
     f_high = hm_psd.sample_frequencies[-1]
 
     while mismatch > min_mis:
-        basis = scale_vectors(x, v0, dist, mismatch, f_low, hm_psd, approximant=approximant)
-        gij = calculate_metric(x, basis, dist, f_low, hm_psd, approximant=approximant)
+        basis = scale_vectors(x, v0, dist, mismatch, f_low, hm_psd, mass, approximant)
+        gij = calculate_metric(x, basis, dist, f_low, hm_psd, mass, approximant)
         gij, v, t = iteratively_update_metric(x, gij, basis, mismatch, tolerance,
-                                              dist, f_low, hm_psd, approximant=approximant, max_iter=max_iter)
+                                              dist, f_low, hm_psd, mass, approximant, max_iter=max_iter)
         x, snr_now, steps = find_peak_snr(strain, psd, ifos, t_start, t_end, x, gij, basis, mismatch, dist,
-                                          f_low, f_high,
-                                          approximant=approximant)
+                                          f_low, f_high, mass, approximant)
 
         if x[1] == 0.25:
             x -= np.dot([0., 0.001, 0.], basis)
@@ -581,8 +610,8 @@ def maximize_network_snr(mc_initial, eta_initial, chi_eff_initial, ifos, strain,
             # didn't move much so reduce step size
             mismatch /= 4.
 
-    h = make_waveform(x, np.zeros_like(x), dist, hm_psd.delta_f, f_low, len(hm_psd),
-                      approximant=approximant)
+    h = make_waveform(x, np.zeros_like(x), dist, hm_psd.delta_f, f_low, len(hm_psd), mass,
+                      approximant)
     snr, ifo_snr = matched_filter_network(strain, psd, ifos, t_start, t_end, h, f_low, f_high)
 
     return x, snr, ifo_snr
@@ -627,6 +656,7 @@ def network_snr(mc_eta_sz, data, psd, t_start, t_end, f_low, approximant="IMRPhe
      :param t_start: start time to consider SNR peak
      :param t_end: end time to consider SNR peak
      :param f_low: low frequency cutoff
+     :param approximant: the approximant to use
      :return snr: the network snr
      """
 
