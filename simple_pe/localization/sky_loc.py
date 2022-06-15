@@ -17,4 +17,4 @@ def chisq_loc(t_r, t_i, d_i, f_band_i):
     chisq = np.sum(((t_i - t) + np.inner(r, d_i) / scipy.constants.c) ** 2 / f_band_i ** 2)
     return chisq
 
-def localization_from_timing()
+# def localization_from_timing()
