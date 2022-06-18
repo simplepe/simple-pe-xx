@@ -6,6 +6,7 @@ from pycbc.filter.matchedfilter import matched_filter
 from simple_pe.waveforms import waveform_modes
 import copy
 from scipy import optimize
+from scipy.stats import chi2
 from pesummary.gw.conversions import convert
 from pesummary.utils.samples_dict import SamplesDict
 
@@ -190,7 +191,7 @@ def scale_dx_array(x, dxs, desired_mismatch, dist, f_low, psd,
     return scaled_dx_array
 
 
-def calculate_metric(x, dxs, dist, f_low, psd, approximant="IMRPhenomD"):
+def calculate_metric(x, dxs, dist, f_low, psd, approximant="IMRPhenomD", verbose=False):
     """
     A function to calculate the metric at a point x, associated to a given set
     of variations in the directions given by dxs.
@@ -214,20 +215,28 @@ def calculate_metric(x, dxs, dist, f_low, psd, approximant="IMRPhenomD"):
         gij[i, i] += average_mismatch(x, dxs[i:i+1], scaling, dist, f_low, psd, approximant)
 
     # off diagonal
-    # g_ij = 0.25 * [- m(1/sqrt(2) (+ dx_i + dx_j)) - m(1/sqrt(2) (- dx_i - dx_j))
-    #                + m(1/sqrt(2) (+ dx_i - dx_j)) + m(1/sqrt(2) (- dx_i + dx_j))]
+    # g_ij = 0.25 * [+ m(1/sqrt(2) (+ dx_i + dx_j)) + m(1/sqrt(2) (- dx_i - dx_j))
+    #                - m(1/sqrt(2) (+ dx_i - dx_j)) - m(1/sqrt(2) (- dx_i + dx_j))]
     for i in range(ndim):
         for j in range(i + 1, ndim):
             for s in ([1, -1]):
                 dx = {}
                 for k, vals in dxs.items():
                     dx[k] = (vals[i] + s * vals[j]) / np.sqrt(2)
-                gij[i, j] -= 0.5 * s * average_mismatch(x, dx, scaling, dist, f_low, psd, approximant)
+                gij[i, j] += 0.5 * s * average_mismatch(x, dx, scaling, dist, f_low, psd, approximant)
             gij[j, i] = gij[i, j]
 
     # this gives the metric in coordinates given by the dxs.
     # Let's instead return the metric in physical parameter space
     gphys_ij = physical_metric(gij, dxs)
+
+    if verbose:
+        print("coordinate metric")
+        print(gij)
+        print("coordinate variations")
+        print(dxs)
+        print("physical metric")
+        print(gphys_ij)
 
     return gphys_ij
 
@@ -241,7 +250,7 @@ def physical_metric(gij, dxs):
     :return gphys: the metric in physical coordinates
     """
     dx_inv = np.linalg.inv(dxs.samples)
-    gphys_ij = np.inner(np.inner(dx_inv, gij), dx_inv)
+    gphys_ij = np.matmul(dx_inv.T, np.matmul(gij, dx_inv))
 
     return gphys_ij
 
@@ -257,7 +266,7 @@ def metric_error(gij, basis, desired_mismatch):
     :param desired_mismatch: the desired mismatch (equivalently, norm of evecs)
     :return max_err: the maximum error in the inner products
     """
-    vgv = np.inner(np.inner(basis.samples, gij), basis.samples)
+    vgv = np.matmul(basis.samples.T, np.matmul(gij, basis.samples))
     off_diag = np.max(abs(vgv[~np.eye(gij.shape[0], dtype=bool)]))
     diag = np.max(abs(np.diag(vgv)) - desired_mismatch)
     max_err = max(off_diag, diag)
@@ -281,7 +290,7 @@ def calculate_evecs(gij, desired_mismatch):
 
 
 def update_metric(x, gij, dx_directions, desired_mismatch, dist, f_low, psd,
-                  approximant="IMRPhenomD", tolerance=1e-2):
+                  approximant="IMRPhenomD", tolerance=1e-2, verbose=False):
     """
     A function to re-calculate the metric gij based on the matches obtained
     for the eigenvectors of the original metric
@@ -299,16 +308,16 @@ def update_metric(x, gij, dx_directions, desired_mismatch, dist, f_low, psd,
     :return ev_scale: a scaled set of eigenvectors
     """
     # calculate the eigendirections of the matrix
-    evecs = calculate_evecs(gij, desired_mismatch)
+    evecs = np.linalg.eig(gij)[1]
     dx0 = SamplesDict(dx_directions, evecs)
     # scale so that they actually have the desired mismatch
     dxs = scale_dx_array(x, dx0, desired_mismatch, dist, f_low, psd, approximant, tolerance)
-    g_prime = calculate_metric(x, dxs, dist, f_low, psd, approximant)
+    g_prime = calculate_metric(x, dxs, dist, f_low, psd, approximant, verbose)
 
     return g_prime, dxs
 
 
-def iteratively_update_metric(x, gij, dx_directions, desired_mismatch, dist,
+def iteratively_update_metric(x, gij, dxs, desired_mismatch, dist,
                               f_low, psd, approximant="IMRPhenomD", tolerance=1e-2,
                               max_iter=20, verbose=False):
     """
@@ -317,7 +326,7 @@ def iteratively_update_metric(x, gij, dx_directions, desired_mismatch, dist,
 
     :param x: the point in parameter space used to calculate the metric
     :param gij: the original metric
-    :param dx_directions: list of physical parameters corresponding to metric components
+    :param dxs: a dictionary of arrays with the initial change in parameters
     :param desired_mismatch: the desired mismatch
     :param dist: distance to the signal
     :param f_low: low frequency cutoff
@@ -328,20 +337,21 @@ def iteratively_update_metric(x, gij, dx_directions, desired_mismatch, dist,
     :param verbose: print debugging information
     :return g_prime: the updated metric
     :return v: scaled eigenvectors
+    :return tol: tolerance achieved
     """
-    g = gij
-    evecs = calculate_evecs(gij, desired_mismatch)
-    dx0 = SamplesDict(dx_directions, evecs)
-
     tol = tolerance * desired_mismatch
-    err = metric_error(g, dx0, desired_mismatch)
+
+    dx_directions = dxs.keys()
+    err = metric_error(gij, dxs, desired_mismatch)
     if verbose:
         print("Initial error in metric: %.2g" % err)
 
     op = 0
+    g = gij
+
     while (err > tol) and (op < max_iter):
         g, dxs = update_metric(x, g, dx_directions, desired_mismatch, dist,
-                             f_low, psd, approximant, tolerance)
+                             f_low, psd, approximant, tolerance, verbose)
         err = metric_error(g, dxs, desired_mismatch)
         op += 1
         if verbose:
@@ -354,8 +364,8 @@ def iteratively_update_metric(x, gij, dx_directions, desired_mismatch, dist,
     return g, dxs, tol
 
 
-def find_eigendirections(x, dx_directions, snr, n_sigmasq, f_low, psd, approximant="IMRPhenomD",
-                         tolerance=0.05, max_iter=20):
+def find_metric_and_eigendirections(x, dx_directions, snr, f_low, psd, approximant="IMRPhenomD",
+                         tolerance=0.05, max_iter=20, verbose=False):
     """
     Calculate the eigendirections in parameter space, normalized to enclose a 90% confidence
     region at the requested SNR
@@ -363,39 +373,36 @@ def find_eigendirections(x, dx_directions, snr, n_sigmasq, f_low, psd, approxima
     :param x: dictionary with parameter values for initial point
     :param dx_directions: list of parameters for which to calculate waveform variations
     :param snr: the observed SNR
-    :param n_sigmasq: number of sigmasq to use in scaling eigenvectors
     :param f_low: low frequency cutoff
     :param psd: the power spectrum to use in calculating the match
     :param mass: either chirp or total
     :param approximant: the approximant to use
     :param tolerance: the allowed error in the metric is (tolerance * mismatch)
+    :param verbose: print debugging information
     :param max_iter: the maximum number of iterations
     :return v_phys: the scaled eigendirections in physical space
+    :return gij: the mismatch metric in physical space
     """
     # initial directions and initial spacing
     ndim = len(dx_directions)
-    v0 = np.eye(ndim)
-
-    dist = 1.
+    n_sigmasq = chi2.isf(0.1, ndim)
     desired_mismatch = n_sigmasq / (2 * snr ** 2)
+    dist = 1.
 
-    dx0 = SamplesDict(dx_directions, v0)
-    scale = np.zeros(ndim)
-    for i in range(ndim):
-        dx = dx0[i:i + 1]
-        scale[i] = scale_dx(x, dx, desired_mismatch, dist, f_low, psd, approximant, tolerance)
+    dx0 = SamplesDict(dx_directions, np.eye(ndim))
 
-    dxs = SamplesDict(dx0.keys(), dx0.samples * scale)
-    gij = calculate_metric(x, dxs, dist, f_low, psd)
-    g, v, t = iteratively_update_metric(tmplt_peak, gij, basis, desired_mismatch, tolerance,
-                                        dist, f_low, psd, mass, approximant, max_iter)
-    v_phys = np.inner(v, basis)
+    dxs = scale_dx_array(x, dx0, desired_mismatch, dist, f_low, psd,
+                         approximant, tolerance)
 
-    return v_phys
+    gij = calculate_metric(x, dxs, dist, f_low, psd, approximant, verbose)
+    g, v, t = iteratively_update_metric(x, gij, dxs, desired_mismatch,
+                                        dist, f_low, psd, approximant, tolerance, max_iter, verbose)
+
+    return g, v
 
 
 def find_peak(data, xx, gij, basis, desired_mismatch, dist, f_low, psd,
-              mass="chirp", approximant="IMRPhenomD", verbose=False):
+          mass="chirp", approximant="IMRPhenomD", verbose=False):
     """
     A function to find the maximum match.
     This is done in two steps, first by finding the point in the grid defined
@@ -421,7 +428,7 @@ def find_peak(data, xx, gij, basis, desired_mismatch, dist, f_low, psd,
     x = copy.deepcopy(xx)
     evecs = calculate_evecs(gij, desired_mismatch)
     ndim = len(evecs)
-    v_phys = np.inner(evecs, basis.T)
+    v_phys = np.matmul(basis, evecs)
     steps = np.zeros(ndim)
 
     while True:
@@ -462,7 +469,7 @@ def find_peak(data, xx, gij, basis, desired_mismatch, dist, f_low, psd,
     s = (matches[:, 0] - matches[:, 1]) * 0.25 / \
         (m_0 - 0.5 * (matches[:, 0] + matches[:, 1]))
     steps += s
-    delta_x = np.inner(s, v_phys.T)
+    delta_x = np.matmul(v_phys, s)
     alpha = check_physical(x, delta_x)
     delta_x *= alpha
 
@@ -512,7 +519,7 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, desired_misma
     x = copy.deepcopy(xx)
     evecs = calculate_evecs(gij, desired_mismatch)
     ndim = len(evecs)
-    v_phys = np.inner(evecs, basis.T)
+    v_phys = np.matmul(evecs, basis)
     steps = np.zeros(ndim)
     df = psd[ifos[0]].delta_f
 
@@ -571,7 +578,7 @@ def find_peak_snr(data, psd, ifos, t_start, t_end, xx, gij, basis, desired_misma
         print("Step is too large -- there's an issue")
         print(s)
 
-    delta_x = np.inner(s, v_phys.T)
+    delta_x = np.matmul(s, v_phys)
     alpha = check_physical(x, delta_x)
     delta_x *= alpha
 
