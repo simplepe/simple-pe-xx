@@ -31,7 +31,7 @@ def make_waveform(x, dx, scaling, dist, df, f_low, flen, approximant="IMRPhenomD
     for k, dx_val in dx.items():
         tmp_x[k] += scaling * dx_val
 
-    if 'chi_eff' in dx.keys():
+    if 'chi_eff' in x.keys():
         tmp_x['spin1z'] = tmp_x['chi_eff']
         tmp_x['spin2z'] = tmp_x['chi_eff']
 
@@ -64,8 +64,8 @@ def check_physical(x, dx, scaling, maxs=None, mins=None):
                 'total_mass': 2.,
                 'symmetric_mass_ratio': 0.08,
                 'chi_eff': -0.98,
-                'spin_1z': -0.98,
-                'spin_2z': -0.98
+                'spin1z': -0.98,
+                'spin2z': -0.98
                 }
 
     if maxs is None:
@@ -73,8 +73,8 @@ def check_physical(x, dx, scaling, maxs=None, mins=None):
                 'total_mass': 1e4,
                 'symmetric_mass_ratio': 0.25,
                 'chi_eff': 0.98,
-                'spin_1z': 0.98,
-                'spin_2z': 0.98
+                'spin1z': 0.98,
+                'spin2z': 0.98
                 }
 
     alpha = 1.
