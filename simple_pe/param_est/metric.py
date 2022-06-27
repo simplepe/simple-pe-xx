@@ -49,6 +49,7 @@ class Metric:
         self.err = None
         self.projected_directions = None
         self.projected_metric = None
+        self.projection = None
 
         self.scale_dxs()
         self.calculate_metric()
@@ -174,11 +175,18 @@ class Metric:
             if x not in projected_directions:
                 kept[i] = False
 
-        # project out unwanted: g'_ab = g_ab - g_ai (ginv)^ij g_ij (where a,b run over kept, i,j over removed)
+        # project out unwanted: g'_ab = g_ab - g_ai (ginv)^ij g_jb (where a,b run over kept, i,j over removed)
+        # matrix to calculate the values of the maximized directions: x^i = (ginv)^ij g_jb
         ginv = np.linalg.inv(self.metric[~kept][:, ~kept])
-        self.projected_metric = self.metric[kept][:, kept] - np.matmul(self.metric[kept][:, ~kept],
-                                                                       np.matmul(ginv,
-                                                                                 self.metric[~kept][:, kept]))
+        self.projection = - np.matmul(ginv, self.metric[~kept][:, kept])
+        self.projected_metric = self.metric[kept][:, kept] + np.matmul(self.metric[kept][:, ~kept], self.projection)
+
+    def projected_evecs(self):
+        """
+        Return the evecs normalized to give the desired mismatch
+        """
+        evals, evec = np.linalg.eig(self.projected_metric)
+        return evec * np.sqrt(self.mismatch/evals)
 
 
 def make_waveform(x, dx, scaling, dist, df, f_low, flen, approximant="IMRPhenomD"):
@@ -198,18 +206,19 @@ def make_waveform(x, dx, scaling, dist, df, f_low, flen, approximant="IMRPhenomD
     """
 
     tmp_x = copy.deepcopy(x)
+
     for k, dx_val in dx.items():
-        tmp_x[k] += scaling * dx_val
+        tmp_x[k] += float(scaling * dx_val)
 
     if 'chi_eff' in x.keys():
-        tmp_x['spin1z'] = tmp_x['chi_eff']
-        tmp_x['spin2z'] = tmp_x['chi_eff']
+        tmp_x['spin_1z'] = tmp_x['chi_eff']
+        tmp_x['spin_2z'] = tmp_x['chi_eff']
 
-    data = convert(tmp_x)
+    data = convert(tmp_x, disable_remnant=True)
 
     h_plus, h_cross = get_fd_waveform(mass1=data['mass_1'], mass2=data['mass_2'],
-                                      spin1z=data['spin1z'],
-                                      spin2z=data['spin2z'],
+                                      spin1z=data['spin_1z'],
+                                      spin2z=data['spin_2z'],
                                       delta_f=df, distance=dist, f_lower=f_low,
                                       approximant=approximant,
                                       mode_array=waveform_modes.mode_array('22', approximant))
@@ -232,19 +241,23 @@ def check_physical(x, dx, scaling, maxs=None, mins=None):
     if mins is None:
         mins = {'chirp_mass': 1.,
                 'total_mass': 2.,
+                'mass_1': 1.,
+                'mass_2': 1.,
                 'symmetric_mass_ratio': 0.08,
                 'chi_eff': -0.98,
-                'spin1z': -0.98,
-                'spin2z': -0.98
+                'spin_1z': -0.98,
+                'spin_2z': -0.98
                 }
 
     if maxs is None:
         maxs = {'chirp_mass': 1e4,
                 'total_mass': 1e4,
+                'mass_1': 1e4,
+                'mass_2': 1e4,
                 'symmetric_mass_ratio': 0.25,
                 'chi_eff': 0.98,
-                'spin1z': 0.98,
-                'spin2z': 0.98
+                'spin_1z': 0.98,
+                'spin_2z': 0.98
                 }
 
     alpha = 1.
@@ -344,7 +357,6 @@ def find_metric_and_eigendirections(x, dx_directions, snr, f_low, psd, approxima
     :param snr: the observed SNR
     :param f_low: low frequency cutoff
     :param psd: the power spectrum to use in calculating the match
-    :param mass: either chirp or total
     :param approximant: the approximant to use
     :param tolerance: the allowed error in the metric is (tolerance * mismatch)
     :param verbose: print debugging information
