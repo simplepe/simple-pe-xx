@@ -1,8 +1,6 @@
 import numpy as np
-from pycbc.waveform import get_fd_waveform
-from pycbc import conversions
 from pycbc.filter.matchedfilter import matched_filter
-from simple_pe.parame_est import metric
+from simple_pe.param_est import metric
 from scipy import optimize
 from pesummary.utils.samples_dict import SamplesDict
 
@@ -34,7 +32,7 @@ def matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low):
     return np.sqrt(snrsq), smax
 
 
-def _neg_net_snrsq(x, x_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars=None):
+def _neg_net_snr(x, x_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars=None):
     """
     Calculate the negative waveform match, taking x as the values and
     dx as the parameters.  This is in a format that's appropriate
@@ -50,7 +48,7 @@ def _neg_net_snrsq(x, x_directions, ifos, data, psds, t_start, t_end, f_low, app
     :param f_low: low frequency cutoff
     :param approximant: the approximant to use
     :param fixed_pars: a dictionary of fixed parameters and values
-    :return -snrsq: the negative of the match at this point
+    :return -snr: the negative of the match at this point
     """
     s = dict(zip(x_directions, x))
     if fixed_pars is not None:
@@ -83,10 +81,10 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
     :param mismatch: the mismatch for calculating the metric
     :param tolerance: the allowed error in the metric is (tolerance * mismatch)
     :return x_prime: the point in the grid with the highest snr
-    :return snrsq_peak: the SNR squared at this point
+    :return snr_peak: the SNR squared at this point
     """
 
-    snrsq_peak = 0
+    snr_peak = 0
 
     if (method != 'metric') and (method != 'scipy'):
         print('Have only implemented metric and scipy optimize based methods')
@@ -97,12 +95,14 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
         x0 = np.array([x[k] for k in dx_directions])
         fixed_pars = {k: v for k, v in x.items() if k not in dx_directions}
 
-        out = optimize.minimize(_neg_net_snrsq, x0,
+        out = optimize.minimize(_neg_net_snr, x0,
                                 args=(dx_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars),
                                 bounds=bounds)
 
         x = dict(zip(dx_directions, out.x))
-        snrsq_peak = -out.fun
+        x.update(fixed_pars)
+
+        snr_peak = -out.fun
 
     elif method == 'metric':
         psd_harm = len(ifos) / sum([1. / psds[ifo] for ifo in ifos])
@@ -111,9 +111,9 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
 
         while True:
             h = metric.make_waveform(x, g.psd.delta_f, g.f_low, len(g.psd), g.approximant)
-            snrsq_0 = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
+            snr_0 = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
-            snrsqs = np.zeros([g.ndim, 2])
+            snrs = np.zeros([g.ndim, 2])
             alphas = np.zeros([g.ndim, 2])
 
             for i in range(g.ndim):
@@ -122,11 +122,11 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
                     h = metric.make_offset_waveform(x, g.normalized_evecs()[i:i + 1], alphas[i, j] * (-1) ** j,
                                              g.psd.delta_f, g.f_low, len(g.psd),
                                              g.approximant)
-                    snrsqs[i, j] = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
+                    snrs[i, j] = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
-            if snrsqs.max() > snrsq_0:
+            if snrs.max() > snr_0:
                 # maximum isn't at the centre so update location
-                i, j = np.unravel_index(np.argmax(snrsqs), snrsqs.shape)
+                i, j = np.unravel_index(np.argmax(snrs), snrs.shape)
                 for k, dx_val in g.normalized_evecs()[i:i + 1].items():
                     x[k] += float(alphas[i, j] * (-1) ** j * dx_val)
 
@@ -134,15 +134,15 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
                 # maximum is at the centre
                 break
 
-        s = (snrsqs[:, 0] - snrsqs[:, 1]) * 0.25 / \
-            (snrsq_0 - 0.5 * (snrsqs[:, 0] + snrsqs[:, 1]))
+        s = (snrs[:, 0] - snrs[:, 1]) * 0.25 / \
+            (snr_0 - 0.5 * (snrs[:, 0] + snrs[:, 1]))
         delta_x = SamplesDict(dx_directions, np.matmul(g.normalized_evecs().samples, s))
         alpha = metric.check_physical(x, delta_x, 1)
 
-        h = metric.make_offset_waveform(x, delta_x, alpha, psds.delta_f, f_low, len(psds), approximant)
-        snrsq_peak = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
+        h = metric.make_offset_waveform(x, delta_x, alpha, g.psd.delta_f, f_low, len(g.psd), approximant)
+        snr_peak = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
         for k, dx_val in delta_x.items():
             x[k] += float(alpha * dx_val)
 
-    return x, snrsq_peak
+    return x, snr_peak
