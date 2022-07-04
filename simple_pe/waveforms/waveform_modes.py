@@ -112,7 +112,7 @@ def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low,
     return h, h_perp, sigmas, zetas
 
 
-def orthonormalize_modes( h, ifo_psd, f_low, modes, dominant_mode='22'):
+def orthonormalize_modes(h, ifo_psd, f_low, modes, dominant_mode='22'):
     """
     Orthonormalize a set of waveforms for a given PSD
     Return normalized waveforms orthogonal to the dominant mode,
