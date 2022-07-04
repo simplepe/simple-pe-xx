@@ -7,21 +7,20 @@ from simple_pe.waveforms import waveform_modes
 from simple_pe.detectors import noise_curves
 
 
-
 def opening(mchirp, eta, chi_eff, chi_p, freq):
     mass_1 = conversions.mass1_from_mchirp_eta(mchirp, eta)
     mass_2 = conversions.mass2_from_mchirp_eta(mchirp, eta)
     beta, spin_1x, spin_1y, spin_1z, spin_2x, spin_2y, spin_2z = \
-                SimInspiralTransformPrecessingNewInitialConditions(
-                    0., 0., np.arctan2(chi_p,chi_eff), 0., 0.,
-                    np.sqrt(chi_p**2 + chi_eff**2), 0, mass_1 * MSUN_SI, mass_2 * MSUN_SI,
-                    float(freq), 0.)
+        SimInspiralTransformPrecessingNewInitialConditions(
+            0., 0., np.arctan2(chi_p, chi_eff), 0., 0.,
+            np.sqrt(chi_p ** 2 + chi_eff ** 2), 0, mass_1 * MSUN_SI, mass_2 * MSUN_SI,
+            float(freq), 0.)
     return beta
 
 
 def waveform_distances(tau, b, a_net, a_33, snrs, d_o, tau_o):
     """
-    Calculate the infer distance as a function of angle
+    Calculate the inferred distance as a function of angle
     b: the precession opening angle
     tau: tan(theta_jn/2)
     alpha: relative network sensitivity to 2nd polarization
@@ -61,7 +60,7 @@ def a33_vs_theta(a_33, snrs):
 
 
 def calculate_rho_33(mchirp, eta, chi_eff, theta, snr,
-             psd, f_low, interp_points=5, approximant="IMRPhenomXPHM"):
+                     psd, f_low, interp_points=5, approximant="IMRPhenomXPHM"):
     """
     Calculate the 33 SNRs
     :param mchirp:  array of chirp mass values
@@ -99,7 +98,7 @@ def calculate_rho_33(mchirp, eta, chi_eff, theta, snr,
 
 
 def calculate_rho_p(mchirp, eta, chi_eff, theta, chi_p, snr,
-             psd, f_low, approximant="IMRPhenomXPHM"):
+                    psd, f_low, approximant="IMRPhenomXPHM"):
     """
     Calculate the precessing SNR
     :param mchirp:  array of chirp mass values
@@ -119,10 +118,10 @@ def calculate_rho_p(mchirp, eta, chi_eff, theta, chi_p, snr,
     _, f_mean, _ = noise_curves.calc_reach_bandwidth(mass1, mass2, approximant, psd, f_low, thresh=8.)
 
     beta = np.zeros_like(mchirp)
-    for i,mc in enumerate(mchirp):
+    for i, mc in enumerate(mchirp):
         beta[i] = opening(mc, eta[i], chi_eff[i], chi_p[i], f_mean)
 
-    rho_p = snr * 4 * np.tan(beta/2) * np.tan(theta/2)
+    rho_p = snr * 4 * np.tan(beta / 2) * np.tan(theta / 2)
 
     return rho_p
 
@@ -136,6 +135,6 @@ def calculate_rho_2nd_pol(theta, a_net, snr):
     :return rho_2pol: array of SNRs in 2nd polarization
     """
 
-    rho_2pol = snr * 2 * np.tan(theta/2)**4 * 2 * a_net / (1 + a_net**2)
+    rho_2pol = snr * 2 * np.tan(theta / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
 
     return rho_2pol
