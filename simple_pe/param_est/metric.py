@@ -22,7 +22,8 @@ class Metric:
          metric at x along the directions given by dxs
     """
 
-    def __init__(self, x, dx_directions, mismatch, f_low, psd, approximant="IMRPhenomD", tolerance=1e-2):
+    def __init__(self, x, dx_directions, mismatch, f_low, psd,
+                 approximant="IMRPhenomD", tolerance=1e-2, n_sigma=None):
         """
         :param x: dictionary with parameter values for initial point
         :param dx_directions: a list of directions to vary
@@ -43,6 +44,7 @@ class Metric:
         self.psd = psd
         self.approximant = approximant
         self.tolerance = tolerance
+        self.n_sigma = n_sigma
         self.coordinate_metric = None
         self.metric = None
         self.evals = None
@@ -250,7 +252,7 @@ param_mins = {'chirp_mass': 1.,
               'total_mass': 2.,
               'mass_1': 1.,
               'mass_2': 1.,
-              'symmetric_mass_ratio': 0.08,
+              'symmetric_mass_ratio': 0.04,
               'chi_eff': -0.98,
               'spin_1z': -0.98,
               'spin_2z': -0.98
@@ -294,6 +296,31 @@ def check_physical(x, dx, scaling, maxs=None, mins=None):
             alpha = min(alpha, (maxs[k] - x[k]) / abs(scaling * dx[k]))
 
     return alpha
+
+
+def trim_unphysical(samples, maxs=None, mins=None):
+    """
+    Trim unphysical points from a SamplesDict
+
+    :param samples: SamplesDict containing sample points
+    :param maxs: the maximum permitted values of the physical parameters
+    :param mins: the minimum physical values of the physical parameters
+    :return physical_samples: SamplesDict with points outside the param max and min given
+    """
+    if mins is None:
+        mins = param_mins
+
+    if maxs is None:
+        maxs = param_maxs
+
+    keep = np.ones(samples.number_of_samples, bool)
+    for d,v in samples.items():
+        if d in maxs:
+            keep *= (v < maxs[d])
+        if d in mins:
+            keep *= (v > mins[d])
+
+    return SamplesDict(samples.keys(), samples.samples[:, keep])
 
 
 def scale_match(m_alpha, alpha):
@@ -388,7 +415,8 @@ def find_metric_and_eigendirections(x, dx_directions, snr, f_low, psd, approxima
     ndim = len(dx_directions)
     n_sigmasq = chi2.isf(0.1, ndim)
     desired_mismatch = n_sigmasq / (2 * snr ** 2)
-    g = Metric(x, dx_directions, desired_mismatch, f_low, psd, approximant, tolerance)
+    g = Metric(x, dx_directions, desired_mismatch, f_low, psd, approximant, tolerance,
+               n_sigma=np.sqrt(n_sigmasq))
     g.iteratively_update_metric(max_iter)
     return g
 
