@@ -15,7 +15,6 @@ class Metric:
     where the variations are given by dxs
     :param x: dictionary with parameter values for initial point
     :param dxs: a dictionary of arrays with the initial change in parameters
-    :param dist: distance to the signal
     :param f_low: low frequency cutoff
     :param psd: the power spectrum to use in calculating the match
     :param approximant: the approximant generator to use
@@ -34,6 +33,8 @@ class Metric:
         :param tolerance: tolerance for scaling vectors
         """
         self.x = x
+        if 'distance' not in self.x:
+            self.x['distance'] = 1.
         self.dx_directions = dx_directions
         self.ndim = len(dx_directions)
         self.dxs = SamplesDict(self.dx_directions, np.eye(self.ndim))
@@ -41,7 +42,6 @@ class Metric:
         self.f_low = f_low
         self.psd = psd
         self.approximant = approximant
-        self.distance = 1.
         self.tolerance = tolerance
         self.coordinate_metric = None
         self.metric = None
@@ -64,7 +64,7 @@ class Metric:
         scale = np.zeros(self.ndim)
         for i in range(self.ndim):
             dx = self.dxs[i:i + 1]
-            scale[i] = scale_dx(self.x, dx, self.mismatch, self.distance, self.f_low, self.psd,
+            scale[i] = scale_dx(self.x, dx, self.mismatch, self.f_low, self.psd,
                                 self.approximant, self.tolerance)
 
         self.dxs = SamplesDict(self.dx_directions, self.dxs.samples * scale)
@@ -76,7 +76,7 @@ class Metric:
         # diagonal components
         # g_ii = 1 - 0.5 [m(dx_i) + m(-dx_i)]
         for i in range(self.ndim):
-            gij[i, i] += average_mismatch(self.x, self.dxs[i:i + 1], scaling, self.distance, self.f_low,
+            gij[i, i] += average_mismatch(self.x, self.dxs[i:i + 1], scaling, self.f_low,
                                           self.psd, self.approximant)
 
         # off diagonal
@@ -88,7 +88,7 @@ class Metric:
                     dx = {}
                     for k, vals in self.dxs.items():
                         dx[k] = (vals[i] + s * vals[j]) / np.sqrt(2)
-                    gij[i, j] += 0.5 * s * average_mismatch(self.x, dx, scaling, self.distance,
+                    gij[i, j] += 0.5 * s * average_mismatch(self.x, dx, scaling,
                                                             self.f_low, self.psd, self.approximant)
                 gij[j, i] = gij[i, j]
 
@@ -189,18 +189,47 @@ class Metric:
         Return the evecs normalized to give the desired mismatch
         """
         evals, evec = np.linalg.eig(self.projected_metric)
-        return evec * np.sqrt(self.mismatch / evals)
+        return SamplesDict(self.projected_directions, evec * np.sqrt(self.mismatch / evals))
 
 
-def make_waveform(x, dx, scaling, dist, df, f_low, flen, approximant="IMRPhenomD"):
+def make_waveform(x, df, f_low, flen, approximant="IMRPhenomD"):
     """
     This function makes a waveform for the given parameters and
-    returns h_plus generated at value (x + dx).
+    returns h_plus generated at value x.
+
+    :param x: dictionary with parameter values for waveform generation
+    :param df: frequency spacing of points
+    :param f_low: low frequency cutoff
+    :param flen: length of the frequency domain array to generate
+    :param approximant: the approximant generator to use
+    :return h_plus: waveform at parameter space point x
+    """
+    tmp_x = copy.deepcopy(x)
+
+    if 'chi_eff' in x.keys():
+        tmp_x['spin_1z'] = float(tmp_x['chi_eff'])
+        tmp_x['spin_2z'] = float(tmp_x['chi_eff'])
+
+    data = convert(tmp_x, disable_remnant=True)
+
+    h_plus, h_cross = get_fd_waveform(mass1=data['mass_1'], mass2=data['mass_2'],
+                                      spin1z=data['spin_1z'],
+                                      spin2z=data['spin_2z'],
+                                      delta_f=df, distance=data['distance'], f_lower=f_low,
+                                      approximant=approximant,
+                                      mode_array=waveform_modes.mode_array('22', approximant))
+    h_plus.resize(flen)
+    return h_plus
+
+
+def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenomD"):
+    """
+    This function makes a waveform for the given parameters and
+    returns h_plus generated at value (x + scaling * dx).
 
     :param x: dictionary with parameter values for initial point
-    :param dx: dictionary with parameter variations
+    :param dx: dictionary with parameter variations (can be a subset of the parameters in x)
     :param scaling: the scaling to apply to dx
-    :param dist: distance to the signal
     :param df: frequency spacing of points
     :param f_low: low frequency cutoff
     :param flen: length of the frequency domain array to generate
@@ -212,19 +241,8 @@ def make_waveform(x, dx, scaling, dist, df, f_low, flen, approximant="IMRPhenomD
     for k, dx_val in dx.items():
         tmp_x[k] += float(scaling * dx_val)
 
-    if 'chi_eff' in x.keys():
-        tmp_x['spin_1z'] = float(tmp_x['chi_eff'])
-        tmp_x['spin_2z'] = float(tmp_x['chi_eff'])
+    h_plus = make_waveform(tmp_x, df, f_low, flen, approximant)
 
-    data = convert(tmp_x, disable_remnant=True)
-
-    h_plus, h_cross = get_fd_waveform(mass1=data['mass_1'], mass2=data['mass_2'],
-                                      spin1z=data['spin_1z'],
-                                      spin2z=data['spin_2z'],
-                                      delta_f=df, distance=dist, f_lower=f_low,
-                                      approximant=approximant,
-                                      mode_array=waveform_modes.mode_array('22', approximant))
-    h_plus.resize(flen)
     return h_plus
 
 
@@ -291,7 +309,7 @@ def scale_match(m_alpha, alpha):
     return m
 
 
-def average_mismatch(x, dx, scaling, dist, f_low, psd,
+def average_mismatch(x, dx, scaling, f_low, psd,
                      approximant="IMRPhenomD", verbose=False):
     """
     This function calculates the average match for steps of +dx and -dx
@@ -301,7 +319,6 @@ def average_mismatch(x, dx, scaling, dist, f_low, psd,
     :param x : dictionary with the initial point
     :param dx: dictionary with parameter variations
     :param scaling: the scaling to apply to dx
-    :param dist: distance to the signal
     :param f_low: low frequency cutoff
     :param psd: the power spectrum to use in calculating the match
     :param approximant: the approximant generator to use
@@ -310,10 +327,10 @@ def average_mismatch(x, dx, scaling, dist, f_low, psd,
     """
     a = {}
     m = {}
-    h0 = make_waveform(x, dx, 0., dist, psd.delta_f, f_low, len(psd), approximant)
+    h0 = make_waveform(x, psd.delta_f, f_low, len(psd), approximant)
     for s in [1., -1.]:
         a[s] = check_physical(x, dx, s * scaling)
-        h = make_waveform(x, dx, s * a[s] * scaling, dist, psd.delta_f, f_low, len(psd), approximant)
+        h = make_offset_waveform(x, dx, s * a[s] * scaling, psd.delta_f, f_low, len(psd), approximant)
         m[s] = match(h0, h, psd, low_frequency_cutoff=f_low)[0]
     if verbose:
         print("Had to scale steps to %.2f, %.2f" % (a[-1], a[1]))
@@ -327,7 +344,7 @@ def average_mismatch(x, dx, scaling, dist, f_low, psd,
     return mm
 
 
-def scale_dx(x, dx, desired_mismatch, dist, f_low, psd,
+def scale_dx(x, dx, desired_mismatch, f_low, psd,
              approximant="IMRPhenomD", tolerance=1e-2):
     """
     This function scales the input vectors so that the mismatch between
@@ -337,14 +354,13 @@ def scale_dx(x, dx, desired_mismatch, dist, f_low, psd,
     :param x: dictionary with parameter values for initial point
     :param dx: a dictionary with the initial change in parameters
     :param desired_mismatch: the desired mismatch (1 - match)
-    :param dist: distance to the signal
     :param f_low: low frequency cutoff
     :param psd: the power spectrum to use in calculating the match
     :param approximant: the approximant generator to use
     :param tolerance: the maximum fractional error in the mismatch
     :return scale: The required scaling of dx to achieve the desired mismatch
     """
-    opt = optimize.root_scalar(lambda a: average_mismatch(x, dx, a, dist, f_low, psd,
+    opt = optimize.root_scalar(lambda a: average_mismatch(x, dx, a, f_low, psd,
                                                           approximant=approximant) - desired_mismatch,
                                bracket=[0, 20], method='brentq', rtol=tolerance)
     scale = opt.root
@@ -396,7 +412,7 @@ def _neg_wf_match(x, x_directions, data, f_low, psd, approximant, fixed_pars=Non
     if fixed_pars is not None:
         s.update(fixed_pars)
 
-    h = make_waveform(s, s, 0, 1., psd.delta_f, f_low, len(psd), approximant)
+    h = make_waveform(s, psd.delta_f, f_low, len(psd), approximant)
 
     m = match(data, h, psd, low_frequency_cutoff=f_low)[0]
 
@@ -429,10 +445,11 @@ def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD"
 
     elif method == 'scipy':
         bounds = [(param_mins[k], param_maxs[k]) for k in dx_directions]
-        x0 = [x[k] for k in dx_directions]
+        x0 = np.array([x[k] for k in dx_directions])
+        fixed_pars = {k: v for k, v in x.items() if k not in dx_directions}
 
         out = optimize.minimize(_neg_wf_match, x0,
-                                args=(dx_directions, data, f_low, psd, approximant),
+                                args=(dx_directions, data, f_low, psd, approximant, fixed_pars),
                                 bounds=bounds)
 
         x = dict(zip(dx_directions, out.x))
@@ -443,7 +460,7 @@ def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD"
         g.iteratively_update_metric()
 
         while True:
-            h = make_waveform(x, x, 0., g.distance, g.psd.delta_f, g.f_low, len(g.psd), g.approximant)
+            h = make_waveform(x, g.psd.delta_f, g.f_low, len(g.psd), g.approximant)
 
             m_0, _ = match(data, h, g.psd, low_frequency_cutoff=g.f_low)
             matches = np.zeros([g.ndim, 2])
@@ -452,9 +469,9 @@ def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD"
             for i in range(g.ndim):
                 for j in range(2):
                     alphas[i, j] = check_physical(x, g.normalized_evecs()[i:i + 1], (-1) ** j)
-                    h = make_waveform(x, g.normalized_evecs()[i:i + 1], alphas[i, j] * (-1) ** j,
-                                      g.distance, g.psd.delta_f, g.f_low, len(g.psd),
-                                      g.approximant)
+                    h = make_offset_waveform(x, g.normalized_evecs()[i:i + 1], alphas[i, j] * (-1) ** j,
+                                             g.psd.delta_f, g.f_low, len(g.psd),
+                                             g.approximant)
                     matches[i, j] = match(data, h, g.psd, low_frequency_cutoff=g.f_low)[0]
 
             if matches.max() > m_0:
@@ -472,7 +489,7 @@ def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD"
         delta_x = SamplesDict(dx_directions, np.matmul(g.normalized_evecs().samples, s))
         alpha = check_physical(x, delta_x, 1)
 
-        h = make_waveform(x, delta_x, alpha, g.distance, psd.delta_f, f_low, len(psd), approximant)
+        h = make_offset_waveform(x, delta_x, alpha, psd.delta_f, f_low, len(psd), approximant)
         m_peak = match(data, h, psd, low_frequency_cutoff=f_low)[0]
 
         for k, dx_val in delta_x.items():
