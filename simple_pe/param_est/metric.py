@@ -140,8 +140,6 @@ class Metric:
         """
         A function to re-calculate the metric gij based on the matches obtained
         for the eigenvectors of the original metric
-
-        :param tolerance: the required accuracy in rescaling the basis vectors
         """
         # calculate the eigendirections of the matrix
         self.calculate_evecs()
@@ -192,6 +190,120 @@ class Metric:
         """
         evals, evec = np.linalg.eig(self.projected_metric)
         return SamplesDict(self.projected_directions, evec * np.sqrt(self.mismatch / evals))
+
+    def generate_ellipse(self, npts=100, projected=False, mismatch=None):
+        """
+        Generate an ellipse of points of constant mismatch
+
+        :param projected: use the projected metric if True, else use metric
+        :param npts: number of points in
+        :param mismatch: the mismatch at which to place the ellipse
+        (if None, then use the value associated with the metric)
+        :return ellipse_dict: SamplesDict with ellipse of points
+        """
+        if projected:
+            dx_dirs = self.projected_directions
+            n_evec = self.projected_evecs()
+        else:
+            dx_dirs = self.dx_directions
+            n_evec = self.normalized_evecs()
+
+        if len(dx_dirs) != 2:
+            print("We're expecting to plot a 2-d ellipse")
+            return -1
+
+        if mismatch:
+            r = np.sqrt(mismatch/self.mismatch)
+        else:
+            r = 1
+
+        # generate points on a circle
+        phi = np.linspace(0, 2 * np.pi, npts)
+        xx = r * np.cos(phi)
+        yy = r * np.sin(phi)
+        pts = np.array([xx, yy])
+
+        # project onto eigendirections
+        dx = SamplesDict(dx_dirs, np.matmul(n_evec.samples, pts))
+
+        # scale to be physical
+        alphas = np.zeros(npts)
+        for i in range(npts):
+            alphas[i] = check_physical(self.x, dx[i:i + 1], 1.)
+
+        ellipse_dict = SamplesDict(dx_dirs,
+                                   np.array([self.x[dx] for dx in dx_dirs]).reshape([2, 1]) + dx.samples * alphas)
+
+        return ellipse_dict
+
+    def generate_match_grid(self, npts=10, projected=False, mismatch=None):
+        """
+        Generate an ellipse of points of constant mismatch
+
+        :param projected: use the projected metric if True, else use metric
+        :param npts: number of points in each dimension of the grid
+        :param mismatch: the mismatch of the greatest extent of the grid
+        (if None, then use the value associated with the metric)
+        :return ellipse_dict: SamplesDict with ellipse of points
+        """
+        if projected:
+            dx_dirs = self.projected_directions + [x for x in self.dx_directions if x not in self.projected_directions]
+            n_evec = self.projected_evecs()
+        else:
+            dx_dirs = self.dx_directions
+            n_evec = self.normalized_evecs()
+
+        if mismatch:
+            r = np.sqrt(mismatch/self.mismatch)
+        else:
+            r = 1
+
+        grid = np.mgrid[-r:r:npts * 1j, -r:r:npts * 1j]
+        dx_data = np.tensordot(n_evec.samples, grid, axes=(1, 0))
+
+        if projected:
+            dx_extra = np.tensordot(self.projection, dx_data, axes=(1, 0))
+            dx_data = np.append(dx_data, dx_extra, 0)
+
+        dx = SamplesDict(dx_dirs, dx_data.reshape(len(dx_dirs), npts ** 2))
+
+        nsamp = dx.number_of_samples
+        m = np.zeros(nsamp)
+
+        h0 = make_waveform(self.x, self.psd.delta_f, self.f_low, len(self.psd), self.approximant)
+
+        for i in range(nsamp):
+            if check_physical(self.x, dx[i:i + 1], 1.) < 1:
+                m[i] = 0
+            else:
+                h1 = make_offset_waveform(self.x, dx[i:i + 1], 1.,
+                                          self.psd.delta_f, self.f_low, len(self.psd), self.approximant)
+                m[i] = match(h0, h1, self.psd, self.f_low)[0]
+
+        matches = SamplesDict(dx_dirs + ['match'],
+                              np.append(dx.samples + np.array([self.x[dx] for dx in dx_dirs]).reshape([len(dx_dirs), 1]),
+                                        m.reshape([1, npts ** 2]), 0).reshape([len(dx_dirs) + 1, npts, npts]))
+
+        return matches
+
+    def generate_samples(self, npts=int(1e5)):
+        """
+        Generate an ellipse of points of constant mismatch
+
+        :param npts: number of points to generate
+        :return phys_samples: SamplesDict with samples
+        """
+        pts = np.random.normal(0, 1, [2*npts, self.ndim])
+
+        sample_pts = SamplesDict(self.dx_directions,
+                                 (np.array([self.x[dx] for dx in self.normalized_evecs().keys()])
+                                  + np.matmul(pts, self.normalized_evecs().samples.T / self.n_sigma)).T)
+
+        phys_samples = trim_unphysical(sample_pts)
+        if phys_samples.number_of_samples > npts:
+            phys_samples = phys_samples.downsample(npts)
+
+        return phys_samples
 
 
 def make_waveform(x, df, f_low, flen, approximant="IMRPhenomD"):
