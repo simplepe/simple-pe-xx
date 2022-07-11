@@ -21,6 +21,32 @@ def opening(mchirp, eta, chi_eff, chi_p, freq):
     return beta
 
 
+def generate_theta_jn(samples, theta_dist='uniform'):
+    """
+    generate theta JN points with the desired distribution and include in the existing samples dict
+    :param samples: a PESummary SamplesDict
+    :param theta_dist: the distribution to use for theta.
+    Currently supports 'uniform', 'left_circ', 'right_circ'
+    """
+    npts = samples.number_of_samples
+    if theta_dist == 'uniform':
+        cos_theta = np.random.uniform(-1, 1, npts)
+    elif theta_dist == 'left_circ':
+        cos_theta = 2 * np.random.power(1 + 6, npts) - 1
+    elif theta_dist == 'left_circ':
+        cos_theta = 1 - 2 * np.random.power(1 + 6, npts)
+    else:
+        print("only implemented for 'uniform', 'left_circ', 'right_circ")
+        return -1
+
+    theta = np.arccos(cos_theta)
+
+    new_samples = SamplesDict(samples.keys() + ['theta_jn', 'cos_theta_jn'],
+                              np.append(samples.samples, np.array([theta, cos_theta]), 0))
+
+    return new_samples
+
+
 def waveform_distances(tau, b, a_net, a_33, snrs, d_o, tau_o):
     """
     Calculate the inferred distance as a function of angle
@@ -131,8 +157,6 @@ def calculate_rho_lm(samples, psd, f_low, net_snr, modes, interp_directions, int
                                               np.sin(2 * samples['polarization']) * fstat_hm.amp[m + 'x'](samples["theta_JN"]))
         else:
             rho_lm[m] = net_snr * alpha[m] * fstat_hm.amp[m+'+'](samples["theta_JN"])
-
-    s = samples.
 
     return rho_lm
 
