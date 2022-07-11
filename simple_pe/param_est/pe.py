@@ -153,12 +153,31 @@ def calculate_rho_lm(samples, psd, f_low, net_snr, modes, interp_directions, int
     for m in modes:
         alpha[m] = interpolate.interpn(pts, alpha_grid[m], np.array([samples[k] for k in interp_directions]).T)
         if "polarization" in samples.keys():
-            rho_lm[m] = net_snr * alpha[m] * (np.cos(2 * samples['polarization']) * fstat_hm.amp[m+'+'](samples["theta_JN"]) +
-                                              np.sin(2 * samples['polarization']) * fstat_hm.amp[m + 'x'](samples["theta_JN"]))
+            rho_lm[m] = net_snr * alpha[m] * (np.cos(2 * samples['polarization']) * fstat_hm.amp[m+'+'](samples["theta_jn"]) +
+                                              np.sin(2 * samples['polarization']) * fstat_hm.amp[m + 'x'](samples["theta_jn"]))
         else:
-            rho_lm[m] = net_snr * alpha[m] * fstat_hm.amp[m+'+'](samples["theta_JN"])
+            rho_lm[m] = net_snr * alpha[m] * fstat_hm.amp[m+'+'](samples["theta_jn"])
 
-    return rho_lm
+    new_samples = SamplesDict(samples.keys() + ['rho_' + k for k in rho_lm.keys()],
+                              np.append(samples.samples, np.array([rho_lm[k] for k in rho_lm.keys()]), 0))
+
+    return new_samples
+
+
+def calculate_rho_2nd_pol(samples, a_net, net_snr):
+    """
+    Calculate the SNR in the second polarization
+    :param samples: SamplesDict of samples
+    :param a_net: network sensitivity to x polarization (in DP frame)
+    :param net_nr: the network SNR
+    :return new_samples: SamplesDict with SNR for 2nd polarization
+    """
+
+    rho_2pol = net_snr * 2 * np.tan(samples['theta_jn'] / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
+
+    new_samples = SamplesDict(samples.keys() + ['rho_2pol'], np.append(samples.samples, rho_2pol, 0) )
+
+    return new_samples
 
 
 def calculate_rho_p(mchirp, eta, chi_eff, theta, chi_p, snr,
@@ -190,15 +209,4 @@ def calculate_rho_p(mchirp, eta, chi_eff, theta, chi_p, snr,
     return rho_p
 
 
-def calculate_rho_2nd_pol(theta, a_net, snr):
-    """
-    Calculate the SNR in the second polarization
-    :param theta: array of theta_JN values
-    :param a_net: network sensitivity to x polarization (in DP frame)
-    :param snr: the network SNR
-    :return rho_2pol: array of SNRs in 2nd polarization
-    """
 
-    rho_2pol = snr * 2 * np.tan(theta / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
-
-    return rho_2pol
