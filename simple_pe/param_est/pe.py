@@ -23,8 +23,8 @@ def calculate_opening(samples, freq):
 
         beta, spin_1x, spin_1y, spin_1z, spin_2x, spin_2y, spin_2z = \
             SimInspiralTransformPrecessingNewInitialConditions(
-                0., 0., np.arctan2(s["chi_p"][0], s["chi_eff"][0]), 0., 0.,
-                np.sqrt(s["chi_p"][0] ** 2 + s["chi_eff"][0] ** 2), 0,
+                0., 0., np.arctan2(s["chi_p"][0], s["chi_eff"][0]), np.arccos(np.sign(s["chi_eff"][0])), 0.,
+                np.sqrt(s["chi_p"][0] ** 2 + s["chi_eff"][0] ** 2), np.abs(s["chi_eff"][0]),
                 s["mass_1"][0] * MSUN_SI, s["mass_2"][0] * MSUN_SI,
                 float(freq), 0.)
         opening[i] = beta
@@ -72,7 +72,7 @@ def generate_theta_jn(samples, theta_dist='uniform'):
         cos_theta = np.random.uniform(-1, 1, npts)
     elif theta_dist == 'left_circ':
         cos_theta = 2 * np.random.power(1 + 6, npts) - 1
-    elif theta_dist == 'left_circ':
+    elif theta_dist == 'right_circ':
         cos_theta = 1 - 2 * np.random.power(1 + 6, npts)
     else:
         print("only implemented for 'uniform', 'left_circ', 'right_circ")
@@ -94,7 +94,7 @@ def generate_chi_p(samples, chi_p_dist='uniform'):
     Currently supports 'uniform'
     """
     if chi_p_dist == 'uniform':
-        chi_p_samples = np.random.uniform(0, np.sqrt(1 - samples.maximum['chi_eff'] ** 2), samples.number_of_samples)
+        chi_p_samples = np.random.uniform(0, np.sqrt(0.99 - samples.maximum['chi_eff'] ** 2), samples.number_of_samples)
     else:
         print("only implemented for 'uniform'")
         return -1
