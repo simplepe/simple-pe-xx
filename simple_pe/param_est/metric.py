@@ -197,8 +197,7 @@ class Metric:
 
         :param projected: use the projected metric if True, else use metric
         :param npts: number of points in
-        :param mismatch: the mismatch at which to place the ellipse
-        (if None, then use the value associated with the metric)
+        :param mismatch: the mismatch at which to place the ellipse (if None, then use the value associated with the metric)
         :return ellipse_dict: SamplesDict with ellipse of points
         """
         if projected:
@@ -213,7 +212,7 @@ class Metric:
             return -1
 
         if mismatch:
-            r = np.sqrt(mismatch/self.mismatch)
+            r = np.sqrt(mismatch / self.mismatch)
         else:
             r = 1
 
@@ -242,8 +241,7 @@ class Metric:
 
         :param projected: use the projected metric if True, else use metric
         :param npts: number of points in each dimension of the grid
-        :param mismatch: the mismatch of the greatest extent of the grid
-        (if None, then use the value associated with the metric)
+        :param mismatch: the mismatch of the greatest extent of the grid (if None, then use the value associated with the metric)
         :return ellipse_dict: SamplesDict with ellipse of points
         """
         if projected:
@@ -254,7 +252,7 @@ class Metric:
             n_evec = self.normalized_evecs()
 
         if mismatch:
-            r = np.sqrt(mismatch/self.mismatch)
+            r = np.sqrt(mismatch / self.mismatch)
         else:
             r = 1
 
@@ -281,8 +279,9 @@ class Metric:
                 m[i] = match(h0, h1, self.psd, self.f_low)[0]
 
         matches = SamplesDict(dx_dirs + ['match'],
-                              np.append(dx.samples + np.array([self.x[dx] for dx in dx_dirs]).reshape([len(dx_dirs), 1]),
-                                        m.reshape([1, npts ** 2]), 0).reshape([len(dx_dirs) + 1, npts, npts]))
+                              np.append(
+                                  dx.samples + np.array([self.x[dx] for dx in dx_dirs]).reshape([len(dx_dirs), 1]),
+                                  m.reshape([1, npts ** 2]), 0).reshape([len(dx_dirs) + 1, npts, npts]))
 
         return matches
 
@@ -293,7 +292,7 @@ class Metric:
         :param npts: number of points to generate
         :return phys_samples: SamplesDict with samples
         """
-        pts = np.random.normal(0, 1, [2*npts, self.ndim])
+        pts = np.random.normal(0, 1, [2 * npts, self.ndim])
 
         sample_pts = SamplesDict(self.dx_directions,
                                  (np.array([self.x[dx] for dx in self.normalized_evecs().keys()])
@@ -461,7 +460,7 @@ def trim_unphysical(samples, maxs=None, mins=None):
         maxs = param_maxs
 
     keep = np.ones(samples.number_of_samples, bool)
-    for d,v in samples.items():
+    for d, v in samples.items():
         if d in maxs:
             keep *= (v < maxs[d])
         if d in mins:
