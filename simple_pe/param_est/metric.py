@@ -306,6 +306,44 @@ class Metric:
         return phys_samples
 
 
+def generate_spin_z(samples):
+    """
+    Generate z-component spins from chi_eff
+    :param samples: SamplesDict with PE samples containing chi_eff
+    :return new_samples: SamplesDict with spin z-components
+    """
+    if 'chi_eff' not in samples.keys():
+        print("Need to specify 'chi_eff'")
+        return -1
+
+    # put chi_eff on both BHs, no x,y components
+    new_samples = SamplesDict(samples.keys() + ['spin_1z', 'spin_2z'],
+                              np.append(samples.samples, np.array([samples['chi_eff'], samples['chi_eff']]), 0))
+    return new_samples
+
+
+def generate_prec_spin(samples):
+    """
+    Generate component spins from chi_eff and chi_p
+    :param samples: SamplesDict with PE samples containing chi_eff and  chi_p
+    :return new_samples: SamplesDict with spin components where chi_eff goes on both BH, chi_p on BH 1
+    """
+    if ('chi_eff' not in samples.keys()) or ('chi_eff' not in samples.keys()):
+        print("Need to specify 'chi_eff' and 'chi_p")
+        return -1
+
+    a_1 = np.sqrt(samples["chi_p"] ** 2 + samples["chi_eff"] ** 2)
+    a_2 = np.abs(samples["chi_eff"])
+    tilt_1 = np.arctan2(samples["chi_p"], samples["chi_eff"])
+    tilt_2 = np.arccos(np.sign(samples["chi_eff"]))
+    phi_12 = np.zeros_like(a_1)
+    phi_jl = np.zeros_like(a_1)
+    new_samples = SamplesDict(samples.keys() + ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl'],
+                              np.append(samples.samples, np.array([a_1, a_2, tilt_1, tilt_2, phi_12, phi_jl]), 0))
+
+    return new_samples
+
+
 def make_waveform(x, df, f_low, flen, approximant="IMRPhenomD"):
     """
     This function makes a waveform for the given parameters and
@@ -318,13 +356,10 @@ def make_waveform(x, df, f_low, flen, approximant="IMRPhenomD"):
     :param approximant: the approximant generator to use
     :return h_plus: waveform at parameter space point x
     """
-    tmp_x = copy.deepcopy(x)
+    data = convert(x, disable_remnant=True)
 
-    if 'chi_eff' in x.keys():
-        tmp_x['spin_1z'] = float(tmp_x['chi_eff'])
-        tmp_x['spin_2z'] = float(tmp_x['chi_eff'])
-
-    data = convert(tmp_x, disable_remnant=True)
+    if ('spin_1z' not in data.keys()) or ('spin_2z' not in data.keys()):
+        data = generate_spin_z(data)
 
     h_plus, h_cross = get_fd_waveform(mass1=data['mass_1'], mass2=data['mass_2'],
                                       spin1z=data['spin_1z'],
