@@ -13,9 +13,9 @@ from scipy.stats import ncx2
 def calculate_opening(samples, freq):
     """
     generate the opening angle for each sample at the frequency given
+
     :param samples: a PESummary SamplesDict
-    :param freq: the frequency to use
-    Currently supports 'uniform', 'left_circ', 'right_circ'
+    :param freq: the frequency to use.
     """
     opening = np.zeros(samples.number_of_samples)
     for i in range(samples.number_of_samples):
@@ -35,6 +35,7 @@ def calculate_opening(samples, freq):
 def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_points, approximant):
     """
     generate interpolating functions for the amplitudes of the opening angle
+
     :param param_max: A dictionary containing the maximum value of each parameter
     :param param_min: A dictionary containing the maximum value of each parameter
     :param param_min: A dictionary containing the fixed parameters and their values
@@ -63,9 +64,9 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
 def generate_theta_jn(samples, theta_dist='uniform'):
     """
     generate theta JN points with the desired distribution and include in the existing samples dict
+
     :param samples: a PESummary SamplesDict
-    :param theta_dist: the distribution to use for theta.
-    Currently supports 'uniform', 'left_circ', 'right_circ'
+    :param theta_dist: the distribution to use for theta.  Currently supports 'uniform', 'left_circ', 'right_circ'
     """
     npts = samples.number_of_samples
     if theta_dist == 'uniform':
@@ -89,9 +90,9 @@ def generate_theta_jn(samples, theta_dist='uniform'):
 def generate_chi_p(samples, chi_p_dist='uniform'):
     """
     generate chi_p points with the desired distribution and include in the existing samples dict
+
     :param samples: a PESummary SamplesDict
-    :param chi_p_dist: the distribution to use for chi_p.
-    Currently supports 'uniform'
+    :param chi_p_dist: the distribution to use for chi_p. Currently supports 'uniform'
     """
     if chi_p_dist == 'uniform':
         chi_p_samples = np.random.uniform(0, np.sqrt(0.99 - samples.maximum['chi_eff'] ** 2), samples.number_of_samples)
@@ -108,6 +109,7 @@ def generate_chi_p(samples, chi_p_dist='uniform'):
 def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_points, modes, approximant):
     """
     generate interpolating functions for the amplitudes of the lm multipoles
+
     :param param_max: A dictionary containing the maximum value of each parameter
     :param param_min: A dictionary containing the maximum value of each parameter
     :param fixed_pars: A dictionary containing values of fixed parameters
@@ -152,6 +154,7 @@ def calculate_rho_lm(samples, psd, f_low, net_snr, modes, interp_directions, int
                      approximant="IMRPhenomXPHM"):
     """
     Calculate the higher mode SNRs
+
     :param samples: SamplesDict containing the samples
     :param psd: the PSD to use
     :param f_low: low frequency cutoff
@@ -191,6 +194,7 @@ def calculate_rho_lm(samples, psd, f_low, net_snr, modes, interp_directions, int
 def calculate_rho_2nd_pol(samples, a_net, net_snr):
     """
     Calculate the SNR in the second polarization
+
     :param samples: SamplesDict of samples
     :param a_net: network sensitivity to x polarization (in DP frame)
     :param net_snr: the network SNR
@@ -205,9 +209,10 @@ def calculate_rho_2nd_pol(samples, a_net, net_snr):
 
 
 def calculate_rho_p(samples, psd, f_low, net_snr, interp_directions, interp_points=5,
-                    approximant="IMRPhenomXPHM"):
+                    approximant="IMRPhenomXP"):
     """
     Calculate the precession SNR
+
     :param samples: SamplesDict containing the samples
     :param psd: the PSD to use
     :param f_low: low frequency cutoff
@@ -235,6 +240,7 @@ def calculate_rho_p(samples, psd, f_low, net_snr, interp_directions, interp_poin
 def calculate_hm_prec_probs(samples, hm_snr=None, prec_snr=None, snr_2pol=None):
     """
     Calculate the precession SNR
+
     :param samples: SamplesDict containing the samples
     :param hm_snr: dictionary of measured SNRs in higher modes
     :param prec_snr: measured precession SNR
@@ -272,17 +278,18 @@ def calculate_hm_prec_probs(samples, hm_snr=None, prec_snr=None, snr_2pol=None):
 def waveform_distances(tau, b, a_net, a_33, snrs, d_o, tau_o):
     """
     Calculate the inferred distance as a function of angle
-    b: the precession opening angle
-    tau: tan(theta_jn/2)
-    alpha: relative network sensitivity to 2nd polarization
-    d_L: the distance
+
+    :param b: the precession opening angle
+    :param tau: tan(theta_jn/2)
+    :param alpha: relative network sensitivity to 2nd polarization
+    :param d_L: the distance
     """
     amp = snrs['22'] * d_o * (1 + tau_o ** 2) ** 2 / (1 + tau ** 2) ** 2
-    amp_fac = {}
-    amp_fac['22'] = 1.
-    amp_fac['33'] = 2 * tau / (1 + tau ** 2) * 2 * a_33
-    amp_fac['prec'] = 4 * b * tau
-    amp_fac['left'] = 2 * tau ** 4 * 2 * a_net / (1 + a_net ** 2)
+    amp_fac = {'22': 1.,
+               '33': 2 * tau / (1 + tau ** 2) * 2 * a_33,
+               'prec': 4 * b * tau,
+               'left': 2 * tau ** 4 * 2 * a_net / (1 + a_net ** 2)
+               }
 
     dist = {}
     dt = {}
