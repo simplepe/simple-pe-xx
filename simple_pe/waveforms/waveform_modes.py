@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 from pycbc.waveform import td_approximants, fd_approximants, get_fd_waveform, get_td_waveform
 from pycbc.filter.matchedfilter import sigma, overlap_cplx, matched_filter
 
@@ -55,14 +56,15 @@ def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low,
     :return zetas: complex overlap with dominant mode
     """
     h = {}
+    all_modes = copy.deepcopy(modes)
 
-    if dominant_mode in modes:
+    if dominant_mode in all_modes:
         pass
     else:
-        modes.append(dominant_mode)
+        all_modes.append(dominant_mode)
 
     # generate the waveforms and normalize
-    for lm in modes:
+    for lm in all_modes:
         if lm == '22':
             inc = 0.
         else:
@@ -108,7 +110,7 @@ def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low,
             print("Bad approximant")
             return -1
 
-    h_perp, sigmas, zetas = orthonormalize_modes(h, ifo_psd, f_low, modes, dominant_mode)
+    h_perp, sigmas, zetas = orthonormalize_modes(h, ifo_psd, f_low, all_modes, dominant_mode)
     return h, h_perp, sigmas, zetas
 
 
