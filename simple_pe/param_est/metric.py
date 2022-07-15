@@ -19,7 +19,7 @@ class Metric:
     :param psd: the power spectrum to use in calculating the match
     :param approximant: the approximant generator to use
     :return gij: a square matrix, with size given by the length of dxs, that gives the
-         metric at x along the directions given by dxs
+    metric at x along the directions given by dxs
     """
 
     def __init__(self, x, dx_directions, mismatch, f_low, psd,
@@ -477,9 +477,10 @@ def scale_match(m_alpha, alpha):
 
     :param m_alpha: the match at an offset alpha
     :param alpha: the value of alpha
-    :return m : the match at unit offset
+    :return m: the match at unit offset
     """
     m = (alpha ** 2 - 1 + m_alpha) / alpha ** 2
+
     return m
 
 
