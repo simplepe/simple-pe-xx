@@ -88,8 +88,8 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
 
     if (method != 'metric') and (method != 'scipy'):
         print('Have only implemented metric and scipy optimize based methods')
-        m_peak = -1
-
+        return
+    
     elif method == 'scipy':
         bounds = [(metric.param_mins[k], metric.param_maxs[k]) for k in dx_directions]
         x0 = np.array([x[k] for k in dx_directions])
@@ -99,7 +99,9 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
                                 args=(dx_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars),
                                 bounds=bounds)
 
-        x = dict(zip(dx_directions, out.x))
+        x = {}
+        for dx, val in zip(dx_directions, out.x):
+            x[dx] = np.array([val])
         x.update(fixed_pars)
 
         snr_peak = -out.fun
