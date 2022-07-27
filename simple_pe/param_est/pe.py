@@ -10,6 +10,122 @@ from pesummary.utils.samples_dict import SamplesDict
 from scipy.stats import ncx2
 
 
+class SimplePESamples(SamplesDict):
+    """
+    Class for holding Simple PE Samples, and generating PE distributions
+    """
+    def __init__(self, *args, logger_warn="warn", autoscale=True):
+        """
+        Initialize as a SamplesDict
+        """
+        SamplesDict.__init__(self, *args, logger_warn, autoscale)
+
+    def generate_theta_jn(self, theta_dist='uniform', overwrite=False):
+
+        """
+        generate theta JN points with the desired distribution and include in the SimplePESamples
+
+        :param theta_dist: the distribution to use for theta.  Currently supports 'uniform', 'left_circ', 'right_circ'
+        :param overwrite: if True, then overwrite existing values, otherwise don't
+        """
+        npts = self.number_of_samples
+        if theta_dist == 'uniform':
+            cos_theta = np.random.uniform(-1, 1, npts)
+        elif theta_dist == 'left_circ':
+            cos_theta = 2 * np.random.power(1 + 6, npts) - 1
+        elif theta_dist == 'right_circ':
+            cos_theta = 1 - 2 * np.random.power(1 + 6, npts)
+        else:
+            print("only implemented for 'uniform', 'left_circ', 'right_circ")
+            return
+
+        if 'theta_jn' in self.keys() and overwrite:
+            print('Overwriting theta_jn values')
+            self.pop('theta_jn')
+        if 'cos_theta_jn' in self.keys() and overwrite:
+            print('Overwriting cos_theta_jn values')
+            self.pop('cos_theta_jn')
+
+        if ('theta_jn' not in self.keys()) and ('cos_theta_jn' not in self.keys()):
+            theta = np.arccos(cos_theta)
+            self['theta_jn'] = theta
+            self['cos_theta_jn'] = cos_theta
+        else:
+            print('Did not overwrite theta_jn and cos_theta_jn samples')
+
+    def generate_chi_p(self, chi_p_dist='uniform', overwrite=False):
+        """
+        generate chi_p points with the desired distribution and include in the existing samples dict
+
+        :param chi_p_dist: the distribution to use for chi_p. Currently supports 'uniform'
+        :param overwrite: if True, then overwrite existing values, otherwise don't
+        """
+        if chi_p_dist == 'uniform':
+            chi_p_samples = np.random.uniform(0, np.sqrt(0.99 - self.maximum['chi_eff'] ** 2), self.number_of_samples)
+        else:
+            print("only implemented for 'uniform'")
+            return
+
+        if 'chi_p' in self.keys() and overwrite:
+            print('Overwriting chi_p values')
+            self.pop('theta_jn')
+
+        if 'chi_p' not in self.keys():
+            self['chi_p'] = chi_p_samples
+        else:
+            print('Did not overwrite chi_p samples')
+
+    def generate_spin_z(self, overwrite=False):
+        """
+        Generate z-component spins from chi_eff
+
+        :param overwrite: if True, then overwrite existing values, otherwise don't
+        """
+        if 'chi_eff' not in self.keys():
+            print("Need to have 'chi_eff' in samples")
+            return
+
+        if 'spin_1z' in self.keys() and overwrite:
+            print('Overwriting spin_1z values')
+            self.pop('spin_1z')
+        if 'spin_2z' in self.keys() and overwrite:
+            print('Overwriting spin_2z values')
+            self.pop('spin_2z')
+
+        if ('spin_1z' not in self.keys()) and ('spin_2z' not in self.keys()):
+            # put chi_eff on both BHs, no x,y components
+            self['spin_1z'] = self['chi_eff']
+            self['spin_2z'] = self['chi_eff']
+        else:
+            print('Did not overwrite spin_1z and spin_2z samples')
+
+    def generate_prec_spin(self, overwrite=False):
+        """
+        Generate component spins from chi_eff and chi_p
+
+        :param overwrite: if True, then overwrite existing values, otherwise don't
+        """
+        if ('chi_eff' not in self.keys()) or ('chi_p' not in self.keys()):
+            print("Need to specify 'chi_eff' and 'chi_p'")
+            return
+
+        for k in ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl']:
+            if k in self.keys():
+                if overwrite:
+                    print('Overwriting %s values' % k)
+                    self.pop(k)
+                else:
+                    print('%s already in samples, not overwriting' % k)
+                    return
+
+        self['a_1'] = np.sqrt(self["chi_p"] ** 2 + self["chi_eff"] ** 2)
+        self['a_2'] = np.abs(self["chi_eff"])
+        self['tilt_1'] = np.arctan2(self["chi_p"], self["chi_eff"])
+        self['tilt_2'] = np.arccos(np.sign(self["chi_eff"]))
+        self['phi_12'] = np.zeros(self.number_of_samples)
+        self['phi_jl'] = np.zeros(self.number_of_samples)
+
+
 def calculate_opening(samples, freq):
     """
     generate the opening angle for each sample at the frequency given
@@ -59,51 +175,6 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
         opening[i] = calculate_opening(sample, f_mean)
 
     return opening, pts
-
-
-def generate_theta_jn(samples, theta_dist='uniform'):
-    """
-    generate theta JN points with the desired distribution and include in the existing samples dict
-
-    :param samples: a PESummary SamplesDict
-    :param theta_dist: the distribution to use for theta.  Currently supports 'uniform', 'left_circ', 'right_circ'
-    """
-    npts = samples.number_of_samples
-    if theta_dist == 'uniform':
-        cos_theta = np.random.uniform(-1, 1, npts)
-    elif theta_dist == 'left_circ':
-        cos_theta = 2 * np.random.power(1 + 6, npts) - 1
-    elif theta_dist == 'right_circ':
-        cos_theta = 1 - 2 * np.random.power(1 + 6, npts)
-    else:
-        print("only implemented for 'uniform', 'left_circ', 'right_circ")
-        return -1
-
-    theta = np.arccos(cos_theta)
-
-    new_samples = SamplesDict(samples.keys() + ['theta_jn', 'cos_theta_jn'],
-                              np.append(samples.samples, np.array([theta, cos_theta]), 0))
-
-    return new_samples
-
-
-def generate_chi_p(samples, chi_p_dist='uniform'):
-    """
-    generate chi_p points with the desired distribution and include in the existing samples dict
-
-    :param samples: a PESummary SamplesDict
-    :param chi_p_dist: the distribution to use for chi_p. Currently supports 'uniform'
-    """
-    if chi_p_dist == 'uniform':
-        chi_p_samples = np.random.uniform(0, np.sqrt(0.99 - samples.maximum['chi_eff'] ** 2), samples.number_of_samples)
-    else:
-        print("only implemented for 'uniform'")
-        return -1
-
-    new_samples = SamplesDict(samples.keys() + ['chi_p'],
-                              np.append(samples.samples, np.array([chi_p_samples]), 0))
-
-    return new_samples
 
 
 def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_points, modes, approximant):
