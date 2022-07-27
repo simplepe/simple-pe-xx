@@ -1,11 +1,8 @@
 import numpy as np
 from scipy import interpolate
-from lal import MSUN_SI, C_SI, MRSUN_SI
-from lalsimulation import SimInspiralTransformPrecessingNewInitialConditions
 from simple_pe.waveforms import waveform_modes
 from simple_pe.detectors import noise_curves
 from simple_pe.fstat import fstat_hm
-from pesummary.gw.conversions import convert
 from pesummary.utils.samples_dict import SamplesDict
 from scipy.stats import ncx2
 
@@ -20,8 +17,17 @@ class SimplePESamples(SamplesDict):
         """
         SamplesDict.__init__(self, *args, logger_warn, autoscale)
 
-    def generate_theta_jn(self, theta_dist='uniform', overwrite=False):
+    def add_fixed(self, name, value):
+        """
+        generate an additional parameter called 'name' with constant 'value'
 
+        :param name: the name of the parameter
+        :param value: its value
+        """
+        npts = self.number_of_samples
+        self[name] = np.ones(npts) * value
+
+    def generate_theta_jn(self, theta_dist='uniform', overwrite=False):
         """
         generate theta JN points with the desired distribution and include in the SimplePESamples
 
@@ -68,7 +74,7 @@ class SimplePESamples(SamplesDict):
 
         if 'chi_p' in self.keys() and overwrite:
             print('Overwriting chi_p values')
-            self.pop('theta_jn')
+            self.pop('chi_p')
 
         if 'chi_p' not in self.keys():
             self['chi_p'] = chi_p_samples
@@ -122,30 +128,101 @@ class SimplePESamples(SamplesDict):
         self['a_2'] = np.abs(self["chi_eff"])
         self['tilt_1'] = np.arctan2(self["chi_p"], self["chi_eff"])
         self['tilt_2'] = np.arccos(np.sign(self["chi_eff"]))
-        self['phi_12'] = np.zeros(self.number_of_samples)
-        self['phi_jl'] = np.zeros(self.number_of_samples)
+        self.add_fixed('phi_12', 0.)
+        self.add_fixed('phi_jl', 0.)
 
+    def calculate_rho_lm(self, psd, f_low, net_snr, modes, interp_directions, interp_points=5,
+                         approximant="IMRPhenomXPHM"):
+        """
+        Calculate the higher mode SNRs
 
-def calculate_opening(samples, freq):
-    """
-    generate the opening angle for each sample at the frequency given
+        :param psd: the PSD to use
+        :param f_low: low frequency cutoff
+        :param net_snr: the network SNR
+        :param modes: modes for which to calculate SNR
+        :param interp_directions: directions to interpolate
+        :param interp_points: number of points to interpolate alpha_lm
+        :param approximant: waveform approximant
+        """
+        maxs = dict((k, self.maximum[k]) for k in interp_directions)
+        mins = dict((k, self.minimum[k]) for k in interp_directions)
+        fixed_pars = {k: v[0] for k, v in self.mean.items() if k not in interp_directions}
 
-    :param samples: a PESummary SamplesDict
-    :param freq: the frequency to use.
-    """
-    opening = np.zeros(samples.number_of_samples)
-    for i in range(samples.number_of_samples):
-        s = convert(samples[i:i + 1], disable_remnant=True)
+        alpha_grid, pts = interpolate_alpha_lm(maxs, mins, fixed_pars, psd, f_low, interp_points, modes, approximant)
 
-        beta, spin_1x, spin_1y, spin_1z, spin_2x, spin_2y, spin_2z = \
-            SimInspiralTransformPrecessingNewInitialConditions(
-                0., 0., np.arctan2(s["chi_p"][0], s["chi_eff"][0]), np.arccos(np.sign(s["chi_eff"][0])), 0.,
-                np.sqrt(s["chi_p"][0] ** 2 + s["chi_eff"][0] ** 2), np.abs(s["chi_eff"][0]),
-                s["mass_1"][0] * MSUN_SI, s["mass_2"][0] * MSUN_SI,
-                float(freq), 0.)
-        opening[i] = beta
+        for m in modes:
+            alpha = interpolate.interpn(pts, alpha_grid[m], np.array([self[k] for k in interp_directions]).T)
+            if "polarization" in self.keys():
+                self['rho_' + m] = net_snr * alpha * (
+                        np.cos(2 * self['polarization']) *
+                        fstat_hm.amp[m + '+'](self["theta_jn"]) / fstat_hm.amp['22+'](self["theta_jn"]) +
+                        np.sin(2 * self['polarization']) *
+                        fstat_hm.amp[m + 'x'](self["theta_jn"]) / fstat_hm.amp['22x'](self["theta_jn"]))
+            else:
+                self['rho_' + m] = net_snr * alpha * fstat_hm.amp[m + '+'](self["theta_jn"]) / fstat_hm.amp['22+'](
+                    self["theta_jn"])
 
-    return opening
+    def calculate_rho_2nd_pol(self, a_net, net_snr):
+        """
+        Calculate the SNR in the second polarization
+
+        :param a_net: network sensitivity to x polarization (in DP frame)
+        :param net_snr: the network SNR
+        """
+        self['rho_2pol'] = net_snr * 2 * np.tan(self['theta_jn'] / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
+
+    def calculate_rho_p(self, psd, f_low, net_snr, interp_directions, interp_points=5,
+                        approximant="IMRPhenomXP"):
+        """
+        Calculate the precession SNR
+
+        :param psd: the PSD to use
+        :param f_low: low frequency cutoff
+        :param net_snr: the network SNR
+        :param interp_directions: directions to interpolate
+        :param interp_points: number of points to interpolate alpha_lm
+        :param approximant: waveform approximant
+        """
+        maxs = dict((k, self.maximum[k]) for k in interp_directions)
+        mins = dict((k, self.minimum[k]) for k in interp_directions)
+
+        fixed_pars = {k: v[0] for k, v in self.mean.items() if k not in interp_directions}
+
+        beta_grid, pts = interpolate_opening(maxs, mins, fixed_pars, psd, f_low, interp_points, approximant)
+
+        self['beta'] = interpolate.interpn(pts, beta_grid, np.array([self[k] for k in interp_directions]).T)
+        self['rho_p'] = net_snr * 4 * np.tan(self['beta'] / 2) * np.tan(self["theta_jn"] / 2)
+
+    def calculate_hm_prec_probs(self, hm_snr=None, prec_snr=None, snr_2pol=None):
+        """
+        Calculate the precession SNR
+
+        :param hm_snr: dictionary of measured SNRs in higher modes
+        :param prec_snr: measured precession SNR
+        :param snr_2pol: the SNR in the second polarization
+        """
+        weights = np.ones(self.number_of_samples)
+
+        if hm_snr is not None:
+            for lm, snr in hm_snr.items():
+                rv = ncx2(2, snr ** 2)
+                p = rv.pdf(self['rho_' + lm] ** 2)
+                self['p_' + lm] = p/p.max()
+                weights *  self['p_' + lm]
+
+        if prec_snr is not None:
+            rv = ncx2(2, prec_snr ** 2)
+            p = rv.pdf(self['rho_p'] ** 2)
+            self['p_p'] = p / p.max()
+            weights *= self['p_p']
+
+        if snr_2pol is not None:
+            rv = ncx2(2, snr_2pol ** 2)
+            p = rv.pdf(self['rho_2pol'] ** 2)
+            self['p_2pol'] = p/p.max()
+            weights *= self['p_2pol']
+
+        self['weight'] = weights
 
 
 def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_points, approximant):
@@ -154,27 +231,35 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
 
     :param param_max: A dictionary containing the maximum value of each parameter
     :param param_min: A dictionary containing the maximum value of each parameter
-    :param param_min: A dictionary containing the fixed parameters and their values
+    :param fixed_pars: the fixed parameters needed to generate the waveform
+    :param psd: the psd to use in calculating mean frequency, used for opening angle]
     :param f_low: the low frequency cutoff to use
-    :param grid_points: number of points to interpolate alpha_33 and beta
+    :param grid_points: number of points to interpolate opening angle
+    :param approximant: the waveform approximant to use
     :return opening: array of opening angle values interpolated across the grid
     :return pts: set of points used in each direction
     """
     dirs = param_max.keys()
     pts = [np.linspace(param_min[d][0], param_max[d][0], grid_points) for d in dirs]
-    grid = np.array(np.meshgrid(*pts, indexing='ij'))
+    grid_dict = dict(zip(dirs, np.array(np.meshgrid(*pts, indexing='ij'))))
 
-    opening = np.zeros_like(grid[0])
+    grid_samples = SimplePESamples({k: i.flatten() for k, i in grid_dict.items()})
+    for k, i in fixed_pars.items():
+        grid_samples.add_fixed(k, i)
+    grid_samples.add_fixed('f_ref', 0)
+    grid_samples.add_fixed('phase', 0)
+    grid_samples.generate_prec_spin()
+    grid_samples.generate_all_posterior_samples(disable_remnant=True)
 
-    for i, x in np.ndenumerate(grid[0]):
-        sample = SamplesDict(dirs, [grid[a][i] for a in range(len(grid))])
-        sample.update(fixed_pars)
-        sample = convert(sample, disable_remnant=True)
+    for i in range(grid_samples.number_of_samples):
+        sample = grid_samples[i:i+1]
         _, f_mean, _ = noise_curves.calc_reach_bandwidth(sample["mass_1"], sample["mass_2"],
                                                          approximant, psd, f_low, thresh=8.)
-        opening[i] = calculate_opening(sample, f_mean)
+        sample['f_ref'] = f_mean
 
-    return opening, pts
+    grid_samples.generate_all_posterior_samples(disable_remnant=True)
+
+    return grid_samples['beta'].reshape(list(grid_dict.values())[0].shape), pts
 
 
 def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_points, modes, approximant):
@@ -194,21 +279,20 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_poin
     """
     dirs = param_max.keys()
     pts = [np.linspace(param_min[d][0], param_max[d][0], grid_points) for d in dirs]
-    grid = np.array(np.meshgrid(*pts, indexing='ij'))
+    grid_dict = dict(zip(dirs, np.array(np.meshgrid(*pts, indexing='ij'))))
+
+    grid_samples = SimplePESamples({k: i.flatten() for k, i in grid_dict.items()})
+    for k, i in fixed_pars.items():
+        grid_samples.add_fixed(k, i)
+    grid_samples.generate_spin_z()
+    grid_samples.generate_all_posterior_samples(disable_remnant=True)
 
     alpha = {}
     for m in modes:
-        alpha[m] = np.zeros_like(grid[0])
+        alpha[m] = np.zeros(grid_samples.number_of_samples)
 
-    for i, x in np.ndenumerate(grid[0]):
-        sample = SamplesDict(dirs, [grid[a][i] for a in range(len(grid))])
-        sample.update(fixed_pars)
-        sample = convert(sample, disable_remnant=True)
-        # use equal component spins if chi_eff is given
-        if 'chi_eff' in sample.keys():
-            sample['spin_1z'] = float(sample['chi_eff'])
-            sample['spin_2z'] = float(sample['chi_eff'])
-
+    for i in range(grid_samples.number_of_samples):
+        sample = grid_samples[i:i+1]
         a, _ = waveform_modes.calculate_alpha_lm_and_overlaps(sample['mass_1'],
                                                               sample['mass_2'],
                                                               sample['spin_1z'],
@@ -218,158 +302,36 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_poin
         for m, al in alpha.items():
             al[i] = a[m]
 
+    for k, i in alpha.items():
+        alpha[k] = i.reshape(list(grid_dict.values())[0].shape)
+
     return alpha, pts
 
 
-def calculate_rho_lm(samples, psd, f_low, net_snr, modes, interp_directions, interp_points=5,
-                     approximant="IMRPhenomXPHM"):
-    """
-    Calculate the higher mode SNRs
-
-    :param samples: SamplesDict containing the samples
-    :param psd: the PSD to use
-    :param f_low: low frequency cutoff
-    :param net_snr: the network SNR
-    :param modes: modes for which to calculate SNR
-    :param interp_directions: directions to interpolate
-    :param interp_points: number of points to interpolate alpha_lm
-    :param approximant: waveform approximant
-    :return new_samples: SamplesDict including rho_lm for the specified modes
-    """
-    maxs = dict((k, samples.maximum[k]) for k in interp_directions)
-    mins = dict((k, samples.minimum[k]) for k in interp_directions)
-    fixed_pars = {k: v[0] for k, v in samples.mean.items() if k not in interp_directions}
-
-    alpha_grid, pts = interpolate_alpha_lm(maxs, mins, fixed_pars, psd, f_low, interp_points, modes, approximant)
-
-    alpha = {}
-    rho_lm = {}
-    for m in modes:
-        alpha[m] = interpolate.interpn(pts, alpha_grid[m], np.array([samples[k] for k in interp_directions]).T)
-        if "polarization" in samples.keys():
-            rho_lm[m] = net_snr * alpha[m] * (
-                    np.cos(2 * samples['polarization']) *
-                    fstat_hm.amp[m + '+'](samples["theta_jn"]) / fstat_hm.amp['22+'](samples["theta_jn"]) +
-                    np.sin(2 * samples['polarization']) *
-                    fstat_hm.amp[m + 'x'](samples["theta_jn"]) / fstat_hm.amp['22x'](samples["theta_jn"]))
-        else:
-            rho_lm[m] = net_snr * alpha[m] * fstat_hm.amp[m + '+'](samples["theta_jn"]) / fstat_hm.amp['22+'](
-                samples["theta_jn"])
-
-    new_samples = SamplesDict(samples.keys() + ['rho_' + k for k in rho_lm.keys()],
-                              np.append(samples.samples, np.array([rho_lm[k] for k in rho_lm.keys()]), 0))
-
-    return new_samples
-
-
-def calculate_rho_2nd_pol(samples, a_net, net_snr):
-    """
-    Calculate the SNR in the second polarization
-
-    :param samples: SamplesDict of samples
-    :param a_net: network sensitivity to x polarization (in DP frame)
-    :param net_snr: the network SNR
-    :return new_samples: SamplesDict with SNR for 2nd polarization
-    """
-
-    rho_2pol = net_snr * 2 * np.tan(samples['theta_jn'] / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
-
-    new_samples = SamplesDict(samples.keys() + ['rho_2pol'], np.append(samples.samples, [rho_2pol], 0))
-
-    return new_samples
-
-
-def calculate_rho_p(samples, psd, f_low, net_snr, interp_directions, interp_points=5,
-                    approximant="IMRPhenomXP"):
-    """
-    Calculate the precession SNR
-
-    :param samples: SamplesDict containing the samples
-    :param psd: the PSD to use
-    :param f_low: low frequency cutoff
-    :param net_snr: the network SNR
-    :param interp_directions: directions to interpolate
-    :param interp_points: number of points to interpolate alpha_lm
-    :param approximant: waveform approximant
-    :return new_samples: SamplesDict containing rho_p
-    """
-    maxs = dict((k, samples.maximum[k]) for k in interp_directions)
-    mins = dict((k, samples.minimum[k]) for k in interp_directions)
-
-    fixed_pars = {k: v[0] for k, v in samples.mean.items() if k not in interp_directions}
-
-    beta_grid, pts = interpolate_opening(maxs, mins, fixed_pars, psd, f_low, interp_points, approximant)
-
-    beta = interpolate.interpn(pts, beta_grid, np.array([samples[k] for k in interp_directions]).T)
-
-    rho_p = net_snr * 4 * np.tan(beta / 2) * np.tan(samples["theta_jn"] / 2)
-    new_samples = SamplesDict(samples.keys() + ['beta', 'rho_p'], np.append(samples.samples, [beta, rho_p], 0))
-
-    return new_samples
-
-
-def calculate_hm_prec_probs(samples, hm_snr=None, prec_snr=None, snr_2pol=None):
-    """
-    Calculate the precession SNR
-
-    :param samples: SamplesDict containing the samples
-    :param hm_snr: dictionary of measured SNRs in higher modes
-    :param prec_snr: measured precession SNR
-    :param snr_2pol: the SNR in the second polarization
-    :return new_samples: with probabilities for each SNR and an overall weight
-    """
-    prob = {}
-    if hm_snr is not None:
-        for lm, snr in hm_snr.items():
-            rv = ncx2(2, snr ** 2)
-            prob['p_' + lm] = rv.pdf(samples['rho_' + lm] ** 2)
-
-    if prec_snr is not None:
-        rv = ncx2(2, prec_snr ** 2)
-        prob['p_p'] = rv.pdf(samples['rho_p'] ** 2)
-
-    if snr_2pol is not None:
-        rv = ncx2(2, snr_2pol ** 2)
-        prob['p_2pol'] = rv.pdf(samples['rho_2pol'] ** 2)
-
-    # maximum prob = 1
-    weights = np.ones(samples.number_of_samples)
-    for p in prob.values():
-        p /= p.max()
-        weights *= p
-
-    weights /= weights.max()
-
-    new_samples = SamplesDict(samples.keys() + [k for k in prob.keys()] + ['weight'],
-                              np.append(samples.samples, np.array([prob[k] for k in prob.keys()] + [weights]), 0))
-
-    return new_samples
-
-
-def waveform_distances(tau, b, a_net, a_33, snrs, d_o, tau_o):
-    """
-    Calculate the inferred distance as a function of angle
-
-    :param b: the precession opening angle
-    :param tau: tan(theta_jn/2)
-    :param alpha: relative network sensitivity to 2nd polarization
-    :param d_L: the distance
-    """
-    amp = snrs['22'] * d_o * (1 + tau_o ** 2) ** 2 / (1 + tau ** 2) ** 2
-    amp_fac = {'22': 1.,
-               '33': 2 * tau / (1 + tau ** 2) * 2 * a_33,
-               'prec': 4 * b * tau,
-               'left': 2 * tau ** 4 * 2 * a_net / (1 + a_net ** 2)
-               }
-
-    dist = {}
-    dt = {}
-    modes = ['22', '33', 'prec', 'left']
-    for mode in modes:
-        m, v = ncx2.stats(2, snrs[mode] ** 2, moments='mv')
-        snr = np.array([np.sqrt(max(m + i * np.sqrt(v), 1e-15)) for i in range(-2, 3)])
-        mode_amp = amp * amp_fac[mode]
-        a, s = np.meshgrid(mode_amp, snr)
-        dist[mode] = a / s
-        dt[mode] = dist[mode] * (1 + tau ** 2) ** 2
-    return dist, dt
+# def waveform_distances(tau, b, a_net, a_33, snrs, d_o, tau_o):
+#     """
+#     Calculate the inferred distance as a function of angle
+#
+#     :param b: the precession opening angle
+#     :param tau: tan(theta_jn/2)
+#     :param alpha: relative network sensitivity to 2nd polarization
+#     :param d_L: the distance
+#     """
+#     amp = snrs['22'] * d_o * (1 + tau_o ** 2) ** 2 / (1 + tau ** 2) ** 2
+#     amp_fac = {'22': 1.,
+#                '33': 2 * tau / (1 + tau ** 2) * 2 * a_33,
+#                'prec': 4 * b * tau,
+#                'left': 2 * tau ** 4 * 2 * a_net / (1 + a_net ** 2)
+#                }
+#
+#     dist = {}
+#     dt = {}
+#     modes = ['22', '33', 'prec', 'left']
+#     for mode in modes:
+#         m, v = ncx2.stats(2, snrs[mode] ** 2, moments='mv')
+#         snr = np.array([np.sqrt(max(m + i * np.sqrt(v), 1e-15)) for i in range(-2, 3)])
+#         mode_amp = amp * amp_fac[mode]
+#         a, s = np.meshgrid(mode_amp, snr)
+#         dist[mode] = a / s
+#         dt[mode] = dist[mode] * (1 + tau ** 2) ** 2
+#     return dist, dt
