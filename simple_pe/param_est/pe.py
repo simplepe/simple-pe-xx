@@ -361,9 +361,9 @@ def calculate_interpolated_snrs(
         network sensitivity to x polarization (in DP frame) used to
         calculate the SNR in the second
     hm_interp_dirs: list
-        directions to interpole the higher multipole SNR calculation
+        directions to interpolate the higher multipole SNR calculation
     prec_interp_dirs: list
-        directions to interpole the precession SNR calculation
+        directions to interpolate the precession SNR calculation
     interp_points: int
         number of points to interpolate the SNRs
     approximant: str
