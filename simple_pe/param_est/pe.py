@@ -335,3 +335,70 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_poin
 #         dist[mode] = a / s
 #         dt[mode] = dist[mode] * (1 + tau ** 2) ** 2
 #     return dist, dt
+
+
+def calculate_interpolated_snrs(
+    samples, psd, f_low, dominant_snr, modes, alpha_net, hm_interp_dirs,
+    prec_interp_dirs, interp_points, approximant, **kwargs
+):
+    """Wrapper function to calculate the SNR in the (l,m) multipoles,
+    the SNR in the second polarisation and the SNR in precession.
+
+    Parameters
+    ----------
+    samples: simple_pe.param_est.pe.SimplePESamples
+        table of posterior distributions
+    psd: pycbc.types.frequencyseries
+        frequency series containing the PSD
+    f_low: float
+        low frequency cut-off to use for SNR calculations
+    dominant_snr: float
+        SNR in the dominant 22 multipole
+    modes: list
+        list of higher order multipoles that you wish to calculate
+        the SNR for
+    alpha_net: float
+        network sensitivity to x polarization (in DP frame) used to
+        calculate the SNR in the second
+    hm_interp_dirs: list
+        directions to interpole the higher multipole SNR calculation
+    prec_interp_dirs: list
+        directions to interpole the precession SNR calculation
+    interp_points: int
+        number of points to interpolate the SNRs
+    approximant: str
+        approximant to use when calculating the SNRs
+    """
+    if not isinstance(samples, SimplePESamples):
+        samples = SimplePESamples(samples)
+    samples.calculate_rho_lm(
+        psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points, approximant
+    )
+    samples.calculate_rho_2nd_pol(alpha_net, dominant_snr)
+    # generate required parameters if necessary
+    if "theta_jn" not in samples.keys():
+        samples.generate_theta_jn('left_circ')
+    if "chi_p" not in samples.keys():
+        samples.generate_chi_p('uniform')
+    samples.calculate_rho_p(
+        psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
+    )
+    return samples
+
+
+def reweight_based_on_observed_snrs(samples, **kwargs):
+    """Resample a table of posterior distributions based on the observed
+    SNR in the higher multipoles, precession and second polarisation.
+
+    Parameters
+    ----------
+    samples: simple_pe.param_est.pe.SimplePESamples
+        table containing posterior distributions
+    **kwargs: dict, optional
+        all kwargs passed to the samples.calculate_hm_prec_probs function
+    """
+    from pesummary.core.reweight import rejection_sampling
+    if not isinstance(samples, SimplePESamples):
+        samples = SimplePESamples(samples)
+    samples.calculate_hm_prec_probs(**kwargs)
+    return rejection_sampling(samples, samples['weight'])
