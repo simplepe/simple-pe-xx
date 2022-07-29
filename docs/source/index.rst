@@ -14,6 +14,7 @@ Welcome to simple-pe's documentation!
 
 
 .. toctree::
+   cosmology
    detectors
    fstat
    likelihood
