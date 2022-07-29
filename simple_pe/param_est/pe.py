@@ -371,15 +371,15 @@ def calculate_interpolated_snrs(
     """
     if not isinstance(samples, SimplePESamples):
         samples = SimplePESamples(samples)
-    samples.calculate_rho_lm(
-        psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points, approximant
-    )
-    samples.calculate_rho_2nd_pol(alpha_net, dominant_snr)
     # generate required parameters if necessary
     if "theta_jn" not in samples.keys():
         samples.generate_theta_jn('left_circ')
     if "chi_p" not in samples.keys():
         samples.generate_chi_p('uniform')
+    samples.calculate_rho_lm(
+        psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points, approximant
+    )
+    samples.calculate_rho_2nd_pol(alpha_net, dominant_snr)
     samples.calculate_rho_p(
         psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
     )
