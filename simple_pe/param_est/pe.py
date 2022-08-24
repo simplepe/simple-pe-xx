@@ -7,6 +7,30 @@ from pesummary.utils.samples_dict import SamplesDict
 from scipy.stats import ncx2
 
 
+def _add_chi_align(data):
+    """Add samples for chi_align. If spin_1z, spin_2z, mass_ratio are not
+    in data, samples for chi_align are not added to data
+
+    Parameters
+    ----------
+    data: dict
+        dictionary of samples
+    """
+    try:
+        data["chi_align"] = (
+            data["spin_1z"] + data["mass_ratio"]**(4. / 3) * data["spin_2z"]
+        ) / (1 + data["mass_ratio"]**(4. / 3))
+    except KeyError:
+        pass
+    return data
+
+
+def convert(*args, **kwargs):
+    from pesummary.gw.conversions import convert as _convert
+    data = _convert(*args, **kwargs)
+    return _add_chi_align(data)
+
+
 class SimplePESamples(SamplesDict):
     """
     Class for holding Simple PE Samples, and generating PE distributions
@@ -66,8 +90,9 @@ class SimplePESamples(SamplesDict):
         :param chi_p_dist: the distribution to use for chi_p. Currently supports 'uniform'
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
+        param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
         if chi_p_dist == 'uniform':
-            chi_p_samples = np.random.uniform(0, np.sqrt(0.99 - self.maximum['chi_eff'] ** 2), self.number_of_samples)
+            chi_p_samples = np.random.uniform(0, np.sqrt(0.99 - self.maximum[param] ** 2), self.number_of_samples)
         else:
             print("only implemented for 'uniform'")
             return
@@ -87,8 +112,8 @@ class SimplePESamples(SamplesDict):
 
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
-        if 'chi_eff' not in self.keys():
-            print("Need to have 'chi_eff' in samples")
+        if not any(_ in self.keys() for _ in ['chi_eff', 'chi_align']):
+            print("Need to have 'chi_align' in samples")
             return
 
         if 'spin_1z' in self.keys() and overwrite:
@@ -98,10 +123,11 @@ class SimplePESamples(SamplesDict):
             print('Overwriting spin_2z values')
             self.pop('spin_2z')
 
+        param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
         if ('spin_1z' not in self.keys()) and ('spin_2z' not in self.keys()):
             # put chi_eff on both BHs, no x,y components
-            self['spin_1z'] = self['chi_eff']
-            self['spin_2z'] = self['chi_eff']
+            self['spin_1z'] = self[param]
+            self['spin_2z'] = self[param]
         else:
             print('Did not overwrite spin_1z and spin_2z samples')
 
@@ -111,8 +137,9 @@ class SimplePESamples(SamplesDict):
 
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
-        if ('chi_eff' not in self.keys()) or ('chi_p' not in self.keys()):
-            print("Need to specify 'chi_eff' and 'chi_p'")
+        param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
+        if (param not in self.keys()) or ('chi_p' not in self.keys()):
+            print("Need to specify 'chi_eff'/'chi_align' and 'chi_p'")
             return
 
         for k in ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl']:
@@ -124,10 +151,10 @@ class SimplePESamples(SamplesDict):
                     print('%s already in samples, not overwriting' % k)
                     return
 
-        self['a_1'] = np.sqrt(self["chi_p"] ** 2 + self["chi_eff"] ** 2)
-        self['a_2'] = np.abs(self["chi_eff"])
-        self['tilt_1'] = np.arctan2(self["chi_p"], self["chi_eff"])
-        self['tilt_2'] = np.arccos(np.sign(self["chi_eff"]))
+        self['a_1'] = np.sqrt(self["chi_p"] ** 2 + self[param] ** 2)
+        self['a_2'] = np.abs(self[param])
+        self['tilt_1'] = np.arctan2(self["chi_p"], self[param])
+        self['tilt_2'] = np.arccos(np.sign(self[param]))
         self.add_fixed('phi_12', 0.)
         self.add_fixed('phi_jl', 0.)
 

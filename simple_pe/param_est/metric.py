@@ -5,7 +5,7 @@ from simple_pe.waveforms import waveform_modes
 import copy
 from scipy import optimize
 from scipy.stats import chi2
-from pesummary.gw.conversions import convert
+from simple_pe.param_est.pe import convert
 from pesummary.utils.samples_dict import SamplesDict
 
 
@@ -311,13 +311,14 @@ def generate_spin_z(samples):
     :param samples: SamplesDict with PE samples containing chi_eff
     :return new_samples: SamplesDict with spin z-components
     """
-    if 'chi_eff' not in samples.keys():
+    if any(_ in samples.keys() for _ in ["chi_eff", "chi_align"]):
+        param = "chi_eff" if "chi_eff" in samples.keys() else "chi_align"
+        # put chi_eff/chi_align on both BHs
+        new_samples = SamplesDict(samples.keys() + ['spin_1z', 'spin_2z'],
+                              np.append(samples.samples, np.array([samples[param], samples[param]]), 0))
+    else:
         print("Need to specify 'chi_eff'")
         return -1
-
-    # put chi_eff on both BHs, no x,y components
-    new_samples = SamplesDict(samples.keys() + ['spin_1z', 'spin_2z'],
-                              np.append(samples.samples, np.array([samples['chi_eff'], samples['chi_eff']]), 0))
     return new_samples
 
 
@@ -400,6 +401,7 @@ param_mins = {'chirp_mass': 1.,
               'mass_2': 1.,
               'symmetric_mass_ratio': 0.04,
               'chi_eff': -0.98,
+              'chi_align': -0.98,
               'spin_1z': -0.98,
               'spin_2z': -0.98
               }
@@ -410,6 +412,7 @@ param_maxs = {'chirp_mass': 1e4,
               'mass_2': 1e4,
               'symmetric_mass_ratio': 0.25,
               'chi_eff': 0.98,
+              'chi_align': 0.98,
               'spin_1z': 0.98,
               'spin_2z': 0.98
               }
