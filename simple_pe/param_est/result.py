@@ -65,6 +65,9 @@ class Result(GWSingleAnalysisRead):
     def generate_all_posterior_samples(self, function=None, **kwargs):
         samples = SamplesDict(self.samples_dict.copy())
         samples.generate_all_posterior_samples(function=function, **kwargs)
+        # add samples for chi_align
+        if "chi_align" not in samples.parameters:
+            samples = pe._add_chi_align(samples)
         self.samples = np.array(samples.samples).T
         self.parameters = samples.parameters
         
