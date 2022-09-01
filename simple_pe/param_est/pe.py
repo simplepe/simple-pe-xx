@@ -7,6 +7,30 @@ from pesummary.utils.samples_dict import SamplesDict
 from scipy.stats import ncx2
 
 
+def _add_chi_align(data):
+    """Add samples for chi_align. If spin_1z, spin_2z, mass_ratio are not
+    in data, samples for chi_align are not added to data
+
+    Parameters
+    ----------
+    data: dict
+        dictionary of samples
+    """
+    try:
+        data["chi_align"] = (
+            data["spin_1z"] + data["mass_ratio"]**(4. / 3) * data["spin_2z"]
+        ) / (1 + data["mass_ratio"]**(4. / 3))
+    except KeyError:
+        pass
+    return data
+
+
+def convert(*args, **kwargs):
+    from pesummary.gw.conversions import convert as _convert
+    data = _convert(*args, **kwargs)
+    return _add_chi_align(data)
+
+
 class SimplePESamples(SamplesDict):
     """
     Class for holding Simple PE Samples, and generating PE distributions
@@ -66,8 +90,31 @@ class SimplePESamples(SamplesDict):
         :param chi_p_dist: the distribution to use for chi_p. Currently supports 'uniform'
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
+        param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
         if chi_p_dist == 'uniform':
-            chi_p_samples = np.random.uniform(0, np.sqrt(0.99 - self.maximum['chi_eff'] ** 2), self.number_of_samples)
+            chi_p_samples = np.random.uniform(0, np.sqrt(0.99 - self.maximum[param] ** 2), self.number_of_samples)
+        elif chi_p_dist == "isotropic_on_sky":
+            from pesummary.gw.conversions import chi_p as _chi_p, q_from_eta, m1_from_mchirp_q, m2_from_mchirp_q
+            a_1 = np.random.uniform(0, np.sqrt(0.99 - self.maximum[param] ** 2), self.number_of_samples)
+            a_2 = np.random.uniform(0, np.sqrt(0.99 - self.maximum[param] ** 2), self.number_of_samples)
+            tilt_1 = np.arccos(np.random.uniform(0, 1, self.number_of_samples))
+            tilt_2 = np.arccos(np.random.uniform(0, 1, self.number_of_samples))
+            spin_1x = a_1 * np.cos(tilt_1)
+            spin_1y = np.zeros_like(spin_1x)
+            spin_1z = a_1 * np.sin(tilt_1)
+            spin_2x = a_2 * np.cos(tilt_2)
+            spin_2y = np.zeros_like(spin_2x)
+            spin_2z = a_2 * np.sin(tilt_2)
+            chirp_mass = np.random.uniform(
+                self.minimum["chirp_mass"], self.maximum["chirp_mass"], self.number_of_samples
+            )
+            mass_ratio = np.random.uniform(
+                q_from_eta(self.minimum["symmetric_mass_ratio"]), q_from_eta(self.maximum["symmetric_mass_ratio"]),
+                self.number_of_samples
+            )
+            mass_1 = m1_from_mchirp_q(chirp_mass, mass_ratio)
+            mass_2 = m2_from_mchirp_q(chirp_mass, mass_ratio)
+            chi_p_samples = _chi_p(mass_1, mass_2, spin_1x, spin_1y, spin_2x, spin_2y)
         else:
             print("only implemented for 'uniform'")
             return
@@ -87,8 +134,8 @@ class SimplePESamples(SamplesDict):
 
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
-        if 'chi_eff' not in self.keys():
-            print("Need to have 'chi_eff' in samples")
+        if not any(_ in self.keys() for _ in ['chi_eff', 'chi_align']):
+            print("Need to have 'chi_align' in samples")
             return
 
         if 'spin_1z' in self.keys() and overwrite:
@@ -98,10 +145,11 @@ class SimplePESamples(SamplesDict):
             print('Overwriting spin_2z values')
             self.pop('spin_2z')
 
+        param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
         if ('spin_1z' not in self.keys()) and ('spin_2z' not in self.keys()):
             # put chi_eff on both BHs, no x,y components
-            self['spin_1z'] = self['chi_eff']
-            self['spin_2z'] = self['chi_eff']
+            self['spin_1z'] = self[param]
+            self['spin_2z'] = self[param]
         else:
             print('Did not overwrite spin_1z and spin_2z samples')
 
@@ -111,8 +159,9 @@ class SimplePESamples(SamplesDict):
 
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
-        if ('chi_eff' not in self.keys()) or ('chi_p' not in self.keys()):
-            print("Need to specify 'chi_eff' and 'chi_p'")
+        param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
+        if (param not in self.keys()) or ('chi_p' not in self.keys()):
+            print("Need to specify 'chi_eff'/'chi_align' and 'chi_p'")
             return
 
         for k in ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl']:
@@ -124,10 +173,10 @@ class SimplePESamples(SamplesDict):
                     print('%s already in samples, not overwriting' % k)
                     return
 
-        self['a_1'] = np.sqrt(self["chi_p"] ** 2 + self["chi_eff"] ** 2)
-        self['a_2'] = np.abs(self["chi_eff"])
-        self['tilt_1'] = np.arctan2(self["chi_p"], self["chi_eff"])
-        self['tilt_2'] = np.arccos(np.sign(self["chi_eff"]))
+        self['a_1'] = np.sqrt(self["chi_p"] ** 2 + self[param] ** 2)
+        self['a_2'] = np.abs(self[param])
+        self['tilt_1'] = np.arctan2(self["chi_p"], self[param])
+        self['tilt_2'] = np.arccos(np.sign(self[param]))
         self.add_fixed('phi_12', 0.)
         self.add_fixed('phi_jl', 0.)
 
@@ -277,6 +326,7 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_poin
     :return alpha: dictionary of alpha[lm] values interpolated across the grid
     :return pts: set of points used in each direction
     """
+    import tqdm
     dirs = param_max.keys()
     pts = [np.linspace(param_min[d][0], param_max[d][0], grid_points) for d in dirs]
     grid_dict = dict(zip(dirs, np.array(np.meshgrid(*pts, indexing='ij'))))
@@ -291,7 +341,7 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_poin
     for m in modes:
         alpha[m] = np.zeros(grid_samples.number_of_samples)
 
-    for i in range(grid_samples.number_of_samples):
+    for i in tqdm.tqdm(range(grid_samples.number_of_samples), desc="calculating alpha_lm on grid"):
         sample = grid_samples[i:i+1]
         a, _ = waveform_modes.calculate_alpha_lm_and_overlaps(sample['mass_1'],
                                                               sample['mass_2'],
@@ -375,7 +425,7 @@ def calculate_interpolated_snrs(
     if "theta_jn" not in samples.keys():
         samples.generate_theta_jn('left_circ')
     if "chi_p" not in samples.keys():
-        samples.generate_chi_p('uniform')
+        samples.generate_chi_p('isotropic_on_sky')
     samples.calculate_rho_lm(
         psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points, approximant
     )

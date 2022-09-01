@@ -5,7 +5,7 @@ from simple_pe.waveforms import waveform_modes
 import copy
 from scipy import optimize
 from scipy.stats import chi2
-from pesummary.gw.conversions import convert
+from simple_pe.param_est.pe import convert
 from pesummary.utils.samples_dict import SamplesDict
 
 
@@ -276,7 +276,7 @@ class Metric:
             else:
                 h1 = make_offset_waveform(self.x, dx[i:i + 1], 1.,
                                           self.psd.delta_f, self.f_low, len(self.psd), self.approximant)
-                m[i] = match(h0, h1, self.psd, self.f_low)[0]
+                m[i] = match(h0, h1, self.psd, self.f_low, subsample_interpolation=True)[0]
 
         matches = SamplesDict(dx_dirs + ['match'],
                               np.append(
@@ -311,13 +311,14 @@ def generate_spin_z(samples):
     :param samples: SamplesDict with PE samples containing chi_eff
     :return new_samples: SamplesDict with spin z-components
     """
-    if 'chi_eff' not in samples.keys():
+    if any(_ in samples.keys() for _ in ["chi_eff", "chi_align"]):
+        param = "chi_eff" if "chi_eff" in samples.keys() else "chi_align"
+        # put chi_eff/chi_align on both BHs
+        new_samples = SamplesDict(samples.keys() + ['spin_1z', 'spin_2z'],
+                              np.append(samples.samples, np.array([samples[param], samples[param]]), 0))
+    else:
         print("Need to specify 'chi_eff'")
         return -1
-
-    # put chi_eff on both BHs, no x,y components
-    new_samples = SamplesDict(samples.keys() + ['spin_1z', 'spin_2z'],
-                              np.append(samples.samples, np.array([samples['chi_eff'], samples['chi_eff']]), 0))
     return new_samples
 
 
@@ -400,6 +401,7 @@ param_mins = {'chirp_mass': 1.,
               'mass_2': 1.,
               'symmetric_mass_ratio': 0.04,
               'chi_eff': -0.98,
+              'chi_align': -0.98,
               'spin_1z': -0.98,
               'spin_2z': -0.98
               }
@@ -410,6 +412,7 @@ param_maxs = {'chirp_mass': 1e4,
               'mass_2': 1e4,
               'symmetric_mass_ratio': 0.25,
               'chi_eff': 0.98,
+              'chi_align': 0.98,
               'spin_1z': 0.98,
               'spin_2z': 0.98
               }
@@ -505,7 +508,7 @@ def average_mismatch(x, dx, scaling, f_low, psd,
     for s in [1., -1.]:
         a[s] = check_physical(x, dx, s * scaling)
         h = make_offset_waveform(x, dx, s * a[s] * scaling, psd.delta_f, f_low, len(psd), approximant)
-        m[s] = match(h0, h, psd, low_frequency_cutoff=f_low)[0]
+        m[s] = match(h0, h, psd, low_frequency_cutoff=f_low, subsample_interpolation=True)[0]
     if verbose:
         print("Had to scale steps to %.2f, %.2f" % (a[-1], a[1]))
         print("Mismatches %.3f, %.3f" % (1 - m[-1], 1 - m[1]))
@@ -589,9 +592,35 @@ def _neg_wf_match(x, x_directions, data, f_low, psd, approximant, fixed_pars=Non
 
     h = make_waveform(s, psd.delta_f, f_low, len(psd), approximant)
 
-    m = match(data, h, psd, low_frequency_cutoff=f_low)[0]
+    m = match(data, h, psd, low_frequency_cutoff=f_low, subsample_interpolation=True)[0]
 
     return -m
+
+
+def _log_wf_mismatch(x, x_directions, data, f_low, psd, approximant, fixed_pars=None):
+    """
+    Calculate the negative waveform match, taking x as the values and
+    dx as the parameters.  This is in a format that's appropriate
+    for scipy.optimize
+
+    :param x: list of values
+    :param x_directions: list of parameters for which to calculate waveform variations
+    :param data: the data containing the waveform of interest
+    :param f_low: low frequency cutoff
+    :param psd: the power spectrum to use in calculating the match
+    :param approximant: the approximant to use
+    :param fixed_pars: a dictionary of fixed parameters and values
+    :return -m: the negative of the match at this point
+    """
+    s = dict(zip(x_directions, x))
+    if fixed_pars is not None:
+        s.update(fixed_pars)
+
+    h = make_waveform(s, psd.delta_f, f_low, len(psd), approximant)
+
+    m = match(data, h, psd, low_frequency_cutoff=f_low, subsample_interpolation=True)[0]
+
+    return np.log10(1-m)
 
 
 def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD",
@@ -623,12 +652,19 @@ def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD"
         x0 = np.array([x[k] for k in dx_directions])
         fixed_pars = {k: v for k, v in x.items() if k not in dx_directions}
 
-        out = optimize.minimize(_neg_wf_match, x0,
+        # out = optimize.minimize(_neg_wf_match, x0,
+        #                         args=(dx_directions, data, f_low, psd, approximant, fixed_pars),
+        #                         bounds=bounds)
+        #
+        # x = dict(zip(dx_directions, out.x))
+        # m_peak = -out.fun
+
+        out = optimize.minimize(_log_wf_mismatch, x0,
                                 args=(dx_directions, data, f_low, psd, approximant, fixed_pars),
                                 bounds=bounds)
 
         x = dict(zip(dx_directions, out.x))
-        m_peak = -out.fun
+        m_peak = 1-10**(out.fun)
 
     elif method == 'metric':
         g = Metric(x, dx_directions, mismatch, f_low, psd, approximant, tolerance)
@@ -637,7 +673,7 @@ def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD"
         while True:
             h = make_waveform(x, g.psd.delta_f, g.f_low, len(g.psd), g.approximant)
 
-            m_0, _ = match(data, h, g.psd, low_frequency_cutoff=g.f_low)
+            m_0, _ = match(data, h, g.psd, low_frequency_cutoff=g.f_low, subsample_interpolation=True)
             matches = np.zeros([g.ndim, 2])
             alphas = np.zeros([g.ndim, 2])
 
@@ -647,7 +683,8 @@ def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD"
                     h = make_offset_waveform(x, g.normalized_evecs()[i:i + 1], alphas[i, j] * (-1) ** j,
                                              g.psd.delta_f, g.f_low, len(g.psd),
                                              g.approximant)
-                    matches[i, j] = match(data, h, g.psd, low_frequency_cutoff=g.f_low)[0]
+                    matches[i, j] = match(data, h, g.psd, low_frequency_cutoff=g.f_low,
+                                          subsample_interpolation=True)[0]
 
             if matches.max() > m_0:
                 # maximum isn't at the centre so update location
@@ -665,7 +702,8 @@ def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD"
         alpha = check_physical(x, delta_x, 1)
 
         h = make_offset_waveform(x, delta_x, alpha, psd.delta_f, f_low, len(psd), approximant)
-        m_peak = match(data, h, psd, low_frequency_cutoff=f_low)[0]
+        m_peak = match(data, h, psd, low_frequency_cutoff=f_low,
+                       subsample_interpolation=True)[0]
 
         for k, dx_val in delta_x.items():
             x[k] += float(alpha * dx_val)
