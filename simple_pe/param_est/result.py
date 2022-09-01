@@ -1,5 +1,5 @@
 import numpy as np
-from simple_pe.param_est import pe
+from simple_pe.param_est import pe, metric
 from pesummary.utils.samples_dict import SamplesDict
 from pesummary.gw.file.formats.base_read import GWSingleAnalysisRead
 
@@ -39,12 +39,16 @@ class Result(GWSingleAnalysisRead):
     @property
     def alpha_net(self):
         return self._alpha_net
+
+    @property
+    def samples_dict(self):
+        data = super(Result, self).samples_dict
+        return pe.SimplePESamples(data)
     
     def generate_metric(
         self, metric_directions, template_parameters=None, dominant_snr=None,
         tolerance=0.01, max_iter=10
     ):
-        from simple_pe.param_est import metric
         if template_parameters is not None:
             self._template_parameters = template_parameters
         if dominant_snr is not None:
@@ -63,11 +67,8 @@ class Result(GWSingleAnalysisRead):
         return samples
     
     def generate_all_posterior_samples(self, function=None, **kwargs):
-        samples = SamplesDict(self.samples_dict.copy())
+        samples = self.samples_dict
         samples.generate_all_posterior_samples(function=function, **kwargs)
-        # add samples for chi_align
-        if "chi_align" not in samples.parameters:
-            samples = pe._add_chi_align(samples)
         self.samples = np.array(samples.samples).T
         self.parameters = samples.parameters
         
