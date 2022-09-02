@@ -62,7 +62,8 @@ def _neg_net_snr(x, x_directions, ifos, data, psds, t_start, t_end, f_low, appro
 
 
 def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
-                  f_low, approximant="IMRPhenomD", method='metric', mismatch=0.03, tolerance=0.01):
+                  f_low, approximant="IMRPhenomD", method='metric', initial_mismatch=0.03, final_mismatch=0.001,
+                  tolerance=0.01):
     """
     A function to find the maximum SNR.
     Either calculate a metric at the point x in dx_directions and walk to peak, or use
@@ -78,7 +79,8 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
     :param f_low: low frequency cutoff
     :param approximant: the approximant to use
     :param method: how to find the maximum
-    :param mismatch: the mismatch for calculating the metric
+    :param initial_mismatch: the mismatch for calculating the metric
+    :param final_mismatch: the mismatch required to stop iteration
     :param tolerance: the allowed error in the metric is (tolerance * mismatch)
     :return x_prime: the point in the grid with the highest snr
     :return snr_peak: the SNR squared at this point
@@ -107,44 +109,75 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
         snr_peak = -out.fun
 
     elif method == 'metric':
-        psd_harm = len(ifos) / sum([1. / psds[ifo] for ifo in ifos])
-        g = metric.Metric(x, dx_directions, mismatch, f_low, psd_harm, approximant, tolerance)
-        g.iteratively_update_metric()
+        mismatch = initial_mismatch
 
-        while True:
-            h = metric.make_waveform(x, g.psd.delta_f, g.f_low, len(g.psd), g.approximant)
-            snr_0 = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
+        while mismatch > final_mismatch:
+            x, snr_peak = _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions,
+                                            f_low, approximant, mismatch, tolerance)
+            print("Found peak, reducing mismatch to refine")
+            mismatch /= 4
 
-            snrs = np.zeros([g.ndim, 2])
-            alphas = np.zeros([g.ndim, 2])
+    return x, snr_peak
 
-            for i in range(g.ndim):
-                for j in range(2):
-                    alphas[i, j] = metric.check_physical(x, g.normalized_evecs()[i:i + 1], (-1) ** j)
-                    h = metric.make_offset_waveform(x, g.normalized_evecs()[i:i + 1], alphas[i, j] * (-1) ** j,
-                                             g.psd.delta_f, g.f_low, len(g.psd),
-                                             g.approximant)
-                    snrs[i, j] = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
-            if snrs.max() > snr_0:
-                # maximum isn't at the centre so update location
-                i, j = np.unravel_index(np.argmax(snrs), snrs.shape)
-                for k, dx_val in g.normalized_evecs()[i:i + 1].items():
-                    x[k] += float(alphas[i, j] * (-1) ** j * dx_val)
+def _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions, f_low, approximant,
+                      mismatch, tolerance=0.01):
+    """
+    A function to find the maximum SNR for a given metric mismatch
+    Calculate a metric at the point x in dx_directions and walk to peak
 
-            else:
-                # maximum is at the centre
-                break
+    :param ifos: list of ifos to use
+    :param data: a dictionary of data from the given ifos
+    :param psds: a dictionary of power spectra for the ifos
+    :param t_start: start time to consider SNR peak
+    :param t_end: end time to consider SNR peak
+    :param x: dictionary with parameter values for initial point
+    :param dx_directions: list of parameters for which to calculate waveform variations
+    :param f_low: low frequency cutoff
+    :param approximant: the approximant to use
+    :param mismatch: the mismatch for calculating the metric
+    :param tolerance: the allowed error in the metric is (tolerance * mismatch)
+    :return x_prime: the point in the grid with the highest snr
+    :return snr_peak: the SNR squared at this point
+    """
+    psd_harm = len(ifos) / sum([1. / psds[ifo] for ifo in ifos])
+    g = metric.Metric(x, dx_directions, mismatch, f_low, psd_harm, approximant, tolerance)
+    g.iteratively_update_metric()
 
-        s = (snrs[:, 0] - snrs[:, 1]) * 0.25 / \
-            (snr_0 - 0.5 * (snrs[:, 0] + snrs[:, 1]))
-        delta_x = SamplesDict(dx_directions, np.matmul(g.normalized_evecs().samples, s))
-        alpha = metric.check_physical(x, delta_x, 1)
+    while True:
+        h = metric.make_waveform(x, g.psd.delta_f, g.f_low, len(g.psd), g.approximant)
+        snr_0 = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
-        h = metric.make_offset_waveform(x, delta_x, alpha, g.psd.delta_f, f_low, len(g.psd), approximant)
-        snr_peak = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
+        snrs = np.zeros([g.ndim, 2])
+        alphas = np.zeros([g.ndim, 2])
 
-        for k, dx_val in delta_x.items():
-            x[k] += float(alpha * dx_val)
+        for i in range(g.ndim):
+            for j in range(2):
+                alphas[i, j] = metric.check_physical(x, g.normalized_evecs()[i:i + 1], (-1) ** j)
+                h = metric.make_offset_waveform(x, g.normalized_evecs()[i:i + 1], alphas[i, j] * (-1) ** j,
+                                                g.psd.delta_f, g.f_low, len(g.psd),
+                                                g.approximant)
+                snrs[i, j] = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
+
+        if snrs.max() > snr_0:
+            # maximum isn't at the centre so update location
+            i, j = np.unravel_index(np.argmax(snrs), snrs.shape)
+            for k, dx_val in g.normalized_evecs()[i:i + 1].items():
+                x[k] += float(alphas[i, j] * (-1) ** j * dx_val)
+
+        else:
+            # maximum is at the centre
+            break
+
+    s = (snrs[:, 0] - snrs[:, 1]) * 0.25 / \
+        (snr_0 - 0.5 * (snrs[:, 0] + snrs[:, 1]))
+    delta_x = SamplesDict(dx_directions, np.matmul(g.normalized_evecs().samples, s))
+    alpha = metric.check_physical(x, delta_x, 1)
+
+    h = metric.make_offset_waveform(x, delta_x, alpha, g.psd.delta_f, f_low, len(g.psd), approximant)
+    snr_peak = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
+
+    for k, dx_val in delta_x.items():
+        x[k] += float(alpha * dx_val)
 
     return x, snr_peak
