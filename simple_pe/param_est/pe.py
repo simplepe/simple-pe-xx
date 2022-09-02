@@ -41,6 +41,25 @@ class SimplePESamples(SamplesDict):
         """
         SamplesDict.__init__(self, *args, logger_warn, autoscale)
 
+    def generate_all_posterior_samples(self, function=None, **kwargs):
+        """Convert samples stored in the SamplesDict according to a conversion
+        function
+
+        Parameters
+        ----------
+        function: func, optional
+            function to use when converting posterior samples. Must take a
+            dictionary as input and return a dictionary of converted posterior
+            samples. Default `simple_pe.param_est.convert`
+        **kwargs: dict, optional
+            All additional kwargs passed to function
+        """
+        if function is None:
+            function = convert
+        return super(SimplePESamples, self).generate_all_posterior_samples(
+            function=function, **kwargs
+        )
+
     def add_fixed(self, name, value):
         """
         generate an additional parameter called 'name' with constant 'value'
