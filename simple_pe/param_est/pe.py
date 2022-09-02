@@ -257,7 +257,7 @@ class SimplePESamples(SamplesDict):
                 rv = ncx2(2, snr ** 2)
                 p = rv.pdf(self['rho_' + lm] ** 2)
                 self['p_' + lm] = p/p.max()
-                weights *  self['p_' + lm]
+                weights *= self['p_' + lm]
 
         if prec_snr is not None:
             rv = ncx2(2, prec_snr ** 2)
