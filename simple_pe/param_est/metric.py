@@ -7,6 +7,7 @@ from scipy import optimize
 from scipy.stats import chi2
 from simple_pe.param_est.pe import convert
 from pesummary.utils.samples_dict import SamplesDict
+from pesummary.gw import conversions
 
 
 class Metric:
@@ -325,17 +326,22 @@ def generate_spin_z(samples):
 def generate_prec_spin(samples):
     """
     Generate component spins from chi_eff and chi_p
-    :param samples: SamplesDict with PE samples containing chi_eff and  chi_p
+    :param samples: SamplesDict with PE samples containing chi_eff and chi_p
     :return new_samples: SamplesDict with spin components where chi_eff goes on both BH, chi_p on BH 1
     """
-    if ('chi_eff' not in samples.keys()) or ('chi_eff' not in samples.keys()):
-        print("Need to specify 'chi_eff' and 'chi_p")
+    if ('chi_eff' not in samples.keys()) and ('chi_align' not in samples.keys()):
+        print("Need to specify 'chi_eff' or 'chi_align'")
+        return -1
+    if ('chi_p' not in samples.keys()):
+        print("Need to specify 'chi_p'")
         return -1
 
-    a_1 = np.sqrt(samples["chi_p"] ** 2 + samples["chi_eff"] ** 2)
-    a_2 = np.abs(samples["chi_eff"])
-    tilt_1 = np.arctan2(samples["chi_p"], samples["chi_eff"])
-    tilt_2 = np.arccos(np.sign(samples["chi_eff"]))
+    param = "chi_eff" if "chi_eff" in samples.keys() else "chi_align"
+
+    a_1 = np.sqrt(samples["chi_p"] ** 2 + samples[param] ** 2)
+    a_2 = np.abs(samples[param])
+    tilt_1 = np.arctan2(samples["chi_p"], samples[param])
+    tilt_2 = np.arccos(np.sign(samples[param]))
     phi_12 = np.zeros_like(a_1)
     phi_jl = np.zeros_like(a_1)
     new_samples = SamplesDict(samples.keys() + ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl'],
@@ -356,17 +362,38 @@ def make_waveform(x, df, f_low, flen, approximant="IMRPhenomD"):
     :param approximant: the approximant generator to use
     :return h_plus: waveform at parameter space point x
     """
+    if 'phase' not in x.keys():
+        x['phase'] = np.zeros_like(list(x.values())[0])
+    x['f_ref'] = f_low * np.ones_like(list(x.values())[0])
+
+    modes = waveform_modes.mode_array('22', approximant)
     data = convert(x, disable_remnant=True)
 
-    if ('spin_1z' not in data.keys()) or ('spin_2z' not in data.keys()):
-        data = generate_spin_z(data)
+    if 'chi_p' in data.keys():
+        # generate the leading harmonic of the precessing waveform
+        data = generate_prec_spin(data)
+        data.generate_all_posterior_samples(disable_remnant=True)
+        h_plus = conversions.snr._calculate_precessing_harmonics(data["mass_1"][0], data["mass_2"][0],
+                                                                 data["a_1"][0], data["a_2"][0],
+                                                                 data["tilt_1"][0], data["tilt_2"][0],
+                                                                 data["phi_12"][0],
+                                                                 data["beta"][0], data["distance"][0],
+                                                                 harmonics=[0], approx=approximant,
+                                                                 mode_array=modes,
+                                                                 df=df, f_low=f_low,
+                                                                 f_ref=data["f_ref"][0])[0]
 
-    h_plus, h_cross = get_fd_waveform(mass1=data['mass_1'], mass2=data['mass_2'],
-                                      spin1z=data['spin_1z'],
-                                      spin2z=data['spin_2z'],
-                                      delta_f=df, distance=data['distance'], f_lower=f_low,
-                                      approximant=approximant,
-                                      mode_array=waveform_modes.mode_array('22', approximant))
+    else:
+        if ('spin_1z' not in data.keys()) or ('spin_2z' not in data.keys()):
+            data = generate_spin_z(data)
+
+        h_plus, h_cross = get_fd_waveform(mass1=data['mass_1'], mass2=data['mass_2'],
+                                          spin1z=data['spin_1z'],
+                                          spin2z=data['spin_2z'],
+                                          delta_f=df, distance=data['distance'], f_lower=f_low,
+                                          approximant=approximant,
+                                          mode_array=modes)
+
     h_plus.resize(flen)
     return h_plus
 
@@ -401,7 +428,8 @@ param_mins = {'chirp_mass': 1.,
               'mass_2': 1.,
               'symmetric_mass_ratio': 0.04,
               'chi_eff': -0.98,
-              'chi_align': -0.98,
+              'chi_align': -0.7,
+              'chi_p': 0.,
               'spin_1z': -0.98,
               'spin_2z': -0.98
               }
@@ -412,7 +440,8 @@ param_maxs = {'chirp_mass': 1e4,
               'mass_2': 1e4,
               'symmetric_mass_ratio': 0.25,
               'chi_eff': 0.98,
-              'chi_align': 0.98,
+              'chi_align': 0.7,
+              'chi_p': 0.98,
               'spin_1z': 0.98,
               'spin_2z': 0.98
               }
