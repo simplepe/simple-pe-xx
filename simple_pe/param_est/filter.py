@@ -103,7 +103,7 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
 
         x = {}
         for dx, val in zip(dx_directions, out.x):
-            x[dx] = np.array([val])
+            x[dx] = val
         x.update(fixed_pars)
 
         snr_peak = -out.fun

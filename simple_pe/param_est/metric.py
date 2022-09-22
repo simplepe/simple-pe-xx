@@ -7,6 +7,7 @@ from scipy import optimize
 from scipy.stats import chi2
 from simple_pe.param_est.pe import convert
 from pesummary.utils.samples_dict import SamplesDict
+from pesummary.gw import conversions
 
 
 class Metric:
@@ -315,7 +316,7 @@ def generate_spin_z(samples):
         param = "chi_eff" if "chi_eff" in samples.keys() else "chi_align"
         # put chi_eff/chi_align on both BHs
         new_samples = SamplesDict(samples.keys() + ['spin_1z', 'spin_2z'],
-                              np.append(samples.samples, np.array([samples[param], samples[param]]), 0))
+                                  np.append(samples.samples, np.array([samples[param], samples[param]]), 0))
     else:
         print("Need to specify 'chi_eff'")
         return -1
@@ -325,17 +326,22 @@ def generate_spin_z(samples):
 def generate_prec_spin(samples):
     """
     Generate component spins from chi_eff and chi_p
-    :param samples: SamplesDict with PE samples containing chi_eff and  chi_p
-    :return new_samples: SamplesDict with spin components where chi_eff goes on both BH, chi_p on BH 1
+    :param samples: SamplesDict with PE samples containing chi_p
+    :return new_samples: SamplesDict with spin components where chi_p goes on BH 1
     """
-    if ('chi_eff' not in samples.keys()) or ('chi_eff' not in samples.keys()):
-        print("Need to specify 'chi_eff' and 'chi_p")
+    if ('spin_1z' not in samples.keys()) or ('spin_2z' not in samples.keys()):
+        if ('chi_eff' not in samples.keys()) and ('chi_align' not in samples.keys()):
+            print("Must either specify spin z-components or 'chi_eff' or 'chi_align'")
+            return -1
+        samples = generate_spin_z(samples)
+    if 'chi_p' not in samples.keys():
+        print("Need to specify 'chi_p'")
         return -1
 
-    a_1 = np.sqrt(samples["chi_p"] ** 2 + samples["chi_eff"] ** 2)
-    a_2 = np.abs(samples["chi_eff"])
-    tilt_1 = np.arctan2(samples["chi_p"], samples["chi_eff"])
-    tilt_2 = np.arccos(np.sign(samples["chi_eff"]))
+    a_1 = np.sqrt(samples["chi_p"] ** 2 + samples["spin_1z"] ** 2)
+    a_2 = np.abs(samples["spin_2z"])
+    tilt_1 = np.arctan2(samples["chi_p"], samples["spin_1z"])
+    tilt_2 = np.arccos(np.sign(samples["spin_2z"]))
     phi_12 = np.zeros_like(a_1)
     phi_jl = np.zeros_like(a_1)
     new_samples = SamplesDict(samples.keys() + ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl'],
@@ -356,17 +362,43 @@ def make_waveform(x, df, f_low, flen, approximant="IMRPhenomD"):
     :param approximant: the approximant generator to use
     :return h_plus: waveform at parameter space point x
     """
+    if 'phase' not in x.keys():
+        x['phase'] = np.zeros_like(list(x.values())[0])
+    x['f_ref'] = f_low * np.ones_like(list(x.values())[0])
+
+    if 'chi_p2' in x.keys():
+        x['chi_p'] = np.sqrt(x['chi_p2'])
+
+    modes = waveform_modes.mode_array('22', approximant)
     data = convert(x, disable_remnant=True)
 
-    if ('spin_1z' not in data.keys()) or ('spin_2z' not in data.keys()):
-        data = generate_spin_z(data)
+    if 'chi_p' in data.keys():
+        # generate the leading harmonic of the precessing waveform
+        data = generate_prec_spin(data)
 
-    h_plus, h_cross = get_fd_waveform(mass1=data['mass_1'], mass2=data['mass_2'],
-                                      spin1z=data['spin_1z'],
-                                      spin2z=data['spin_2z'],
-                                      delta_f=df, distance=data['distance'], f_lower=f_low,
-                                      approximant=approximant,
-                                      mode_array=waveform_modes.mode_array('22', approximant))
+    if 'tilt_1' in data.keys():
+        data.generate_all_posterior_samples(disable_remnant=True)
+        h_plus = conversions.snr._calculate_precessing_harmonics(data["mass_1"][0], data["mass_2"][0],
+                                                                 data["a_1"][0], data["a_2"][0],
+                                                                 data["tilt_1"][0], data["tilt_2"][0],
+                                                                 data["phi_12"][0],
+                                                                 data["beta"][0], data["distance"][0],
+                                                                 harmonics=[0], approx=approximant,
+                                                                 mode_array=modes,
+                                                                 df=df, f_low=f_low,
+                                                                 f_ref=data["f_ref"][0])[0]
+
+    else:
+        if ('spin_1z' not in data.keys()) or ('spin_2z' not in data.keys()):
+            data = generate_spin_z(data)
+
+        h_plus, h_cross = get_fd_waveform(mass1=data['mass_1'], mass2=data['mass_2'],
+                                          spin1z=data['spin_1z'],
+                                          spin2z=data['spin_2z'],
+                                          delta_f=df, distance=data['distance'], f_lower=f_low,
+                                          approximant=approximant,
+                                          mode_array=modes)
+
     h_plus.resize(flen)
     return h_plus
 
@@ -395,15 +427,22 @@ def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenom
     return h_plus
 
 
+spin_max = 0.90
+
 param_mins = {'chirp_mass': 1.,
               'total_mass': 2.,
               'mass_1': 1.,
               'mass_2': 1.,
               'symmetric_mass_ratio': 0.04,
-              'chi_eff': -0.98,
-              'chi_align': -0.98,
-              'spin_1z': -0.98,
-              'spin_2z': -0.98
+              'chi_eff': -1 * spin_max,
+              'chi_align': -1 * spin_max,
+              'chi_p': 1e-3,
+              'spin_1z': -1 * spin_max,
+              'spin_2z': -1 * spin_max,
+              'a_1': -1 * spin_max,
+              'a_2': -1 * spin_max,
+              'tilt_1': 1e-3,
+              'tilt_2': 1e-3,
               }
 
 param_maxs = {'chirp_mass': 1e4,
@@ -411,10 +450,15 @@ param_maxs = {'chirp_mass': 1e4,
               'mass_1': 1e4,
               'mass_2': 1e4,
               'symmetric_mass_ratio': 0.25,
-              'chi_eff': 0.98,
-              'chi_align': 0.98,
-              'spin_1z': 0.98,
-              'spin_2z': 0.98
+              'chi_eff': spin_max,
+              'chi_align': 0.7,
+              'chi_p': spin_max,
+              'spin_1z': spin_max,
+              'spin_2z': spin_max,
+              'a_1': spin_max,
+              'a_2': spin_max,
+              'tilt_1': np.pi - 1e-3,
+              'tilt_2': np.pi - 1e-3,
               }
 
 
@@ -435,6 +479,20 @@ def check_physical(x, dx, scaling, maxs=None, mins=None):
 
     if maxs is None:
         maxs = param_maxs
+
+    if 'chi_p2' in dx.keys():
+        x['chi_p'] = np.sqrt(x['chi_p2'])
+
+    if ('chi_eff' in x.keys() or 'chi_align' in x.keys()) and 'chi_p' in x.keys():
+        align_max = np.sqrt(spin_max**2 - x['chi_p']**2)
+        maxs['chi_eff'] = maxs['chi_align'] = align_max
+        mins['chi_eff'] = mins['chi_align'] = - align_max
+        param = "chi_eff" if "chi_eff" in x.keys() else "chi_align"
+        maxs['chi_p'] = np.sqrt(spin_max**2 - x[param]**2)
+
+    if 'chi_p2' in dx.keys():
+        maxs['chi_p2'] = maxs['chi_p']**2
+        mins['chi_p2'] = mins['chi_p']**2
 
     alpha = 1.
 
@@ -511,7 +569,7 @@ def average_mismatch(x, dx, scaling, f_low, psd,
         m[s] = match(h0, h, psd, low_frequency_cutoff=f_low, subsample_interpolation=True)[0]
     if verbose:
         print("Had to scale steps to %.2f, %.2f" % (a[-1], a[1]))
-        print("Mismatches %.3f, %.3f" % (1 - m[-1], 1 - m[1]))
+        print("Mismatches %.3g, %.3g" % (1 - m[-1], 1 - m[1]))
     if min(a.values()) < 1e-2:
         if verbose:
             print("we're really close to the boundary, so down-weight match contribution")
@@ -620,7 +678,7 @@ def _log_wf_mismatch(x, x_directions, data, f_low, psd, approximant, fixed_pars=
 
     m = match(data, h, psd, low_frequency_cutoff=f_low, subsample_interpolation=True)[0]
 
-    return np.log10(1-m)
+    return np.log10(1 - m)
 
 
 def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD",
@@ -664,7 +722,7 @@ def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD"
                                 bounds=bounds)
 
         x = dict(zip(dx_directions, out.x))
-        m_peak = 1-10**(out.fun)
+        m_peak = 1 - 10 ** (out.fun)
 
     elif method == 'metric':
         g = Metric(x, dx_directions, mismatch, f_low, psd, approximant, tolerance)
