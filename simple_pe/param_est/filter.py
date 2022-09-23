@@ -5,7 +5,7 @@ from scipy import optimize
 from pesummary.utils.samples_dict import SamplesDict
 
 
-def matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low):
+def matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low, return_times=False):
     """
     Find the maximum SNR in the network for a waveform h within a given time range
 
@@ -16,20 +16,26 @@ def matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low):
     :param t_end: end time to consider SNR peak
     :param h: waveform
     :param f_low: low frequency cutoff
+    :param return_times: return the time of the peak in each ifo
     :return snr: the network snr
     :return smax: the max snr in each ifo
+    :return tmax: the time of max snr in each ifo
      """
     snrsq = 0
     smax = {}
+    tmax = {}
     for ifo in ifos:
         snr = matched_filter(h, data[ifo], psd=psds[ifo], low_frequency_cutoff=f_low,
                              high_frequency_cutoff=psds[ifo].sample_frequencies[-1])
-        smax[ifo] = max(abs(snr[(snr.sample_times > t_start) &
-                                (snr.sample_times < t_end)]))
-
+        snr_cut = snr.crop(t_start - snr.start_time, snr.end_time - t_end)
+        smax[ifo] = snr_cut.abs_max_loc()[0]
+        tmax[ifo] = snr_cut.sample_times[snr_cut.abs_arg_max()]
         snrsq += smax[ifo] ** 2
 
-    return np.sqrt(snrsq), smax
+    if return_times:
+        return np.sqrt(snrsq), smax, tmax
+    else:
+        return np.sqrt(snrsq), smax
 
 
 def _neg_net_snr(x, x_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars=None):
