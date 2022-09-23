@@ -1,5 +1,4 @@
 import numpy as np
-import lal
 from pycbc import detector
 
 
@@ -31,6 +30,11 @@ class Det(detector.Detector):
         self.found_thresh = found_thresh
         self.loc_thresh = loc_thresh
         self.duty_cycle = duty_cycle
+        self.f_cross = None
+        self.f_plus = None
+        self.mirror_f_cross = None
+        self.mirror_f_plus = None
+        self.snr = None
 
     def calculate_sensitivity(self, event):
         """
@@ -38,9 +42,8 @@ class Det(detector.Detector):
 
         :param event: object, containing ra, dec, psi, gmst
         """
-        self.f_plus, self.f_cross = lal.ComputeDetAMResponse(self.response,
-                                                             event.ra, event.dec,
-                                                             event.psi, event.gmst)
+        self.f_plus, self.f_cross = self.antenna_pattern(event.ra, event.dec, event.psi,
+                                                         event.gps)
 
     def calculate_mirror_sensitivity(self, event):
         """
@@ -48,10 +51,9 @@ class Det(detector.Detector):
 
         :param event: object, containing mirror_ra, mirror_dec, psi, gmst
         """
-        self.mirror_f_plus, self.mirror_f_cross = \
-            lal.ComputeDetAMResponse(self.response,
-                                     event.mirror_ra, event.mirror_dec,
-                                     event.psi, event.gmst)
+        self.mirror_f_plus, self.mirror_f_cross = self.antenna_pattern(event.mirror_ra,
+                                                                       event.mirror_dec,
+                                                                       event.psi, event.gps)
 
     def calculate_snr(self, event):
         """
