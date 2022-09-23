@@ -5,6 +5,8 @@ from simple_pe.detectors import dets
 ##################################################################
 # Class to store network information
 ##################################################################
+
+
 class Network(object):
     """
     class to hold the details of the network.

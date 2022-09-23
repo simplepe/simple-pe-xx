@@ -29,6 +29,7 @@ def detectors(ifos):
 # For CE, use hanford/livingston
 # for Voyager use existing sites
 
+
 def calc_location_response(longitude, latitude, arms):
     """
     Calculate the location and response for a detector with longitude, latitude in degrees
@@ -130,7 +131,7 @@ def range_8(configuration):
         "ET2": {'H1': 3 * 197.5, 'L1': 3 * 197.5, 'V1': 3 * 128.3, 'ETdet1': 1500., 'ETdet3': 1500.},
         # L-shaped at 2 places
     }
-    return (range_dict_all[configuration])
+    return range_dict_all[configuration]
 
 
 def bandwidth(configuration):
