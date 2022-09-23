@@ -95,7 +95,7 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
     elif method == 'scipy':
         bounds = [(metric.param_mins[k], metric.param_maxs[k]) for k in dx_directions]
         x0 = np.array([x[k] for k in dx_directions])
-        fixed_pars = {k: v for k, v in x.items() if k not in dx_directions}
+        fixed_pars = {k: float(v) for k, v in x.items() if k not in dx_directions}
 
         out = optimize.minimize(_neg_net_snr, x0,
                                 args=(dx_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars),
