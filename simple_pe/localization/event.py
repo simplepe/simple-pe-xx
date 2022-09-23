@@ -49,6 +49,7 @@ class Event(object):
         """
         Initialize event.
         """
+
         self.D = dist
         self.ra = ra
         self.dec = dec
@@ -59,13 +60,19 @@ class Event(object):
         t = Time(t_gps, format='gps')
         self.gps = t.gps
         self.gmst = t.sidereal_time('mean', 'greenwich').rad
-
         self.xyz = detectors.xyz(self.ra - self.gmst, self.dec)
         self.ifos = []
         self.mirror = False
+        self.mirror_xyz = None
         self.detected = False
         self.sensitivity = None
         self.mirror_sensitivity = None
+        self.mirror_dec = None
+        self.mirror_ra = None
+        self.snrsq = None
+        self.localized = None
+        self.found = None
+        self.threshold = None
         self.localization = {}
         self.mirror_loc = {}
         self.area = {}

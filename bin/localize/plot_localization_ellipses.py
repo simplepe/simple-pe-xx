@@ -1,11 +1,8 @@
-# from IPython import get_ipython
-# get_ipython().run_line_magic('matplotlib', 'inline')
 import numpy as np
 import pylab as plt
 
 from simple_pe.localization import event
 from simple_pe.detectors import detectors, network
-import lal
 
 import cartopy.crs as ccrs
 
