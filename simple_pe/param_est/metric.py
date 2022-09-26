@@ -300,8 +300,11 @@ class Metric:
             print("need an SNR to turn matches into probabilities")
             return -1
 
-        grid_probs = self.generate_match_grid(npts, projected, mismatch)
-        grid_probs['posterior'] = np.exp(-self.snr ** 2 / 2 * (1 - grid_probs['match'] ** 2))
+        matches = self.generate_match_grid(npts, projected, mismatch)
+        post = np.exp(-self.snr ** 2 / 2 * (1 - matches['match'] ** 2))
+
+        grid_probs = SamplesDict(matches.keys() + ['posterior'],
+                                 np.append(matches.samples, post).reshape([len(matches.keys()) + 1, npts, npts]))
 
         return grid_probs
 
@@ -643,7 +646,7 @@ def find_metric_and_eigendirections(x, dx_directions, snr, f_low, psd, approxima
     n_sigmasq = chi2.isf(0.1, ndim)
     desired_mismatch = n_sigmasq / (2 * snr ** 2)
     g = Metric(x, dx_directions, desired_mismatch, f_low, psd, approximant, tolerance,
-               n_sigma=np.sqrt(n_sigmasq))
+               n_sigma=np.sqrt(n_sigmasq), snr=snr)
     g.iteratively_update_metric(max_iter)
     return g
 
