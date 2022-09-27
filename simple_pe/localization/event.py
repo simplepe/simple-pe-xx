@@ -50,16 +50,16 @@ class Event(object):
         Initialize event.
         """
 
-        self.D = dist
-        self.ra = ra
-        self.dec = dec
-        self.psi = psi
-        self.phi = phi
-        self.cosi = cosi
-        self.mchirp = mchirp
+        self.D = float(dist)
+        self.ra = float(ra)
+        self.dec = float(dec)
+        self.psi = float(psi)
+        self.phi = float(phi)
+        self.cosi = float(cosi)
+        self.mchirp = float(mchirp)
         t = Time(t_gps, format='gps')
-        self.gps = t.gps
-        self.gmst = t.sidereal_time('mean', 'greenwich').rad
+        self.gps = float(t.gps)
+        self.gmst = float(t.sidereal_time('mean', 'greenwich').rad)
         self.xyz = detectors.xyz(self.ra - self.gmst, self.dec)
         self.ifos = []
         self.mirror = False

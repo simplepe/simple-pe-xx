@@ -45,7 +45,13 @@ class Localization(object):
         self.event = event
         self.p = p
         self.snr = 0
+        self.z = None
         self.area = area
+        self.M = None
+        self.sigma = None
+        self.evec = None
+        self.PMP = None
+        self.dt_i = None
         if method != "marg":
             self.calculate_m()
             self.calculate_max_snr()
@@ -148,7 +154,7 @@ class Localization(object):
         Project localization matrix to zero out components in direction of source
         This is implementing equations 10 and 11 from the advanced localization paper
         """
-        if self.mirror == True:
+        if self.mirror:
             source = self.event.mirror_xyz
         else:
             source = self.event.xyz
