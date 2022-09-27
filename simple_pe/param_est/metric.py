@@ -24,7 +24,7 @@ class Metric:
     """
 
     def __init__(self, x, dx_directions, mismatch, f_low, psd,
-                 approximant="IMRPhenomD", tolerance=1e-2, n_sigma=None):
+                 approximant="IMRPhenomD", tolerance=1e-2, n_sigma=None, snr=None):
         """
         :param x: dictionary with parameter values for initial point
         :param dx_directions: a list of directions to vary
@@ -46,6 +46,7 @@ class Metric:
         self.approximant = approximant
         self.tolerance = tolerance
         self.n_sigma = n_sigma
+        self.snr = snr
         self.coordinate_metric = None
         self.metric = None
         self.evals = None
@@ -238,12 +239,13 @@ class Metric:
 
     def generate_match_grid(self, npts=10, projected=False, mismatch=None):
         """
-        Generate an ellipse of points of constant mismatch
+        Generate a grid of points with extent governed by requested mismatch
 
-        :param projected: use the projected metric if True, else use metric
         :param npts: number of points in each dimension of the grid
-        :param mismatch: the mismatch of the greatest extent of the grid (if None, then use the value associated with the metric)
-        :return ellipse_dict: SamplesDict with ellipse of points
+        :param projected: use the projected metric if True, else use metric
+        :param mismatch: the mismatch of the greatest extent of the grid
+        (if None, then use the value associated with the metric)
+        :return ellipse_dict: SamplesDict with grid of points and match at each point
         """
         if projected:
             dx_dirs = self.projected_directions + [x for x in self.dx_directions if x not in self.projected_directions]
@@ -266,12 +268,10 @@ class Metric:
 
         dx = SamplesDict(dx_dirs, dx_data.reshape(len(dx_dirs), npts ** 2))
 
-        nsamp = dx.number_of_samples
-        m = np.zeros(nsamp)
-
         h0 = make_waveform(self.x, self.psd.delta_f, self.f_low, len(self.psd), self.approximant)
 
-        for i in range(nsamp):
+        m = np.zeros(dx.number_of_samples)
+        for i in range(dx.number_of_samples):
             if check_physical(self.x, dx[i:i + 1], 1.) < 1:
                 m[i] = 0
             else:
@@ -285,6 +285,28 @@ class Metric:
                                   m.reshape([1, npts ** 2]), 0).reshape([len(dx_dirs) + 1, npts, npts]))
 
         return matches
+
+    def generate_posterior_grid(self, npts=10, projected=False, mismatch=None):
+        """
+        Generate a grid of points with extent governed by requested mismatch
+
+        :param npts: number of points in each dimension of the grid
+        :param projected: use the projected metric if True, else use metric
+        :param mismatch: the mismatch of the greatest extent of the grid
+        (if None, then use the value associated with the metric)
+        :return ellipse_dict: SamplesDict with grid of points and match at each point
+        """
+        if not self.snr:
+            print("need an SNR to turn matches into probabilities")
+            return -1
+
+        matches = self.generate_match_grid(npts, projected, mismatch)
+        post = np.exp(-self.snr ** 2 / 2 * (1 - matches['match'] ** 2))
+
+        grid_probs = SamplesDict(matches.keys() + ['posterior'],
+                                 np.append(matches.samples, post).reshape([len(matches.keys()) + 1, npts, npts]))
+
+        return grid_probs
 
     def generate_samples(self, npts=int(1e5)):
         """
@@ -624,7 +646,7 @@ def find_metric_and_eigendirections(x, dx_directions, snr, f_low, psd, approxima
     n_sigmasq = chi2.isf(0.1, ndim)
     desired_mismatch = n_sigmasq / (2 * snr ** 2)
     g = Metric(x, dx_directions, desired_mismatch, f_low, psd, approximant, tolerance,
-               n_sigma=np.sqrt(n_sigmasq))
+               n_sigma=np.sqrt(n_sigmasq), snr=snr)
     g.iteratively_update_metric(max_iter)
     return g
 
