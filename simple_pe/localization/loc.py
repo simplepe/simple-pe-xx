@@ -194,9 +194,14 @@ class Localization(object):
         ang = np.linspace(0, 2 * np.pi, 101)
 
         # normalization to get area for given p-value:
-        x = np.inner(self.event.xyz, x_net) + \
+        if self.mirror:
+            xyz = self.event.mirror_xyz
+        else:
+            xyz = self.event.xyz
+
+        x = np.inner(xyz, x_net) + \
             np.sqrt(- 2 * np.log(1 - self.p)) * sigma[0] * np.cos(ang)
-        y = np.inner(self.event.xyz, y_net) + \
+        y = np.inner(xyz, y_net) + \
             np.sqrt(- 2 * np.log(1 - self.p)) * sigma[1] * np.sin(ang)
 
         # check that we're not going outside of unit circle
@@ -210,7 +215,7 @@ class Localization(object):
             x = x[~bad]
             y = y[~bad]
 
-        z = np.sqrt(1 - x ** 2 - y ** 2) * np.sign(np.inner(self.event.xyz, z_net))
+        z = np.sqrt(1 - x ** 2 - y ** 2) * np.sign(np.inner(xyz, z_net))
 
         # if we hit the edge then the localization region is 2 parts, above and below z=0 surface
         if sum(bad) > 0:
