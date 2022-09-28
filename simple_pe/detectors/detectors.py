@@ -75,7 +75,7 @@ def xyz(phi, theta):
     y = np.cos(theta) * np.sin(phi)
     z = np.sin(theta)
     loc = np.asarray([x, y, z])
-    return (loc)
+    return loc
 
 
 def phitheta(loc):

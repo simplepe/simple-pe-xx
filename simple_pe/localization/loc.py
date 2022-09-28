@@ -45,7 +45,13 @@ class Localization(object):
         self.event = event
         self.p = p
         self.snr = 0
+        self.z = None
         self.area = area
+        self.M = None
+        self.sigma = None
+        self.evec = None
+        self.PMP = None
+        self.dt_i = None
         if method != "marg":
             self.calculate_m()
             self.calculate_max_snr()
@@ -148,7 +154,7 @@ class Localization(object):
         Project localization matrix to zero out components in direction of source
         This is implementing equations 10 and 11 from the advanced localization paper
         """
-        if self.mirror == True:
+        if self.mirror:
             source = self.event.mirror_xyz
         else:
             source = self.event.xyz
@@ -188,9 +194,14 @@ class Localization(object):
         ang = np.linspace(0, 2 * np.pi, 101)
 
         # normalization to get area for given p-value:
-        x = np.inner(self.event.xyz, x_net) + \
+        if self.mirror:
+            xyz = self.event.mirror_xyz
+        else:
+            xyz = self.event.xyz
+
+        x = np.inner(xyz, x_net) + \
             np.sqrt(- 2 * np.log(1 - self.p)) * sigma[0] * np.cos(ang)
-        y = np.inner(self.event.xyz, y_net) + \
+        y = np.inner(xyz, y_net) + \
             np.sqrt(- 2 * np.log(1 - self.p)) * sigma[1] * np.sin(ang)
 
         # check that we're not going outside of unit circle
@@ -204,7 +215,7 @@ class Localization(object):
             x = x[~bad]
             y = y[~bad]
 
-        z = np.sqrt(1 - x ** 2 - y ** 2) * np.sign(np.inner(self.event.xyz, z_net))
+        z = np.sqrt(1 - x ** 2 - y ** 2) * np.sign(np.inner(xyz, z_net))
 
         # if we hit the edge then the localization region is 2 parts, above and below z=0 surface
         if sum(bad) > 0:
