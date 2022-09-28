@@ -3,6 +3,7 @@ import random as rnd
 import copy
 from simple_pe.detectors import detectors
 from simple_pe.localization import loc
+from pesummary.gw.conversions.mass import mchirp_from_m1_m2
 from astropy.time import Time
 from scipy.optimize import brentq
 from scipy.special import logsumexp
@@ -96,8 +97,7 @@ class Event(object):
                    phi=np.radians(params["coa-phase"]),
                    psi=np.radians(params["polarization"]),
                    cosi=np.cos(np.radians(params["inclination"])),
-                   mchirp=params["mass1"] ** (3. / 5) * params["mass2"] ** (3. / 5) * (
-                           params["mass1"] + params["mass2"]) ** (-1. / 5),
+                   mchirp=mchirp_from_m1_m2(params["mass1"], params["mass2"]),
                    t_gps=t.gps,
 
                    )
@@ -116,7 +116,7 @@ class Event(object):
                    psi=rnd.uniform(0, 2 * np.pi),
                    phi=rnd.uniform(0, 2 * np.pi),
                    cosi=rnd.uniform(-1, 1),
-                   mchirp=mass * 2 ** (-1. / 5),
+                   mchirp=mchirp_from_m1_m2(mass, mass),
                    t_gps=t_gps
                    )
 
