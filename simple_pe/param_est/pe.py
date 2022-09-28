@@ -322,6 +322,7 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
     for i in range(grid_samples.number_of_samples):
         sample = grid_samples[i:i+1]
         _, f_mean, _ = noise_curves.calc_reach_bandwidth(sample["mass_1"], sample["mass_2"],
+                                                         sample["chi_eff"],
                                                          approximant, psd, f_low, thresh=8.)
         sample['f_ref'] = f_mean
 
