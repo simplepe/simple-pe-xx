@@ -39,7 +39,7 @@ def localization_from_timing(ifos, arrival_times, bandwidths):
                             args=(times - times.mean(), det_locations, f_bands), tol=1e-12)
 
     time = out.x[0] + times.mean()
-    ra = out.x[1] + detector.gmst_accurate(time)
+    ra = (out.x[1] + detector.gmst_accurate(time)) % (2 * np.pi)
     dec = out.x[2]
 
     return ra, dec
