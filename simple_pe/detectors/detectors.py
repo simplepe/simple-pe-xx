@@ -170,7 +170,7 @@ def bandwidth(configuration):
         "ET1": {'H1': 117.4, 'L1': 117.4, 'V1': 148.9, 'ETdet1': 117.4, 'ETdet2': 117.4},
         "ET2": {'H1': 117.4, 'L1': 117.4, 'V1': 148.9, 'ETdet1': 117.4, 'ETdet3': 117.4},
     }
-    return (bandwidth_dict_all[configuration])
+    return bandwidth_dict_all[configuration]
 
 
 def fmean(configuration):
@@ -216,4 +216,4 @@ def sigma_t(configuration):
     s = {}
     for ifo in r.keys():
         s[ifo] = 1. / 20 / np.pi / b[ifo] * r["H1"] / r[ifo]
-    return (s)
+    return s
