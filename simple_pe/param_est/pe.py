@@ -91,6 +91,7 @@ class SimplePESamples(SamplesDict):
         if 'theta_jn' in self.keys() and overwrite:
             print('Overwriting theta_jn values')
             self.pop('theta_jn')
+
         if 'cos_theta_jn' in self.keys() and overwrite:
             print('Overwriting cos_theta_jn values')
             self.pop('cos_theta_jn')
@@ -101,6 +102,27 @@ class SimplePESamples(SamplesDict):
             self['cos_theta_jn'] = cos_theta
         else:
             print('Did not overwrite theta_jn and cos_theta_jn samples')
+
+    def generate_distance(self, distance_face_on, overwrite=False):
+        """
+        generate distance points using the existing theta_JN samples and the face-on distance
+
+        :param distance_face_on: the distance at which a face on signal gives the observed SNR
+        :param overwrite: if True, then overwrite existing values, otherwise don't
+        """
+        if 'theta_jn' not in self.keys():
+            print('Require theta_jn values to calculate distances')
+            return
+
+        if 'distance' in self.keys() and overwrite:
+            print('Overwriting distance values')
+            self.pop('distance')
+
+        if 'distance' not in self.keys():
+            tau = np.tan(self['theta_jn']/2)
+            self['distance'] = distance_face_on / (1 + tau**2) ** 2
+        else:
+            print('Did not overwrite distance samples')
 
     def generate_chi_p(self, chi_p_dist='uniform', overwrite=False):
         """
@@ -408,8 +430,8 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_poin
 
 
 def calculate_interpolated_snrs(
-    samples, psd, f_low, dominant_snr, modes, alpha_net, hm_interp_dirs,
-    prec_interp_dirs, interp_points, approximant, **kwargs
+        samples, psd, f_low, dominant_snr, modes, alpha_net, distance_face_on,
+        hm_interp_dirs, prec_interp_dirs, interp_points, approximant, **kwargs
 ):
     """Wrapper function to calculate the SNR in the (l,m) multipoles,
     the SNR in the second polarisation and the SNR in precession.
@@ -430,6 +452,8 @@ def calculate_interpolated_snrs(
     alpha_net: float
         network sensitivity to x polarization (in DP frame) used to
         calculate the SNR in the second
+    distance_face_on: float
+        distance at which a face on signal would give the observed dominant SNR
     hm_interp_dirs: list
         directions to interpolate the higher multipole SNR calculation
     prec_interp_dirs: list
@@ -444,6 +468,8 @@ def calculate_interpolated_snrs(
     # generate required parameters if necessary
     if "theta_jn" not in samples.keys():
         samples.generate_theta_jn('left_circ')
+    if "distance" not in samples.keys():
+        samples.generate_distance(distance_face_on)
     if "chi_p" not in samples.keys():
         samples.generate_chi_p('isotropic_on_sky')
     samples.calculate_rho_lm(
