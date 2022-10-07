@@ -9,6 +9,7 @@ from simple_pe.cosmology import cosmology
 def calc_reach_bandwidth(mass1, mass2, spin, approx, power_spec, fmin, thresh=8.):
     """
     Calculate the horizon, mean frequency and bandwidth for a given PSD in the detector frame
+
     :param mass1: the mass of the first component
     :param mass2: the mass of the second component
     :param spin: the aligned spin for both compoenents
@@ -50,6 +51,7 @@ def calc_reach_bandwidth(mass1, mass2, spin, approx, power_spec, fmin, thresh=8.
 def calc_detector_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, waveform='IMRPhenomD', triangle=False):
     """
     Calculate the horizon for a given PSD [in the detector frame]
+
     :param mass1: the mass of the first component
     :param mass2: the mass ratio of second component
     :param spin: the z-component of spin for both components
