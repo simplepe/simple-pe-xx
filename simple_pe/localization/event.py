@@ -146,7 +146,8 @@ class Event(object):
                     self.snrsq += s ** 2
                     # add the details to the event
                     self.ifos.append(ifo)
-        if self.found >= 2 and self.snrsq > self.threshold ** 2: self.detected = True
+        if self.found >= 2 and self.snrsq > self.threshold ** 2:
+            self.detected = True
 
     def get_data(self, data):
         """
@@ -179,6 +180,17 @@ class Event(object):
         f_pc = np.sqrt(np.linalg.eig(M)[0])
         f_pc.sort()
         return f_pc[::-1]
+
+    def alpha_net(self, mirror=False):
+        """
+        get the relative network sensitivity to the second polarization
+
+        :param mirror: boolean indicating whether we are considering the mirror location
+        :return value of alpha_network
+        """
+        fp, fc = self.get_f(mirror)
+
+        return fc/fp
 
     def get_snr(self, dt_i=None):
         """
@@ -216,7 +228,7 @@ class Event(object):
             self.mirror_xyz = self.xyz - 2 * np.inner(self.xyz, normal) * normal
             mra, mdec = detectors.phitheta(self.mirror_xyz)
             mra += self.gmst
-            self.mirror_ra = mra
+            self.mirror_ra = mra % (2 * np.pi)
             self.mirror_dec = mdec
             self.mirror = True
             for i in self.ifos:
