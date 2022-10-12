@@ -30,7 +30,7 @@ conda:
 
 executables:
   stage: basic
-  image: python:3.7
+  image: python:3.8
   needs:
     - tarball
   before_script:
