@@ -46,3 +46,8 @@ simple_pe_filter = "simple_pe.cli.simple_pe_filter:main"
 
 [project.urls]
 "Source code" = "https://git.ligo.org/stephen-fairhurst/simple-pe"
+
+[tool.setuptools]
+packages = [
+	"simple_pe",
+]
