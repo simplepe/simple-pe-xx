@@ -37,9 +37,12 @@ dependencies = [
 docs = [
 	"furo",
 	"sphinx",
-	"sphinx_rtd_theme"
+	"sphinx_rtd_theme",
 ]
 
 [project.scripts]
 simple_pe_analysis = "simple_pe.cli.simple_pe_analysis:main"
 simple_pe_filter = "simple_pe.cli.simple_pe_filter:main"
+
+[project.urls]
+"Source code" = "https://git.ligo.org/stephen-fairhurst/simple-pe"
