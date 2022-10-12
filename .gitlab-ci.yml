@@ -28,14 +28,24 @@ conda:
     - conda install --file environment.txt
     - python -m pip install .
 
+executables:
+  stage: basic
+  image: python:3.8
+  needs:
+    - tarball
+  before_script:
+    - python -m pip install simple-pe*.tar.*
+  script:
+    - simple_pe_analysis --help
+    - simple_pe_filter --help
+
 documentation:
   stage: basic
   image: python:3.7
   needs:
     - tarball
   before_script:
-    - python -m pip install -r requirements.txt
-    - python -m pip install -r optional_requirements.txt
+    - python -m pip install .[docs]
     - python -m pip install simple-pe*.tar.*
   script:
     - cd docs && make html

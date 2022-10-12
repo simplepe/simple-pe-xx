@@ -41,6 +41,10 @@ class SimplePESamples(SamplesDict):
         """
         SamplesDict.__init__(self, *args, logger_warn, autoscale)
 
+    def update(self, dictionary):
+        for key, value in dictionary.items():
+            self.__setitem__(key, value)
+
     def generate_all_posterior_samples(self, function=None, **kwargs):
         """Convert samples stored in the SamplesDict according to a conversion
         function
