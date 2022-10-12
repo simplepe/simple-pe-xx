@@ -5,7 +5,7 @@ import numpy as np
 from argparse import ArgumentParser
 from pesummary.io import read
 from pesummary.core.command_line import DictionaryAction
-from simple_pe_filter import (
+from .simple_pe_filter import (
     _load_psd_from_file, _estimate_data_length_from_template_parameters
 )
 from simple_pe.param_est import result
