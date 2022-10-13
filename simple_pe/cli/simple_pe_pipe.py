@@ -6,8 +6,8 @@ __authors__ = [
 
 
 def command_line():
-    from simple_pe_analysis import command_line as _analysis_command_line
-    from simple_pe_filter import command_line as _filter_command_line
+    from .simple_pe_analysis import command_line as _analysis_command_line
+    from .simple_pe_filter import command_line as _filter_command_line
     parser = ArgumentParser(parents=[_analysis_command_line(), _filter_command_line()])
     return parser
 
