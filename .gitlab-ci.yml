@@ -38,6 +38,7 @@ executables:
   script:
     - simple_pe_analysis --help
     - simple_pe_filter --help
+    - simple_pe_pipe --help
 
 documentation:
   stage: basic
