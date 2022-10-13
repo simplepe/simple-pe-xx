@@ -14,6 +14,13 @@ def command_line():
         parents=[_analysis_command_line(), _filter_command_line()],
         conflict_handler='resolve'
     )
+    # remove analysis specific options
+    remove = ["--peak_parameters", "--peak_snrs"]
+    for action in parser._actions:
+        action.option_strings[0] in remove:
+            parser._handle_conflict_resolve(
+                None, [(action.option_strings[0], action)]
+            )
     return parser
 
 
