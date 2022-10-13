@@ -1,5 +1,7 @@
 #! /usr/bin/env python
 
+from argparse import ArgumentParser
+
 __authors__ = [
     "Charlie Hoy <charlie.hoy@ligo.org>",
 ]
