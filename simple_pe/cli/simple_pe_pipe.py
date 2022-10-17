@@ -42,6 +42,8 @@ class Dag(object):
 
     Parameters
     ----------
+    opts: argparse.Namespace
+        Namespace containing the command line arguments
     """
     def __init__(self, opts):
         self.opts = opts
@@ -115,6 +117,10 @@ class Node(object):
 
     Parameters
     ----------
+    opts: argparse.Namespace
+        Namespace containing the command line arguments
+    dag: Dag
+        Dag object to control the generation of the DAG
     """
     def __init__(self, opts, dag):
         self.opts = opts
@@ -226,7 +232,14 @@ class Node(object):
         )
 
 class AnalysisNode(Node):
-    """
+    """Node to handle the generation of the main analysis job
+
+    Parameters
+    ----------
+    opts: argparse.Namespace
+        Namespace containing the command line arguments
+    dag: Dag
+        Dag object to control the generation of the DAG
     """
     job_name = "analysis"
 
@@ -253,7 +266,14 @@ class AnalysisNode(Node):
 
 
 class FilterNode(Node):
-    """
+    """Node to handle the generation of the main match filter job
+
+    Parameters
+    ----------
+    opts: argparse.Namespace
+        Namespace containing the command line arguments
+    dag: Dag
+        Dag object to control the generation of the DAG
     """
     job_name = "filter"
 
@@ -275,6 +295,8 @@ class FilterNode(Node):
 
 
 def main(args=None):
+    """Main interface for `simple_pe_pipe`
+    """
     parser = command_line()
     opts, _ = parser.parse_known_args(args=args)
     MainDag = Dag(opts)
