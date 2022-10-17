@@ -336,8 +336,8 @@ def main(args=None):
     FilterJob = FilterNode(opts, MainDag)
     CornerJob = CornerNode(opts, MainDag)
     AnalysisJob = AnalysisNode(opts, MainDag)
-    FilterJob.add_child(AnalysisJob.job)
     AnalysisJob.add_child(CornerJob.job)
+    FilterJob.add_child(AnalysisJob.job)
     MainDag.build()
 
 
