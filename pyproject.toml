@@ -29,7 +29,7 @@ dependencies = [
 	"numpy>=1.15.4",
 	"pesummary",
 	"pycbc",
-	"pycondor"
+	"pycondor",
 	"scipy",
 	"sympy",
 ]
