@@ -300,7 +300,7 @@ class FilterNode(Node):
         return " ".join([item for sublist in args for item in sublist])
 
 
-class PlottingJob(Node):
+class CornerNode(Node):
     """Node to handle the generation of a corner plot showing the posterior
 
     Parameters
@@ -310,7 +310,7 @@ class PlottingJob(Node):
     dag: Dag
         Dag object to control the generation of the DAG
     """
-    job_name = "plot"
+    job_name = "corner"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -334,10 +334,10 @@ def main(args=None):
     opts, _ = parser.parse_known_args(args=args)
     MainDag = Dag(opts)
     FilterJob = FilterNode(opts, MainDag)
-    PlottingJob = PlottingNode(opts, MainDag)
+    CornerJob = CornerNode(opts, MainDag)
     AnalysisJob = AnalysisNode(opts, MainDag)
     FilterJob.add_child(AnalysisJob.job)
-    AnalysisJob.add_child(PlottingJob.job)
+    AnalysisJob.add_child(CornerJob.job)
     MainDag.build()
 
 
