@@ -40,6 +40,10 @@ class SimplePESamples(SamplesDict):
         Initialize as a SamplesDict
         """
         SamplesDict.__init__(self, *args, logger_warn, autoscale)
+        # hack to add latex labels for parameters not included in pesummary
+        _latex_labels = self._latex_labels
+        _latex_labels.update({"chi_align": r"$\chi_{A}$", "distance": r"$d_{L}$"})
+        self._latex_labels = _latex_labels
 
     def update(self, dictionary):
         for key, value in dictionary.items():
@@ -219,7 +223,11 @@ class SimplePESamples(SamplesDict):
                     return
 
         self['a_1'] = np.sqrt(self["chi_p"] ** 2 + self[param] ** 2)
+        # limit a_1 < 1
+        self['a_1'][self['a_1'] > 1.] = 1
         self['a_2'] = np.abs(self[param])
+        # limit a_2 < 1
+        self['a_2'][self['a_2'] > 1.] = 1.
         self['tilt_1'] = np.arctan2(self["chi_p"], self[param])
         self['tilt_2'] = np.arccos(np.sign(self[param]))
         self.add_fixed('phi_12', 0.)
