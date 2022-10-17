@@ -94,13 +94,16 @@ class Dag(object):
         with open(self.bash_file, "w") as f:
             f.write("#!/usr/bin/env bash\n\n")
             independent_jobs = []
-            dependent_jobs = []
+            p_dependent_jobs = []
+            pc_dependent_jobs = []
             for node in self.dagman.nodes:
-                if len(node.parents):
-                    dependent_jobs.append(node)
+                if len(node.parents) and not len(node.children):
+                    p_dependent_jobs.append(node)
+                elif len(node.parents):
+                    pc_dependent_jobs.append(node)
                 else:
                     independent_jobs.append(node)
-            for node in independent_jobs + dependent_jobs:
+            for node in independent_jobs + p_dependent_jobs + pc_dependent_jobs:
                 f.write("# {}\n".format(node.name))
                 f.write(
                     "# PARENTS {}\n".format(
