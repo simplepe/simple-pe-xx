@@ -322,7 +322,7 @@ class PlottingJob(Node):
         args = self._format_arg_lists(["truth"], [], [])
         args += [
             ["--outdir", f"{self.opts.outdir}/output"],
-            ["--posterior": f"{self.opts.outdir}/output/posterior_samples.dat"]
+            ["--posterior", f"{self.opts.outdir}/output/posterior_samples.dat"]
         ]
         return " ".join([item for sublist in args for item in sublist])
 
