@@ -143,15 +143,6 @@ def main(args=None):
         outdir=opts.outdir, filename="posterior_samples.dat", overwrite=True,
         file_format="dat"
     )
-    fig = pe_result.samples_dict.plot(
-        type="corner", quantiles=[0.05, 0.5, 0.95], show_titles=True,
-        title_kwargs={"fontsize": 12}, parameters=[
-            'chirp_mass', 'symmetric_mass_ratio', 'chi_align', 'theta_jn',
-            'distance', 'chi_p'
-        ]
-    )
-    fig.savefig(f"{opts.outdir}/corner.png")
-    fig.close()
 
 
 if __name__ == "__main__":

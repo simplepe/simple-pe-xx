@@ -25,6 +25,12 @@ def command_line():
                 None, [(action.option_strings[0], action)]
             )
     parser.add_argument(
+        "--truth",
+        help="File containing the injected values. Used only for plotting",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
         "--accounting_group_user",
         help="Accounting group user to use for this workflow",
         required=True
@@ -231,6 +237,7 @@ class Node(object):
             notification=self.notification
         )
 
+
 class AnalysisNode(Node):
     """Node to handle the generation of the main analysis job
 
@@ -264,7 +271,6 @@ class AnalysisNode(Node):
         return " ".join([item for sublist in args for item in sublist])
 
 
-
 class FilterNode(Node):
     """Node to handle the generation of the main match filter job
 
@@ -294,6 +300,33 @@ class FilterNode(Node):
         return " ".join([item for sublist in args for item in sublist])
 
 
+class PlottingJob(Node):
+    """Node to handle the generation of a corner plot showing the posterior
+
+    Parameters
+    ----------
+    opts: argparse.Namespace
+        Namespace containing the command line arguments
+    dag: Dag
+        Dag object to control the generation of the DAG
+    """
+    job_name = "plot"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._executable = self.get_executable("simple_pe_corner")
+        self.create_pycondor_job()
+
+    @property
+    def arguments(self):
+        args = self._format_arg_lists(["truth"], [], [])
+        args += [
+            ["--outdir", f"{self.opts.outdir}/output"],
+            ["--posterior": f"{self.opts.outdir}/output/posterior_samples.dat"]
+        ]
+        return " ".join([item for sublist in args for item in sublist])
+
+
 def main(args=None):
     """Main interface for `simple_pe_pipe`
     """
@@ -301,8 +334,10 @@ def main(args=None):
     opts, _ = parser.parse_known_args(args=args)
     MainDag = Dag(opts)
     FilterJob = FilterNode(opts, MainDag)
+    PlottingJob = PlottingNode(opts, MainDag)
     AnalysisJob = AnalysisNode(opts, MainDag)
     FilterJob.add_child(AnalysisJob.job)
+    AnalysisJob.add_child(PlottingJob.job)
     MainDag.build()
 
 
