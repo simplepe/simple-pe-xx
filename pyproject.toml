@@ -25,12 +25,13 @@ dependencies = [
 	"astropy>=3.2.3",
 	"h5py",
 	"lalsuite",
-	"numpy>=1.15.4",
 	"mpmath",
+	"numpy>=1.15.4",
+	"pesummary",
+	"pycbc",
+	"pycondor",
 	"scipy",
 	"sympy",
-	"pycbc",
-	"pesummary",
 ]
 
 [project.optional-dependencies]
@@ -43,6 +44,7 @@ docs = [
 [project.scripts]
 simple_pe_analysis = "simple_pe.cli.simple_pe_analysis:main"
 simple_pe_filter = "simple_pe.cli.simple_pe_filter:main"
+simple_pe_pipe = "simple_pe.cli.simple_pe_pipe:main"
 
 [project.urls]
 "Source code" = "https://git.ligo.org/stephen-fairhurst/simple-pe"
