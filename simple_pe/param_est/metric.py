@@ -14,6 +14,7 @@ class Metric:
     """
     A class to store the parameter space metric at a point x in parameter space,
     where the variations are given by dxs
+
     :param x: dictionary with parameter values for initial point
     :param dxs: a dictionary of arrays with the initial change in parameters
     :param f_low: low frequency cutoff
@@ -24,7 +25,7 @@ class Metric:
     """
 
     def __init__(self, x, dx_directions, mismatch, f_low, psd,
-                 approximant="IMRPhenomD", tolerance=1e-2, n_sigma=None, snr=None):
+                 approximant="IMRPhenomD", tolerance=1e-2, prob=None, snr=None):
         """
         :param x: dictionary with parameter values for initial point
         :param dx_directions: a list of directions to vary
@@ -33,6 +34,8 @@ class Metric:
         :param psd: the power spectrum to use in calculating the match
         :param approximant: the approximant generator to use
         :param tolerance: tolerance for scaling vectors
+        :param prob: probability to enclose within ellipse
+        :param snr: snr of signal, used in scaling mismatch
         """
         self.x = x
         if 'distance' not in self.x:
@@ -45,8 +48,12 @@ class Metric:
         self.psd = psd
         self.approximant = approximant
         self.tolerance = tolerance
-        self.n_sigma = n_sigma
+        self.prob = prob
         self.snr = snr
+        if self.prob:
+            self.n_sigma = np.sqrt(chi2.isf(1-self.prob, self.ndim))
+            if self.snr:
+                self.mismatch = self.n_sigma**2 / (2 * self.snr**2)
         self.coordinate_metric = None
         self.metric = None
         self.evals = None
@@ -55,6 +62,7 @@ class Metric:
         self.projected_directions = None
         self.projected_metric = None
         self.projection = None
+        self.projected_mismatch = None
 
         self.scale_dxs()
         self.calculate_metric()
@@ -186,6 +194,11 @@ class Metric:
         self.projection = - np.matmul(ginv, self.metric[~kept][:, kept])
         self.projected_metric = self.metric[kept][:, kept] + np.matmul(self.metric[kept][:, ~kept], self.projection)
 
+        if self.prob and self.snr:
+            # calculate equivalent mismatch given number of remaining dimensions
+            n_sigmasq = chi2.isf(1 - self.prob, len(projected_directions))
+            self.projected_mismatch = n_sigmasq / (2 * self.snr ** 2)
+
     def projected_evecs(self):
         """
         Return the evecs normalized to give the desired mismatch
@@ -193,13 +206,15 @@ class Metric:
         evals, evec = np.linalg.eig(self.projected_metric)
         return SamplesDict(self.projected_directions, evec * np.sqrt(self.mismatch / evals))
 
-    def generate_ellipse(self, npts=100, projected=False, mismatch=None):
+    def generate_ellipse(self, npts=100, projected=False, scale=1.):
         """
-        Generate an ellipse of points of constant mismatch
+        Generate an ellipse of points of the stored mismatch.  Scale the radius by a factor `scale'
+        If the metric is projected, and we know the snr, then scale the mismatch appropriately for the number
+        of projected dimensions.
 
+        :param npts: number of points in the ellipse
         :param projected: use the projected metric if True, else use metric
-        :param npts: number of points in
-        :param mismatch: the mismatch at which to place the ellipse (if None, then use the value associated with the metric)
+        :param scale: scaling to apply to the mismatch
         :return ellipse_dict: SamplesDict with ellipse of points
         """
         if projected:
@@ -213,15 +228,13 @@ class Metric:
             print("We're expecting to plot a 2-d ellipse")
             return -1
 
-        if mismatch:
-            r = np.sqrt(mismatch / self.mismatch)
-        else:
-            r = 1
+        if projected and self.projected_mismatch:
+            scale *= np.sqrt(self.projected_mismatch / self.mismatch)
 
         # generate points on a circle
         phi = np.linspace(0, 2 * np.pi, npts)
-        xx = r * np.cos(phi)
-        yy = r * np.sin(phi)
+        xx = scale * np.cos(phi)
+        yy = scale * np.sin(phi)
         pts = np.array([xx, yy])
 
         # project onto eigendirections
@@ -237,14 +250,15 @@ class Metric:
 
         return ellipse_dict
 
-    def generate_match_grid(self, npts=10, projected=False, mismatch=None):
+    def generate_match_grid(self, npts=10, projected=False, scale=1.):
         """
-        Generate a grid of points with extent governed by requested mismatch
+        Generate a grid of points with extent governed by stored mismatch.  
+        If the metric is projected, scale to the projected number of dimensions
+        Apply an overall scaling of scale
 
         :param npts: number of points in each dimension of the grid
         :param projected: use the projected metric if True, else use metric
-        :param mismatch: the mismatch of the greatest extent of the grid
-        (if None, then use the value associated with the metric)
+        :param scale: a factor by which to scale the extent of the grid
         :return ellipse_dict: SamplesDict with grid of points and match at each point
         """
         if projected:
@@ -254,12 +268,10 @@ class Metric:
             dx_dirs = self.dx_directions
             n_evec = self.normalized_evecs()
 
-        if mismatch:
-            r = np.sqrt(mismatch / self.mismatch)
-        else:
-            r = 1
+        if projected and self.projected_mismatch:
+            scale *= np.sqrt(self.projected_mismatch / self.mismatch)
 
-        grid = np.mgrid[-r:r:npts * 1j, -r:r:npts * 1j]
+        grid = np.mgrid[-scale:scale:npts * 1j, -scale:scale:npts * 1j]
         dx_data = np.tensordot(n_evec.samples, grid, axes=(1, 0))
 
         if projected:
@@ -286,21 +298,20 @@ class Metric:
 
         return matches
 
-    def generate_posterior_grid(self, npts=10, projected=False, mismatch=None):
+    def generate_posterior_grid(self, npts=10, projected=False, scale=None):
         """
         Generate a grid of points with extent governed by requested mismatch
 
         :param npts: number of points in each dimension of the grid
         :param projected: use the projected metric if True, else use metric
-        :param mismatch: the mismatch of the greatest extent of the grid
-        (if None, then use the value associated with the metric)
+        :param scale: the scale to apply to the greatest extent of the grid
         :return ellipse_dict: SamplesDict with grid of points and match at each point
         """
         if not self.snr:
             print("need an SNR to turn matches into probabilities")
             return -1
 
-        matches = self.generate_match_grid(npts, projected, mismatch)
+        matches = self.generate_match_grid(npts, projected, scale)
         post = np.exp(-self.snr ** 2 / 2 * (1 - matches['match'] ** 2))
 
         grid_probs = SamplesDict(matches.keys() + ['posterior'],
@@ -642,11 +653,8 @@ def find_metric_and_eigendirections(x, dx_directions, snr, f_low, psd, approxima
     :return g: the mismatch metric in physical space
     """
     # initial directions and initial spacing
-    ndim = len(dx_directions)
-    n_sigmasq = chi2.isf(0.1, ndim)
-    desired_mismatch = n_sigmasq / (2 * snr ** 2)
-    g = Metric(x, dx_directions, desired_mismatch, f_low, psd, approximant, tolerance,
-               n_sigma=np.sqrt(n_sigmasq), snr=snr)
+    g = Metric(x, dx_directions, 0, f_low, psd, approximant, tolerance,
+               prob=0.9, snr=snr)
     g.iteratively_update_metric(max_iter)
     return g
 

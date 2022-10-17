@@ -15,7 +15,7 @@ running,
 
 ```bash
 $ cd simple-pe
-$ python setup.py install
+$ python -m pip install .
 ```
 
 which will install `simple-pe`. 
