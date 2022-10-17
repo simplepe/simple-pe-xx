@@ -120,7 +120,8 @@ def _load_trigger_parameters_from_file(path):
         data = json.load(f)
     data = pe.SimplePESamples(data)
     required_params = [
-        "mass_1", "mass_2", "time", "ra", "dec", "psi"
+        "mass_1", "mass_2", "spin_1z", "spin_2z", "time", "ra", "dec", "psi",
+        "distance"
     ]
     data = pe.convert(data, disable_remnant=True)
     if not all(param in data.keys() for param in required_params):
