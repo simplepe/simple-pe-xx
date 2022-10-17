@@ -40,7 +40,7 @@ class SimplePESamples(SamplesDict):
         Initialize as a SamplesDict
         """
         SamplesDict.__init__(self, *args, logger_warn, autoscale)
-        # hack to add latex labels for parameters not included in pesummary
+        # hack to add latex labels for parameters not included in pesummary
         _latex_labels = self._latex_labels
         _latex_labels.update({"chi_align": r"$\chi_{A}$", "distance": r"$d_{L}$"})
         self._latex_labels = _latex_labels
