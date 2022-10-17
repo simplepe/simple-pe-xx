@@ -103,7 +103,7 @@ class Dag(object):
                     pc_dependent_jobs.append(node)
                 else:
                     independent_jobs.append(node)
-            for node in independent_jobs + p_dependent_jobs + pc_dependent_jobs:
+            for node in independent_jobs + pc_dependent_jobs + p_dependent_jobs:
                 f.write("# {}\n".format(node.name))
                 f.write(
                     "# PARENTS {}\n".format(
