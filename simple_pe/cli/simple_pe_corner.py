@@ -48,7 +48,7 @@ def command_line():
 
 
 def main(args=None):
-    """
+    """Main interface for `simple_pe_corner`
     """
     parser = command_line()
     opts, _ = parser.parse_known_args(args=args)
