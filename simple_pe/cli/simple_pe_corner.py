@@ -4,8 +4,6 @@ import os
 from argparse import ArgumentParser
 from pesummary.io import read
 from pesummary.core.command_line import CheckFilesExistAction
-import sys
-sys.path.append("../../")
 from simple_pe.param_est.pe import SimplePESamples
 
 __authors__ = [
