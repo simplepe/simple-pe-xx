@@ -308,10 +308,11 @@ class FilterNode(Node):
         """
         from gwpy.timeseries import TimeSeries
         from gwosc.datasets import event_gps
-        _strain = strain.copy()
+        _strain = {}
         for key, value in strain.items():
             ifo, channel = key.split(":")
             if channel.lower() != "gwosc":
+                _strain[key] = value
                 continue
             gps = event_gps(value)
             start, stop = int(gps) + 512, int(gps) - 512
