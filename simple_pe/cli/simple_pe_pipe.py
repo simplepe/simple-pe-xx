@@ -308,7 +308,7 @@ class FilterNode(Node):
         """
         from gwosc.datasets import event_gps
         _strain = strain.copy()
-        for key, value in strain_dict.items():
+        for key, value in _strain.items():
             ifo, channel = key.split(":")
             if channel.lower() != "gwosc":
                 continue
