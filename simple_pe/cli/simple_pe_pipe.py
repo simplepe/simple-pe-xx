@@ -306,6 +306,7 @@ class FilterNode(Node):
     def _prepare_strain(self, strain):
         """
         """
+        from gwpy.timeseries import TimeSeries
         from gwosc.datasets import event_gps
         _strain = strain.copy()
         for key, value in _strain.items():
