@@ -25,6 +25,12 @@ def command_line():
                 None, [(action.option_strings[0], action)]
             )
     parser.add_argument(
+        "--truth",
+        help="File containing the injected values. Used only for plotting",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
         "--accounting_group_user",
         help="Accounting group user to use for this workflow",
         required=True
@@ -88,13 +94,16 @@ class Dag(object):
         with open(self.bash_file, "w") as f:
             f.write("#!/usr/bin/env bash\n\n")
             independent_jobs = []
-            dependent_jobs = []
+            p_dependent_jobs = []
+            pc_dependent_jobs = []
             for node in self.dagman.nodes:
-                if len(node.parents):
-                    dependent_jobs.append(node)
+                if len(node.parents) and not len(node.children):
+                    p_dependent_jobs.append(node)
+                elif len(node.parents):
+                    pc_dependent_jobs.append(node)
                 else:
                     independent_jobs.append(node)
-            for node in independent_jobs + dependent_jobs:
+            for node in independent_jobs + pc_dependent_jobs + p_dependent_jobs:
                 f.write("# {}\n".format(node.name))
                 f.write(
                     "# PARENTS {}\n".format(
@@ -231,6 +240,7 @@ class Node(object):
             notification=self.notification
         )
 
+
 class AnalysisNode(Node):
     """Node to handle the generation of the main analysis job
 
@@ -264,7 +274,6 @@ class AnalysisNode(Node):
         return " ".join([item for sublist in args for item in sublist])
 
 
-
 class FilterNode(Node):
     """Node to handle the generation of the main match filter job
 
@@ -294,6 +303,33 @@ class FilterNode(Node):
         return " ".join([item for sublist in args for item in sublist])
 
 
+class CornerNode(Node):
+    """Node to handle the generation of a corner plot showing the posterior
+
+    Parameters
+    ----------
+    opts: argparse.Namespace
+        Namespace containing the command line arguments
+    dag: Dag
+        Dag object to control the generation of the DAG
+    """
+    job_name = "corner"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._executable = self.get_executable("simple_pe_corner")
+        self.create_pycondor_job()
+
+    @property
+    def arguments(self):
+        args = self._format_arg_lists(["truth"], [], [])
+        args += [
+            ["--outdir", f"{self.opts.outdir}/output"],
+            ["--posterior", f"{self.opts.outdir}/output/posterior_samples.dat"]
+        ]
+        return " ".join([item for sublist in args for item in sublist])
+
+
 def main(args=None):
     """Main interface for `simple_pe_pipe`
     """
@@ -301,7 +337,9 @@ def main(args=None):
     opts, _ = parser.parse_known_args(args=args)
     MainDag = Dag(opts)
     FilterJob = FilterNode(opts, MainDag)
+    CornerJob = CornerNode(opts, MainDag)
     AnalysisJob = AnalysisNode(opts, MainDag)
+    AnalysisJob.add_child(CornerJob.job)
     FilterJob.add_child(AnalysisJob.job)
     MainDag.build()
 
