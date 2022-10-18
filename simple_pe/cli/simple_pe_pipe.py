@@ -318,6 +318,7 @@ class FilterNode(Node):
             start, stop = int(gps) + 512, int(gps) - 512
             open_data = TimeSeries.fetch_open_data(ifo, start, stop)
             _channel = open_data.name
+            open_data.name = f"{ifo}:{_channel}"
             open_data.channel = f"{ifo}:{_channel}"
             os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
             filename = (
