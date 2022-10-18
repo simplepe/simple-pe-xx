@@ -289,6 +289,7 @@ class FilterNode(Node):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._executable = self.get_executable("simple_pe_filter")
+        self.opts.strain = self._prepare_strain(self.opts.strain)
         self.create_pycondor_job()
 
     @property
@@ -301,6 +302,40 @@ class FilterNode(Node):
         args = self._format_arg_lists(string_args, dict_args, [])
         args += [["--outdir", f"{self.opts.outdir}/output"]]
         return " ".join([item for sublist in args for item in sublist])
+
+    def _prepare_strain(self, strain):
+        """Prepare strain data
+
+        Parameters
+        ----------
+        strain: dict
+            dictionary containing strain data. Key must be {ifo}:{channel} and
+            value must be path to gwf file. If channel = 'gwosc' then value must
+            be the name of the GW signal that you wish to analyse. When
+            channel = 'gwosc', data is downloaded with
+            `gwpy.timeseries.TimeSeries.fetch_open_data`
+        """
+        from gwpy.timeseries import TimeSeries
+        from gwosc.datasets import event_gps
+        _strain = {}
+        for key, value in strain.items():
+            ifo, channel = key.split(":")
+            if channel.lower() != "gwosc":
+                _strain[key] = value
+                continue
+            gps = event_gps(value)
+            start, stop = int(gps) + 512, int(gps) - 512
+            open_data = TimeSeries.fetch_open_data(ifo, start, stop)
+            _channel = open_data.name
+            open_data.name = f"{ifo}:{_channel}"
+            open_data.channel = f"{ifo}:{_channel}"
+            os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
+            filename = (
+                f"{self.opts.outdir}/output/{ifo}-{_channel}-{int(gps)}.gwf"
+            )
+            open_data.write(filename)
+            _strain[f"{ifo}:{_channel}"] = filename
+        return _strain
 
 
 class CornerNode(Node):
