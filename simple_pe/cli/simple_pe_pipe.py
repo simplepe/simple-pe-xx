@@ -304,7 +304,16 @@ class FilterNode(Node):
         return " ".join([item for sublist in args for item in sublist])
 
     def _prepare_strain(self, strain):
-        """
+        """Prepare strain data
+
+        Parameters
+        ----------
+        strain: dict
+            dictionary containing strain data. Key must be {ifo}:{channel} and
+            value must be path to gwf file. If channel = 'gwosc' then value must
+            be the name of the GW signal that you wish to analyse. When
+            channel = 'gwosc', data is downloaded with
+            `gwpy.timeseries.TimeSeries.fetch_open_data`
         """
         from gwpy.timeseries import TimeSeries
         from gwosc.datasets import event_gps
