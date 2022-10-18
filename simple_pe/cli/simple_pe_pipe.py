@@ -317,7 +317,7 @@ class FilterNode(Node):
             gps = event_gps(value)
             start, stop = int(gps) + 512, int(gps) - 512
             open_data = TimeSeries.fetch_open_data(ifo, start, stop)
-            _channel = "GWOSC"
+            _channel = open_data.name
             open_data.channel = f"{ifo}:{_channel}"
             os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
             filename = (
