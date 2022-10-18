@@ -289,6 +289,7 @@ class FilterNode(Node):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._executable = self.get_executable("simple_pe_filter")
+        self.opts.strain = self._prepare_strain(self.opts.strain)
         self.create_pycondor_job()
 
     @property
@@ -301,6 +302,26 @@ class FilterNode(Node):
         args = self._format_arg_lists(string_args, dict_args, [])
         args += [["--outdir", f"{self.opts.outdir}/output"]]
         return " ".join([item for sublist in args for item in sublist])
+
+    def _prepare_strain(self, strain):
+        """
+        """
+        from gwosc.datasets import event_gps
+        _strain = strain.copy()
+        for key, value in strain_dict.items():
+            ifo, channel = key.split(":")
+            if channel.lower() != "gwosc":
+                continue
+            gps = event_gps(value)
+            start, stop = int(gps) + 512, int(gps) - 512
+            open_data = TimeSeries.fetch_open_data(ifo, start, stop)
+            _channel = open_data.channel
+            filename = (
+                f"{self.opts.outdir}/output/{ifo}-{_channel}-{int(gps)}.gwf"
+            )
+            open_data.write(filename)
+            _strain[f"{ifo}:{_channel}"] = filename
+        return _strain
 
 
 class CornerNode(Node):
