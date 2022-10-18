@@ -309,15 +309,15 @@ class FilterNode(Node):
         from gwpy.timeseries import TimeSeries
         from gwosc.datasets import event_gps
         _strain = strain.copy()
-        for key, value in _strain.items():
+        for key, value in strain.items():
             ifo, channel = key.split(":")
             if channel.lower() != "gwosc":
                 continue
             gps = event_gps(value)
             start, stop = int(gps) + 512, int(gps) - 512
             open_data = TimeSeries.fetch_open_data(ifo, start, stop)
-            print(open_data)
-            _channel = open_data.channel
+            _channel = "GWOSC"
+            open_data.channel = f"{ifo}:{_channel}"
             os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
             filename = (
                 f"{self.opts.outdir}/output/{ifo}-{_channel}-{int(gps)}.gwf"
