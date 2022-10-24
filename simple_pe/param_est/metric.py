@@ -436,6 +436,27 @@ def make_waveform(x, df, f_low, flen, approximant="IMRPhenomD"):
     return h_plus
 
 
+def offset_params(x, dx, scaling):
+    """
+    Update the parameters x by moving to a value (x + scaling * dx)
+
+    :param x: dictionary with parameter values for initial point
+    :param dx: dictionary with parameter variations (can be a subset of the parameters in x)
+    :param scaling: the scaling to apply to dx
+    :return x_prime: parameter space point x + scaling * dx
+    """
+    x_prime = copy.deepcopy(x)
+
+    for k, dx_val in dx.items():
+        if k not in x_prime:
+            print("Value for %s not given at initial point" % k)
+            return -1
+
+        x_prime[k] += float(scaling * dx_val)
+
+    return x_prime
+
+
 def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenomD"):
     """
     This function makes a waveform for the given parameters and
