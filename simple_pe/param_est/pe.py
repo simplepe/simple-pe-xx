@@ -7,6 +7,43 @@ from pesummary.utils.samples_dict import SamplesDict
 from scipy.stats import ncx2
 
 
+spin_max = 0.98
+
+param_mins = {'chirp_mass': 1.,
+              'total_mass': 2.,
+              'mass_1': 1.,
+              'mass_2': 1.,
+              'symmetric_mass_ratio': 0.04,
+              'chi_eff': -1 * spin_max,
+              'chi_align': -1 * spin_max,
+              'chi_p': 1e-3,
+              'chi_p2': 1e-6,
+              'spin_1z': -1 * spin_max,
+              'spin_2z': -1 * spin_max,
+              'a_1': 0.,
+              'a_2': 0.,
+              'tilt_1': 0.,
+              'tilt_2': 0.,
+              }
+
+param_maxs = {'chirp_mass': 1e4,
+              'total_mass': 1e4,
+              'mass_1': 1e4,
+              'mass_2': 1e4,
+              'symmetric_mass_ratio': 0.25,
+              'chi_eff': spin_max,
+              'chi_align': spin_max,
+              'chi_p': spin_max,
+              'chi_p2': spin_max**2,
+              'spin_1z': spin_max,
+              'spin_2z': spin_max,
+              'a_1': spin_max,
+              'a_2': spin_max,
+              'tilt_1': np.pi,
+              'tilt_2': np.pi,
+              }
+
+
 def _add_chi_align(data):
     """Add samples for chi_align. If spin_1z, spin_2z, mass_ratio are not
     in data, samples for chi_align are not added to data
@@ -165,7 +202,7 @@ class SimplePESamples(SamplesDict):
             mass_2 = m2_from_mchirp_q(chirp_mass, mass_ratio)
             chi_p_samples = _chi_p(mass_1, mass_2, spin_1x, spin_1y, spin_2x, spin_2y)
         else:
-            print("only implemented for 'uniform'")
+            print("only implemented for 'uniform' and 'isotropic_on_sky'")
             return
 
         if 'chi_p' in self.keys() and overwrite:
@@ -208,10 +245,24 @@ class SimplePESamples(SamplesDict):
 
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
-        param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
-        if (param not in self.keys()) or ('chi_p' not in self.keys()):
-            print("Need to specify 'chi_eff'/'chi_align' and 'chi_p'")
+        if 'chi_p' not in self.keys() and "chi_p2" not in self.keys():
+            print("Need to specify precessing spin component, please give either 'chi_p' or 'chi_p2")
             return
+
+        param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
+        if param not in self.keys():
+            print("Need to specify aligned spin component, plese give either 'chi_eff' or 'chi_align'")
+            return
+
+        if "chi_p2" in self.keys():
+            if "chi_p" in self.keys():
+                if overwrite:
+                    print("Overwriting values of 'chi_p' using 'chi_p2'")
+                    self.pop('chi_p')
+                else:
+                    print("'chi_p' already in samples, not overwriting from 'chi_p2'")
+                    return
+            self['chi_p'] = np.sqrt(self['chi_p2'])
 
         for k in ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl']:
             if k in self.keys():
@@ -223,15 +274,39 @@ class SimplePESamples(SamplesDict):
                     return
 
         self['a_1'] = np.sqrt(self["chi_p"] ** 2 + self[param] ** 2)
-        # limit a_1 < 1
-        self['a_1'][self['a_1'] > 1.] = 1
+        # # limit a_1 < 1
+        # self['a_1'][self['a_1'] > 1.] = 1
         self['a_2'] = np.abs(self[param])
-        # limit a_2 < 1
-        self['a_2'][self['a_2'] > 1.] = 1.
+        # # limit a_2 < 1
+        # self['a_2'][self['a_2'] > 1.] = 1.
         self['tilt_1'] = np.arctan2(self["chi_p"], self[param])
         self['tilt_2'] = np.arccos(np.sign(self[param]))
         self.add_fixed('phi_12', 0.)
         self.add_fixed('phi_jl', 0.)
+
+    def trim_unphysical(self, maxs=None, mins=None):
+        """
+        Trim unphysical points from SimplePESamples
+
+        :param maxs: the maximum permitted values of the physical parameters
+        :param mins: the minimum physical values of the physical parameters
+        :return physical_samples: SamplesDict with points outside the param max and min given
+        """
+        if mins is None:
+            mins = param_mins
+
+        if maxs is None:
+            maxs = param_maxs
+
+        keep = np.ones(self.number_of_samples, bool)
+        for d, v in self.items():
+            if d in maxs:
+                keep *= (v < maxs[d])
+            if d in mins:
+                keep *= (v > mins[d])
+
+        self.samples = self.samples[:, keep]
+        self.number_of_samples = len(self.samples)
 
     def calculate_rho_lm(self, psd, f_low, net_snr, modes, interp_directions, interp_points=5,
                          approximant="IMRPhenomXPHM"):
