@@ -132,6 +132,8 @@ class Metric:
         """
         if self.evec is None:
             self.calculate_evecs()
+        # always force to be positive to avoid negatives in sqrt
+        self.evals[self.evals < 0] = np.abs(self.evals[self.evals < 0])
         return SamplesDict(self.dx_directions, self.evec * np.sqrt(self.mismatch / self.evals))
 
     def calc_metric_error(self):
