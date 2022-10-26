@@ -479,9 +479,9 @@ def check_physical(x, dx, scaling, maxs=None, mins=None, verbose=False):
         chia = "chi_eff" if "chi_eff" in x0.keys() else "chi_align"
         # need find alpha s.t. (chi + alpha dchi)^2 + chi_p2 + alpha dchi_p2 = max_spin^2
         c = x0[chia] ** 2 + x0['chi_p2'] - maxs['a_1']**2
-        dchi = scaling * dx[chia]
         dcp2 = scaling * dx['chi_p2']
-        if chia in dx.keys() and dchi:
+        if chia in dx.keys() and dx[chia]:
+            dchi = scaling * dx[chia]
             a = dchi ** 2
             b = 2 * x0[chia] * dchi + dcp2
             alpha_prec = (-b + np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
