@@ -452,17 +452,26 @@ def check_physical(x, dx, scaling, maxs=None, mins=None, verbose=False):
         maxs = param_maxs
 
     x0 = offset_params(x, dx, 0.)
+    if verbose:
+        print('initial point')
+        print(x0)
     x_prime = offset_params(x, dx, scaling)
-
-    if 'chi_p' in x_prime.keys() or ('chi_p2' in x_prime.keys()):
-        x_prime = SimplePESamples(x_prime)
-        x_prime.generate_spin_z()
-        x_prime.generate_prec_spin()
-        x0 = SimplePESamples(x0)
-        x0.generate_spin_z()
-        x0.generate_prec_spin()
+    if verbose:
+        print('proposed point')
+        print(x_prime)
 
     alpha = 1.
+
+    if ('chi_p' in x_prime.keys()) or ('chi_p2' in x_prime.keys()):
+        if ('chi_p2' in x_prime.keys()) and (x_prime['chi_p2'] < mins['chi_p2']):
+            alpha = min(alpha, (x0['chi_p2'] - mins['chi_p2']) / (x0['chi_p2'] - x_prime['chi_p2']))
+            x_prime['chi_p2'][0] = mins['chi_p2']
+            if verbose:
+                print("scaling to %.2f in direction %s" % (alpha, 'chi_p2'))
+        x_prime.generate_spin_z()
+        x_prime.generate_prec_spin()
+        x0.generate_spin_z()
+        x0.generate_prec_spin()
 
     for k, dx_val in x0.items():
         if k in mins.keys() and x_prime[k] < mins[k]:
@@ -487,7 +496,13 @@ def check_physical(x, dx, scaling, maxs=None, mins=None, verbose=False):
             alpha_prec = (-b + np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
         else:
             # not changing aligned spin, so easier
-            alpha_prec = -c / dcp2
+            # chi^2 + chi_p2 + alpha dchi_p2 = max_spin^2
+            # if dchi_p2 < 0 then bound is positivity of chi_p2, else alpha = -c/dcp2
+            if dcp2 < 0:
+                # chi_p2 + alpha dchi_p2 = mins['chi_p2']
+                alpha_prec = (mins['chi_p2'] - x0['chi_p2']) /dcp2
+            else:
+                alpha_prec = -c / dcp2
         if verbose:
             print("scaling to %.2f for precession" % alpha_prec)
 
