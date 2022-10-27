@@ -5,18 +5,18 @@ from simple_pe.waveforms import waveform_modes
 import copy
 from scipy import optimize
 from scipy.stats import chi2
-from simple_pe.param_est.pe import convert
-from pesummary.utils.samples_dict import SamplesDict
+from simple_pe.param_est.pe import SimplePESamples, param_maxs, param_mins
 from pesummary.gw import conversions
+from pesummary.utils.samples_dict import SamplesDict
 
 
 class Metric:
     """
     A class to store the parameter space metric at a point x in parameter space,
-    where the variations are given by dxs
+    where the variations are given by dx_directions
 
     :param x: dictionary with parameter values for initial point
-    :param dxs: a dictionary of arrays with the initial change in parameters
+    :param dx_directions: a list of directions to vary
     :param f_low: low frequency cutoff
     :param psd: the power spectrum to use in calculating the match
     :param approximant: the approximant generator to use
@@ -37,12 +37,12 @@ class Metric:
         :param prob: probability to enclose within ellipse
         :param snr: snr of signal, used in scaling mismatch
         """
-        self.x = x
+        self.x = SimplePESamples(x)
         if 'distance' not in self.x:
-            self.x['distance'] = 1.
+            self.x['distance'] = np.ones_like(list(x.values())[0])
         self.dx_directions = dx_directions
         self.ndim = len(dx_directions)
-        self.dxs = SamplesDict(self.dx_directions, np.eye(self.ndim))
+        self.dxs = SimplePESamples(SamplesDict(self.dx_directions, np.eye(self.ndim)))
         self.mismatch = mismatch
         self.f_low = f_low
         self.psd = psd
@@ -51,9 +51,9 @@ class Metric:
         self.prob = prob
         self.snr = snr
         if self.prob:
-            self.n_sigma = np.sqrt(chi2.isf(1-self.prob, self.ndim))
+            self.n_sigma = np.sqrt(chi2.isf(1 - self.prob, self.ndim))
             if self.snr:
-                self.mismatch = self.n_sigma**2 / (2 * self.snr**2)
+                self.mismatch = self.n_sigma ** 2 / (2 * self.snr ** 2)
         self.coordinate_metric = None
         self.metric = None
         self.evals = None
@@ -79,7 +79,7 @@ class Metric:
             scale[i] = scale_dx(self.x, dx, self.mismatch, self.f_low, self.psd,
                                 self.approximant, self.tolerance)
 
-        self.dxs = SamplesDict(self.dx_directions, self.dxs.samples * scale)
+        self.dxs = SimplePESamples(SamplesDict(self.dx_directions, self.dxs.samples * scale))
 
     def calculate_metric(self):
         scaling = 1.
@@ -112,10 +112,6 @@ class Metric:
     def physical_metric(self):
         """
         A function to calculate the metric in physical coordinates
-
-        :param gij: the metric calculated with respect to a set of basis vectors
-        :param dxs: the basis vectors expressed in terms of the physical coordinates
-        :return gphys: the metric in physical coordinates
         """
         dx_inv = np.linalg.inv(self.dxs.samples)
         self.metric = np.matmul(dx_inv.T, np.matmul(self.coordinate_metric, dx_inv))
@@ -134,7 +130,7 @@ class Metric:
             self.calculate_evecs()
         # always force to be positive to avoid negatives in sqrt
         self.evals[self.evals < 0] = np.abs(self.evals[self.evals < 0])
-        return SamplesDict(self.dx_directions, self.evec * np.sqrt(self.mismatch / self.evals))
+        return SimplePESamples(SamplesDict(self.dx_directions, self.evec * np.sqrt(self.mismatch / self.evals)))
 
     def calc_metric_error(self):
         """
@@ -155,7 +151,7 @@ class Metric:
         """
         # calculate the eigendirections of the matrix
         self.calculate_evecs()
-        self.dxs = SamplesDict(self.dx_directions, self.evec)
+        self.dxs = SimplePESamples(SamplesDict(self.dx_directions, self.evec))
         # scale so that they actually have the desired mismatch
         self.scale_dxs()
         self.calculate_metric()
@@ -206,7 +202,7 @@ class Metric:
         Return the evecs normalized to give the desired mismatch
         """
         evals, evec = np.linalg.eig(self.projected_metric)
-        return SamplesDict(self.projected_directions, evec * np.sqrt(self.mismatch / evals))
+        return SimplePESamples(SamplesDict(self.projected_directions, evec * np.sqrt(self.mismatch / evals)))
 
     def generate_ellipse(self, npts=100, projected=False, scale=1.):
         """
@@ -217,7 +213,7 @@ class Metric:
         :param npts: number of points in the ellipse
         :param projected: use the projected metric if True, else use metric
         :param scale: scaling to apply to the mismatch
-        :return ellipse_dict: SamplesDict with ellipse of points
+        :return ellipse_dict: SimplePESamples with ellipse of points
         """
         if projected:
             dx_dirs = self.projected_directions
@@ -240,15 +236,16 @@ class Metric:
         pts = np.array([xx, yy])
 
         # project onto eigendirections
-        dx = SamplesDict(dx_dirs, np.matmul(n_evec.samples, pts))
+        dx = SimplePESamples(SamplesDict(dx_dirs, np.matmul(n_evec.samples, pts)))
 
         # scale to be physical
         alphas = np.zeros(npts)
         for i in range(npts):
             alphas[i] = check_physical(self.x, dx[i:i + 1], 1.)
 
-        ellipse_dict = SamplesDict(dx_dirs,
-                                   np.array([self.x[dx] for dx in dx_dirs]).reshape([2, 1]) + dx.samples * alphas)
+        ellipse_dict = SimplePESamples(SamplesDict(dx_dirs,
+                                                   np.array([self.x[dx] for dx in dx_dirs]).reshape(
+                                                       [2, 1]) + dx.samples * alphas))
 
         return ellipse_dict
 
@@ -261,7 +258,7 @@ class Metric:
         :param npts: number of points in each dimension of the grid
         :param projected: use the projected metric if True, else use metric
         :param scale: a factor by which to scale the extent of the grid
-        :return ellipse_dict: SamplesDict with grid of points and match at each point
+        :return ellipse_dict: SimplePESamples with grid of points and match at each point
         """
         if projected:
             dx_dirs = self.projected_directions + [x for x in self.dx_directions if x not in self.projected_directions]
@@ -280,7 +277,7 @@ class Metric:
             dx_extra = np.tensordot(self.projection, dx_data, axes=(1, 0))
             dx_data = np.append(dx_data, dx_extra, 0)
 
-        dx = SamplesDict(dx_dirs, dx_data.reshape(len(dx_dirs), npts ** 2))
+        dx = SimplePESamples(SamplesDict(dx_dirs, dx_data.reshape(len(dx_dirs), npts ** 2)))
 
         h0 = make_waveform(self.x, self.psd.delta_f, self.f_low, len(self.psd), self.approximant)
 
@@ -293,10 +290,12 @@ class Metric:
                                           self.psd.delta_f, self.f_low, len(self.psd), self.approximant)
                 m[i] = match(h0, h1, self.psd, self.f_low, subsample_interpolation=True)[0]
 
-        matches = SamplesDict(dx_dirs + ['match'],
-                              np.append(
-                                  dx.samples + np.array([self.x[dx] for dx in dx_dirs]).reshape([len(dx_dirs), 1]),
-                                  m.reshape([1, npts ** 2]), 0).reshape([len(dx_dirs) + 1, npts, npts]))
+        matches = SimplePESamples(SamplesDict(dx_dirs + ['match'],
+                                              np.append(
+                                                  dx.samples + np.array([self.x[dx] for dx in dx_dirs]).reshape(
+                                                      [len(dx_dirs), 1]),
+                                                  m.reshape([1, npts ** 2]), 0).reshape(
+                                                  [len(dx_dirs) + 1, npts, npts])))
 
         return matches
 
@@ -307,7 +306,7 @@ class Metric:
         :param npts: number of points in each dimension of the grid
         :param projected: use the projected metric if True, else use metric
         :param scale: the scale to apply to the greatest extent of the grid
-        :return ellipse_dict: SamplesDict with grid of points and match at each point
+        :return ellipse_dict: SimplePESamples with grid of points and match at each point
         """
         if not self.snr:
             print("need an SNR to turn matches into probabilities")
@@ -316,8 +315,9 @@ class Metric:
         matches = self.generate_match_grid(npts, projected, scale)
         post = np.exp(-self.snr ** 2 / 2 * (1 - matches['match'] ** 2))
 
-        grid_probs = SamplesDict(matches.keys() + ['posterior'],
-                                 np.append(matches.samples, post).reshape([len(matches.keys()) + 1, npts, npts]))
+        grid_probs = SimplePESamples(SamplesDict(matches.keys() + ['posterior'],
+                                                 np.append(matches.samples, post).reshape(
+                                                     [len(matches.keys()) + 1, npts, npts])))
 
         return grid_probs
 
@@ -326,116 +326,91 @@ class Metric:
         Generate an ellipse of points of constant mismatch
 
         :param npts: number of points to generate
-        :return phys_samples: SamplesDict with samples
+        :return phys_samples: SimplePESamples with samples
         """
         pts = np.random.normal(0, 1, [2 * npts, self.ndim])
 
-        sample_pts = SamplesDict(self.dx_directions,
-                                 (np.array([self.x[dx] for dx in self.normalized_evecs().keys()])
-                                  + np.matmul(pts, self.normalized_evecs().samples.T / self.n_sigma)).T)
+        sample_pts = SimplePESamples(SamplesDict(self.dx_directions,
+                                                 (np.array([self.x[dx] for dx in self.normalized_evecs().keys()])
+                                                  + np.matmul(pts,
+                                                              self.normalized_evecs().samples.T / self.n_sigma)).T))
+        sample_pts.trim_unphysical()
+        if sample_pts.number_of_samples > npts:
+            sample_pts = sample_pts.downsample(npts)
 
-        phys_samples = trim_unphysical(sample_pts)
-        if phys_samples.number_of_samples > npts:
-            phys_samples = phys_samples.downsample(npts)
-
-        return phys_samples
-
-
-def generate_spin_z(samples):
-    """
-    Generate z-component spins from chi_eff
-    :param samples: SamplesDict with PE samples containing chi_eff
-    :return new_samples: SamplesDict with spin z-components
-    """
-    if any(_ in samples.keys() for _ in ["chi_eff", "chi_align"]):
-        param = "chi_eff" if "chi_eff" in samples.keys() else "chi_align"
-        # put chi_eff/chi_align on both BHs
-        new_samples = SamplesDict(samples.keys() + ['spin_1z', 'spin_2z'],
-                                  np.append(samples.samples, np.array([samples[param], samples[param]]), 0))
-    else:
-        print("Need to specify 'chi_eff'")
-        return -1
-    return new_samples
+        return sample_pts
 
 
-def generate_prec_spin(samples):
-    """
-    Generate component spins from chi_eff and chi_p
-    :param samples: SamplesDict with PE samples containing chi_p
-    :return new_samples: SamplesDict with spin components where chi_p goes on BH 1
-    """
-    if ('spin_1z' not in samples.keys()) or ('spin_2z' not in samples.keys()):
-        if ('chi_eff' not in samples.keys()) and ('chi_align' not in samples.keys()):
-            print("Must either specify spin z-components or 'chi_eff' or 'chi_align'")
-            return -1
-        samples = generate_spin_z(samples)
-    if 'chi_p' not in samples.keys():
-        print("Need to specify 'chi_p'")
-        return -1
-
-    a_1 = np.sqrt(samples["chi_p"] ** 2 + samples["spin_1z"] ** 2)
-    a_2 = np.abs(samples["spin_2z"])
-    tilt_1 = np.arctan2(samples["chi_p"], samples["spin_1z"])
-    tilt_2 = np.arccos(np.sign(samples["spin_2z"]))
-    phi_12 = np.zeros_like(a_1)
-    phi_jl = np.zeros_like(a_1)
-    new_samples = SamplesDict(samples.keys() + ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl'],
-                              np.append(samples.samples, np.array([a_1, a_2, tilt_1, tilt_2, phi_12, phi_jl]), 0))
-
-    return new_samples
-
-
-def make_waveform(x, df, f_low, flen, approximant="IMRPhenomD"):
+def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD"):
     """
     This function makes a waveform for the given parameters and
     returns h_plus generated at value x.
 
-    :param x: dictionary with parameter values for waveform generation
+    :param params: SimplePESamples with parameter values for waveform generation
     :param df: frequency spacing of points
     :param f_low: low frequency cutoff
     :param flen: length of the frequency domain array to generate
     :param approximant: the approximant generator to use
     :return h_plus: waveform at parameter space point x
     """
+    x = copy.deepcopy(params)
     if 'phase' not in x.keys():
         x['phase'] = np.zeros_like(list(x.values())[0])
     x['f_ref'] = f_low * np.ones_like(list(x.values())[0])
 
-    if 'chi_p2' in x.keys():
-        x['chi_p'] = np.sqrt(x['chi_p2'])
-
     modes = waveform_modes.mode_array('22', approximant)
-    data = convert(x, disable_remnant=True)
 
-    if 'chi_p' in data.keys() and (data['chi_p'] != 0):
+    if ('chi_p' in x.keys()) or ('chi_p2' in x.keys()):
         # generate the leading harmonic of the precessing waveform
-        data = generate_prec_spin(data)
+        x.generate_prec_spin()
 
-    if 'tilt_1' in data.keys():
-        data.generate_all_posterior_samples(disable_remnant=True)
-        h_plus = conversions.snr._calculate_precessing_harmonics(data["mass_1"][0], data["mass_2"][0],
-                                                                 data["a_1"][0], data["a_2"][0],
-                                                                 data["tilt_1"][0], data["tilt_2"][0],
-                                                                 data["phi_12"][0],
-                                                                 data["beta"][0], data["distance"][0],
+    if 'tilt_1' in x.keys() and x['tilt_1']:
+        x.generate_all_posterior_samples(disable_remnant=True)
+        h_plus = conversions.snr._calculate_precessing_harmonics(x["mass_1"][0], x["mass_2"][0],
+                                                                 x["a_1"][0], x["a_2"][0],
+                                                                 x["tilt_1"][0], x["tilt_2"][0],
+                                                                 x["phi_12"][0],
+                                                                 x["beta"][0], x["distance"][0],
                                                                  harmonics=[0], approx=approximant,
                                                                  mode_array=modes,
                                                                  df=df, f_low=f_low,
-                                                                 f_ref=data["f_ref"][0])[0]
+                                                                 f_ref=x["f_ref"][0])[0]
 
     else:
-        if ('spin_1z' not in data.keys()) or ('spin_2z' not in data.keys()):
-            data = generate_spin_z(data)
+        if ('spin_1z' not in x.keys()) or ('spin_2z' not in x.keys()):
+            x.generate_spin_z()
 
-        h_plus, h_cross = get_fd_waveform(mass1=data['mass_1'], mass2=data['mass_2'],
-                                          spin1z=data['spin_1z'],
-                                          spin2z=data['spin_2z'],
-                                          delta_f=df, distance=data['distance'], f_lower=f_low,
+        x.generate_all_posterior_samples(disable_remnant=True)
+        h_plus, h_cross = get_fd_waveform(mass1=x['mass_1'], mass2=x['mass_2'],
+                                          spin1z=x['spin_1z'],
+                                          spin2z=x['spin_2z'],
+                                          delta_f=df, distance=x['distance'], f_lower=f_low,
                                           approximant=approximant,
                                           mode_array=modes)
 
     h_plus.resize(flen)
     return h_plus
+
+
+def offset_params(x, dx, scaling):
+    """
+    Update the parameters x by moving to a value (x + scaling * dx)
+
+    :param x: dictionary with parameter values for initial point
+    :param dx: dictionary with parameter variations (can be a subset of the parameters in x)
+    :param scaling: the scaling to apply to dx
+    :return x_prime: parameter space point x + scaling * dx
+    """
+    x_prime = copy.deepcopy(x)
+
+    for k, dx_val in dx.items():
+        if k not in x_prime:
+            print("Value for %s not given at initial point" % k)
+            return -1
+
+        x_prime[k] += float(scaling * dx_val)
+
+    return x_prime
 
 
 def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenomD"):
@@ -452,52 +427,12 @@ def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenom
     :param approximant: the approximant generator to use
     :return h_plus: waveform at parameter space point x + scaling * dx
     """
-    tmp_x = copy.deepcopy(x)
-
-    for k, dx_val in dx.items():
-        tmp_x[k] += float(scaling * dx_val)
-
-    h_plus = make_waveform(tmp_x, df, f_low, flen, approximant)
+    h_plus = make_waveform(offset_params(x, dx, scaling), df, f_low, flen, approximant)
 
     return h_plus
 
 
-spin_max = 0.90
-
-param_mins = {'chirp_mass': 1.,
-              'total_mass': 2.,
-              'mass_1': 1.,
-              'mass_2': 1.,
-              'symmetric_mass_ratio': 0.04,
-              'chi_eff': -1 * spin_max,
-              'chi_align': -1 * spin_max,
-              'chi_p': 1e-3,
-              'spin_1z': -1 * spin_max,
-              'spin_2z': -1 * spin_max,
-              'a_1': -1 * spin_max,
-              'a_2': -1 * spin_max,
-              'tilt_1': 1e-3,
-              'tilt_2': 1e-3,
-              }
-
-param_maxs = {'chirp_mass': 1e4,
-              'total_mass': 1e4,
-              'mass_1': 1e4,
-              'mass_2': 1e4,
-              'symmetric_mass_ratio': 0.25,
-              'chi_eff': spin_max,
-              'chi_align': 0.7,
-              'chi_p': spin_max,
-              'spin_1z': spin_max,
-              'spin_2z': spin_max,
-              'a_1': spin_max,
-              'a_2': spin_max,
-              'tilt_1': np.pi - 1e-3,
-              'tilt_2': np.pi - 1e-3,
-              }
-
-
-def check_physical(x, dx, scaling, maxs=None, mins=None):
+def check_physical(x, dx, scaling, maxs=None, mins=None, verbose=False):
     """
     A function to check whether the point described by the positions x + dx is
     physically permitted.  If not, rescale and return the scaling factor
@@ -505,8 +440,9 @@ def check_physical(x, dx, scaling, maxs=None, mins=None):
     :param x: dictionary with parameter values for initial point
     :param dx: dictionary with parameter variations
     :param scaling: the scaling to apply to dx
-    :param maxs: the maximum permitted values of the physical parameters
-    :param mins: the minimum physical values of the physical parameters
+    :param maxs: a dictionary with the maximum permitted values of the physical parameters
+    :param mins: a dictionary with the minimum physical values of the physical parameters
+    :param verbose: print logging messages
     :return alpha: the scaling factor required to make x + scaling * dx physically permissible
     """
     if mins is None:
@@ -515,54 +451,49 @@ def check_physical(x, dx, scaling, maxs=None, mins=None):
     if maxs is None:
         maxs = param_maxs
 
-    if 'chi_p2' in dx.keys():
-        x['chi_p'] = np.sqrt(x['chi_p2'])
+    x0 = offset_params(x, dx, 0.)
+    x_prime = offset_params(x, dx, scaling)
 
-    if ('chi_eff' in x.keys() or 'chi_align' in x.keys()) and 'chi_p' in x.keys():
-        align_max = np.sqrt(spin_max**2 - x['chi_p']**2)
-        maxs['chi_eff'] = maxs['chi_align'] = align_max
-        mins['chi_eff'] = mins['chi_align'] = - align_max
-        param = "chi_eff" if "chi_eff" in x.keys() else "chi_align"
-        maxs['chi_p'] = np.sqrt(spin_max**2 - x[param]**2)
-
-    if 'chi_p2' in dx.keys():
-        maxs['chi_p2'] = maxs['chi_p']**2
-        mins['chi_p2'] = mins['chi_p']**2
+    if 'chi_p' in x_prime.keys() or ('chi_p2' in x_prime.keys()):
+        x_prime = SimplePESamples(x_prime)
+        x_prime.generate_spin_z()
+        x_prime.generate_prec_spin()
+        x0 = SimplePESamples(x0)
+        x0.generate_spin_z()
+        x0.generate_prec_spin()
 
     alpha = 1.
 
-    for k, dx_val in dx.items():
-        if k in maxs and (x[k] + scaling * dx[k]) < mins[k]:
-            alpha = min(alpha, (x[k] - mins[k]) / abs(scaling * dx[k]))
-        if k in mins and (x[k] + scaling * dx[k]) > maxs[k]:
-            alpha = min(alpha, (maxs[k] - x[k]) / abs(scaling * dx[k]))
+    for k, dx_val in x0.items():
+        if k in mins.keys() and x_prime[k] < mins[k]:
+            alpha = min(alpha, (x0[k] - mins[k]) / (x0[k] - x_prime[k]))
+            if verbose:
+                print("scaling to %.2f in direction %s" % (alpha, k))
+        if k in maxs.keys() and x_prime[k] > maxs[k]:
+            alpha = min(alpha, (maxs[k] - x0[k]) / (x_prime[k] - x0[k]))
+            if verbose:
+                print("scaling to %.2f in direction %s" % (alpha, k))
+
+    # if varying 'chi_p2' need to double-check we don't go over limits
+    if 'chi_p2' in dx.keys() and (scaling * dx['chi_p2']):
+        chia = "chi_eff" if "chi_eff" in x0.keys() else "chi_align"
+        # need find alpha s.t. (chi + alpha dchi)^2 + chi_p2 + alpha dchi_p2 = max_spin^2
+        c = x0[chia] ** 2 + x0['chi_p2'] - maxs['a_1']**2
+        dcp2 = scaling * dx['chi_p2']
+        if chia in dx.keys() and dx[chia]:
+            dchi = scaling * dx[chia]
+            a = dchi ** 2
+            b = 2 * x0[chia] * dchi + dcp2
+            alpha_prec = (-b + np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
+        else:
+            # not changing aligned spin, so easier
+            alpha_prec = -c / dcp2
+        if verbose:
+            print("scaling to %.2f for precession" % alpha_prec)
+
+        alpha = min(alpha, alpha_prec)
 
     return alpha
-
-
-def trim_unphysical(samples, maxs=None, mins=None):
-    """
-    Trim unphysical points from a SamplesDict
-
-    :param samples: SamplesDict containing sample points
-    :param maxs: the maximum permitted values of the physical parameters
-    :param mins: the minimum physical values of the physical parameters
-    :return physical_samples: SamplesDict with points outside the param max and min given
-    """
-    if mins is None:
-        mins = param_mins
-
-    if maxs is None:
-        maxs = param_maxs
-
-    keep = np.ones(samples.number_of_samples, bool)
-    for d, v in samples.items():
-        if d in maxs:
-            keep *= (v < maxs[d])
-        if d in mins:
-            keep *= (v > mins[d])
-
-    return SamplesDict(samples.keys(), samples.samples[:, keep])
 
 
 def scale_match(m_alpha, alpha):
@@ -754,7 +685,7 @@ def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD"
                                 bounds=bounds)
 
         x = dict(zip(dx_directions, out.x))
-        m_peak = 1 - 10 ** (out.fun)
+        m_peak = 1 - 10 ** out.fun
 
     elif method == 'metric':
         g = Metric(x, dx_directions, mismatch, f_low, psd, approximant, tolerance)
@@ -788,7 +719,7 @@ def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD"
 
         s = (matches[:, 0] - matches[:, 1]) * 0.25 / \
             (m_0 - 0.5 * (matches[:, 0] + matches[:, 1]))
-        delta_x = SamplesDict(dx_directions, np.matmul(g.normalized_evecs().samples, s))
+        delta_x = SimplePESamples(SamplesDict(dx_directions, np.matmul(g.normalized_evecs().samples, s)))
         alpha = check_physical(x, delta_x, 1)
 
         h = make_offset_waveform(x, delta_x, alpha, psd.delta_f, f_low, len(psd), approximant)
