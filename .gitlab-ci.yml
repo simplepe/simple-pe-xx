@@ -72,7 +72,7 @@ GW150914:
     - bash ./output/submit/bash_simple_pe.sh
   artifacts:
     paths:
-      - output/result/corner.png
+      - output/output/corner.png
 
 pages:
   stage: deploy
