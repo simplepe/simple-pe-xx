@@ -312,7 +312,7 @@ class SimplePESamples(SamplesDict):
         self.add_fixed('phi_12', 0.)
         self.add_fixed('phi_jl', 0.)
 
-    def trim_unphysical(self, maxs=None, mins=None):
+    def trim_unphysical(self, maxs=None, mins=None, set_to_bounds=False):
         """
         Trim unphysical points from SimplePESamples
 
@@ -326,14 +326,20 @@ class SimplePESamples(SamplesDict):
         if maxs is None:
             maxs = param_maxs
 
-        keep = np.ones(self.number_of_samples, bool)
-        for d, v in self.items():
-            if d in maxs:
-                keep *= (v < maxs[d])
-            if d in mins:
-                keep *= (v > mins[d])
-
-        self.__init__(self[keep])
+        if not set_to_bounds:
+            keep = np.ones(self.number_of_samples, bool)
+            for d, v in self.items():
+                if d in maxs:
+                    keep *= (v <= maxs[d])
+                if d in mins:
+                    keep *= (v >= mins[d])
+            self.__init__(self[keep])
+        else:
+            for d, v in self.items():
+                if d in maxs:
+                    self[d][v >= maxs[d]] = maxs[d]
+                if d in mins:
+                    self[d][v <= mins[d]] = mins[d]
 
     def calculate_rho_lm(self, psd, f_low, net_snr, modes, interp_directions, interp_points=5,
                          approximant="IMRPhenomXPHM"):
@@ -453,6 +459,8 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
     grid_samples.add_fixed('f_ref', 0)
     grid_samples.add_fixed('phase', 0)
     grid_samples.generate_prec_spin()
+    # need to use set_to_bounds=True so we do not modify the grid
+    grid_samples.trim_unphysical(set_to_bounds=True)
     grid_samples.generate_all_posterior_samples(disable_remnant=True)
 
     for i in range(grid_samples.number_of_samples):
