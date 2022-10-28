@@ -331,9 +331,10 @@ class Metric:
         pts = np.random.normal(0, 1, [2 * npts, self.ndim])
 
         sample_pts = SimplePESamples(SamplesDict(self.dx_directions,
-                                                 (np.array([self.x[dx] for dx in self.normalized_evecs().keys()])
+                                                 (np.array([self.x[dx] for dx in self.normalized_evecs().keys()
+                                                            ]).reshape([len(self.dx_directions), 1])
                                                   + np.matmul(pts,
-                                                              self.normalized_evecs().samples.T / self.n_sigma)).T))
+                                                              self.normalized_evecs().samples.T / self.n_sigma).T)))
         sample_pts.trim_unphysical()
         if sample_pts.number_of_samples > npts:
             sample_pts = sample_pts.downsample(npts)
