@@ -353,7 +353,7 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD"):
     :param approximant: the approximant generator to use
     :return h_plus: waveform at parameter space point x
     """
-    x = copy.deepcopy(params)
+    x = SimplePESamples(copy.deepcopy(params))
     if 'phase' not in x.keys():
         x['phase'] = np.zeros_like(list(x.values())[0])
     x['f_ref'] = f_low * np.ones_like(list(x.values())[0])

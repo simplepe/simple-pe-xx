@@ -3,6 +3,7 @@ from scipy import interpolate
 from simple_pe.waveforms import waveform_modes
 from simple_pe.detectors import noise_curves
 from simple_pe.fstat import fstat_hm
+from pesummary.utils.array import Array
 from pesummary.utils.samples_dict import SamplesDict
 from scipy.stats import ncx2
 
@@ -78,13 +79,39 @@ class SimplePESamples(SamplesDict):
         """
         SamplesDict.__init__(self, *args, logger_warn, autoscale)
 
-    def _update_latex_labels(self):
-        super(SimplePESamples, self)._update_latex_labels()
-        self._latex_labels.update({"chi_align": r"$\chi_{A}$", "distance": r"$d_{L}$"})
+    def __setitem__(self, key, value):
+        _value = value
+        if not isinstance(value, Array):
+            _value = Array(value)
+        super(SamplesDict, self).__setitem__(key, _value)
+        try:
+            if key not in self.parameters:
+                self.parameters.append(key)
+                try:
+                    cond = (
+                        np.array(self.samples).ndim == 1 and isinstance(
+                            self.samples[0], (float, int, np.number)
+                        )
+                    )
+                except Exception:
+                    cond = False
+                if cond and isinstance(self.samples, np.ndarray):
+                    self.samples = np.append(self.samples, value)
+                elif cond and isinstance(self.samples, list):
+                    self.samples.append(value)
+                else:
+                    self.samples = np.vstack([self.samples, value])
+                self._update_latex_labels()
+        except (AttributeError, TypeError):
+            pass
 
     def update(self, dictionary):
         for key, value in dictionary.items():
             self.__setitem__(key, value)
+
+    def _update_latex_labels(self):
+        super(SimplePESamples, self)._update_latex_labels()
+        self._latex_labels.update({"chi_align": r"$\chi_{A}$", "distance": r"$d_{L}$"})
 
     def generate_all_posterior_samples(self, function=None, **kwargs):
         """Convert samples stored in the SamplesDict according to a conversion
@@ -177,6 +204,7 @@ class SimplePESamples(SamplesDict):
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
         param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
+        self.trim_unphysical()
         if chi_p_dist == 'uniform':
             chi_p_samples = np.random.uniform(0, np.sqrt(0.99 - self.maximum[param] ** 2), self.number_of_samples)
         elif chi_p_dist == "isotropic_on_sky":
@@ -305,8 +333,7 @@ class SimplePESamples(SamplesDict):
             if d in mins:
                 keep *= (v > mins[d])
 
-        self.samples = self.samples[:, keep]
-        self.number_of_samples = len(self.samples)
+        self.__init__(self[keep])
 
     def calculate_rho_lm(self, psd, f_low, net_snr, modes, interp_directions, interp_points=5,
                          approximant="IMRPhenomXPHM"):
