@@ -7,6 +7,7 @@ include:
 stages:
   - build
   - basic
+  - pipeline
   - deploy
 
 tarball:
@@ -54,6 +55,24 @@ documentation:
   artifacts:
     paths:
       - docs/build/html/
+
+GW150914:
+  stage: pipeline
+  image: python:3.8
+  needs:
+    - tarball
+    - executables
+  before_script:
+    - python -m pip install simple-pe*.tar.*
+  script:
+    - curl https://www.gw-openscience.org/GW150914data/P1500238/H1-GDS-CALIB_STRAIN.txt -o ./GW150914_H1_asd.txt
+    - curl https://www.gw-openscience.org/GW150914data/P1500238/L1-GDS-CALIB_STRAIN.txt -o ./GW150914_L1_asd.txt
+    - "echo '{\"mass_1\": 36.8, \"mass_2\": 32.0, \"spin_1z\": -0.62, \"spin_2z\": 0.47, \"distance\": 509.1, \"inclination\": 2.4, \"time\": 1126259462.41, \"ra\": 2.2, \"dec\": -1.2, \"psi\": 0.7}' > trigger_parameters.json"
+    - simple_pe_pipe --strain H1:GWOSC:GW150914 L1:GWOSC:GW150914 --approximant IMRPhenomXPHM --f_low 20 --f_high 2048 --accounting_group UNKNOWN --accounting_group_user albert.einstein --outdir ./output --trigger_parameters trigger_parameters.json --asd H1:GW150914_H1_asd.txt L1:GW150914_L1_asd.txt
+    - bash ./output/submit/bash_simple_pe.sh
+  artifacts:
+    paths:
+      - output/output/corner.png
 
 pages:
   stage: deploy

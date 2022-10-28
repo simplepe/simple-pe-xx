@@ -60,7 +60,12 @@ def _neg_net_snr(x, x_directions, ifos, data, psds, t_start, t_end, f_low, appro
     if fixed_pars is not None:
         s.update(fixed_pars)
 
-    h = metric.make_waveform(s, psds[ifos[0]].delta_f, f_low, len(psds[ifos[0]]), approximant)
+    try:
+        h = metric.make_waveform(
+            s, psds[ifos[0]].delta_f, f_low, len(psds[ifos[0]]), approximant
+        )
+    except RuntimeError:
+        return np.inf
 
     s = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
