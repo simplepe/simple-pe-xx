@@ -7,7 +7,7 @@ include:
 stages:
   - build
   - basic
-  - test
+  - pipeline
   - deploy
 
 tarball:
@@ -57,7 +57,7 @@ documentation:
       - docs/build/html/
 
 GW150914:
-  stage: test
+  stage: pipeline
   image: python:3.8
   needs:
     - tarball
