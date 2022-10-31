@@ -5,7 +5,7 @@ from scipy import optimize
 from pesummary.utils.samples_dict import SamplesDict
 
 
-def matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low):
+def matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low, return_times=False):
     """
     Find the maximum SNR in the network for a waveform h within a given time range
 
@@ -16,20 +16,26 @@ def matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low):
     :param t_end: end time to consider SNR peak
     :param h: waveform
     :param f_low: low frequency cutoff
+    :param return_times: return the time of the peak in each ifo
     :return snr: the network snr
     :return smax: the max snr in each ifo
+    :return tmax: the time of max snr in each ifo
      """
     snrsq = 0
     smax = {}
+    tmax = {}
     for ifo in ifos:
         snr = matched_filter(h, data[ifo], psd=psds[ifo], low_frequency_cutoff=f_low,
                              high_frequency_cutoff=psds[ifo].sample_frequencies[-1])
-        smax[ifo] = max(abs(snr[(snr.sample_times > t_start) &
-                                (snr.sample_times < t_end)]))
-
+        snr_cut = snr.crop(t_start - snr.start_time, snr.end_time - t_end)
+        smax[ifo] = snr_cut.abs_max_loc()[0]
+        tmax[ifo] = snr_cut.sample_times[snr_cut.abs_arg_max()]
         snrsq += smax[ifo] ** 2
 
-    return np.sqrt(snrsq), smax
+    if return_times:
+        return np.sqrt(snrsq), smax, tmax
+    else:
+        return np.sqrt(snrsq), smax
 
 
 def _neg_net_snr(x, x_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars=None):
@@ -54,7 +60,12 @@ def _neg_net_snr(x, x_directions, ifos, data, psds, t_start, t_end, f_low, appro
     if fixed_pars is not None:
         s.update(fixed_pars)
 
-    h = metric.make_waveform(s, psds[ifos[0]].delta_f, f_low, len(psds[ifos[0]]), approximant)
+    try:
+        h = metric.make_waveform(
+            s, psds[ifos[0]].delta_f, f_low, len(psds[ifos[0]]), approximant
+        )
+    except RuntimeError:
+        return np.inf
 
     s = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
@@ -95,7 +106,7 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
     elif method == 'scipy':
         bounds = [(metric.param_mins[k], metric.param_maxs[k]) for k in dx_directions]
         x0 = np.array([x[k] for k in dx_directions])
-        fixed_pars = {k: v for k, v in x.items() if k not in dx_directions}
+        fixed_pars = {k: float(v) for k, v in x.items() if k not in dx_directions}
 
         out = optimize.minimize(_neg_net_snr, x0,
                                 args=(dx_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars),
@@ -103,7 +114,7 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
 
         x = {}
         for dx, val in zip(dx_directions, out.x):
-            x[dx] = np.array([val])
+            x[dx] = val
         x.update(fixed_pars)
 
         snr_peak = -out.fun

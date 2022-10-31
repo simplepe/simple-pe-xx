@@ -29,6 +29,7 @@ def detectors(ifos):
 # For CE, use hanford/livingston
 # for Voyager use existing sites
 
+
 def calc_location_response(longitude, latitude, arms):
     """
     Calculate the location and response for a detector with longitude, latitude in degrees
@@ -74,7 +75,7 @@ def xyz(phi, theta):
     y = np.cos(theta) * np.sin(phi)
     z = np.sin(theta)
     loc = np.asarray([x, y, z])
-    return (loc)
+    return loc
 
 
 def phitheta(loc):
@@ -130,7 +131,7 @@ def range_8(configuration):
         "ET2": {'H1': 3 * 197.5, 'L1': 3 * 197.5, 'V1': 3 * 128.3, 'ETdet1': 1500., 'ETdet3': 1500.},
         # L-shaped at 2 places
     }
-    return (range_dict_all[configuration])
+    return range_dict_all[configuration]
 
 
 def bandwidth(configuration):
@@ -169,7 +170,7 @@ def bandwidth(configuration):
         "ET1": {'H1': 117.4, 'L1': 117.4, 'V1': 148.9, 'ETdet1': 117.4, 'ETdet2': 117.4},
         "ET2": {'H1': 117.4, 'L1': 117.4, 'V1': 148.9, 'ETdet1': 117.4, 'ETdet3': 117.4},
     }
-    return (bandwidth_dict_all[configuration])
+    return bandwidth_dict_all[configuration]
 
 
 def fmean(configuration):
@@ -215,4 +216,4 @@ def sigma_t(configuration):
     s = {}
     for ifo in r.keys():
         s[ifo] = 1. / 20 / np.pi / b[ifo] * r["H1"] / r[ifo]
-    return (s)
+    return s

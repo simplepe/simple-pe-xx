@@ -3,8 +3,46 @@ from scipy import interpolate
 from simple_pe.waveforms import waveform_modes
 from simple_pe.detectors import noise_curves
 from simple_pe.fstat import fstat_hm
+from pesummary.utils.array import Array
 from pesummary.utils.samples_dict import SamplesDict
 from scipy.stats import ncx2
+
+
+spin_max = 0.98
+
+param_mins = {'chirp_mass': 1.,
+              'total_mass': 2.,
+              'mass_1': 1.,
+              'mass_2': 1.,
+              'symmetric_mass_ratio': 0.04,
+              'chi_eff': -1 * spin_max,
+              'chi_align': -1 * spin_max,
+              'chi_p': 1e-3,
+              'chi_p2': 1e-6,
+              'spin_1z': -1 * spin_max,
+              'spin_2z': -1 * spin_max,
+              'a_1': 0.,
+              'a_2': 0.,
+              'tilt_1': 0.,
+              'tilt_2': 0.,
+              }
+
+param_maxs = {'chirp_mass': 1e4,
+              'total_mass': 1e4,
+              'mass_1': 1e4,
+              'mass_2': 1e4,
+              'symmetric_mass_ratio': 0.25,
+              'chi_eff': spin_max,
+              'chi_align': spin_max,
+              'chi_p': spin_max,
+              'chi_p2': spin_max**2,
+              'spin_1z': spin_max,
+              'spin_2z': spin_max,
+              'a_1': spin_max,
+              'a_2': spin_max,
+              'tilt_1': np.pi,
+              'tilt_2': np.pi,
+              }
 
 
 def _add_chi_align(data):
@@ -40,6 +78,40 @@ class SimplePESamples(SamplesDict):
         Initialize as a SamplesDict
         """
         SamplesDict.__init__(self, *args, logger_warn, autoscale)
+
+    def __setitem__(self, key, value):
+        _value = value
+        if not isinstance(value, Array):
+            _value = Array(value)
+        super(SamplesDict, self).__setitem__(key, _value)
+        try:
+            if key not in self.parameters:
+                self.parameters.append(key)
+                try:
+                    cond = (
+                        np.array(self.samples).ndim == 1 and isinstance(
+                            self.samples[0], (float, int, np.number)
+                        )
+                    )
+                except Exception:
+                    cond = False
+                if cond and isinstance(self.samples, np.ndarray):
+                    self.samples = np.append(self.samples, value)
+                elif cond and isinstance(self.samples, list):
+                    self.samples.append(value)
+                else:
+                    self.samples = np.vstack([self.samples, value])
+                self._update_latex_labels()
+        except (AttributeError, TypeError):
+            pass
+
+    def update(self, dictionary):
+        for key, value in dictionary.items():
+            self.__setitem__(key, value)
+
+    def _update_latex_labels(self):
+        super(SimplePESamples, self)._update_latex_labels()
+        self._latex_labels.update({"chi_align": r"$\chi_{A}$", "distance": r"$d_{L}$"})
 
     def generate_all_posterior_samples(self, function=None, **kwargs):
         """Convert samples stored in the SamplesDict according to a conversion
@@ -91,6 +163,7 @@ class SimplePESamples(SamplesDict):
         if 'theta_jn' in self.keys() and overwrite:
             print('Overwriting theta_jn values')
             self.pop('theta_jn')
+
         if 'cos_theta_jn' in self.keys() and overwrite:
             print('Overwriting cos_theta_jn values')
             self.pop('cos_theta_jn')
@@ -102,6 +175,27 @@ class SimplePESamples(SamplesDict):
         else:
             print('Did not overwrite theta_jn and cos_theta_jn samples')
 
+    def generate_distance(self, distance_face_on, overwrite=False):
+        """
+        generate distance points using the existing theta_JN samples and the face-on distance
+
+        :param distance_face_on: the distance at which a face on signal gives the observed SNR
+        :param overwrite: if True, then overwrite existing values, otherwise don't
+        """
+        if 'theta_jn' not in self.keys():
+            print('Require theta_jn values to calculate distances')
+            return
+
+        if 'distance' in self.keys() and overwrite:
+            print('Overwriting distance values')
+            self.pop('distance')
+
+        if 'distance' not in self.keys():
+            tau = np.tan(self['theta_jn']/2)
+            self['distance'] = distance_face_on / (1 + tau**2) ** 2
+        else:
+            print('Did not overwrite distance samples')
+
     def generate_chi_p(self, chi_p_dist='uniform', overwrite=False):
         """
         generate chi_p points with the desired distribution and include in the existing samples dict
@@ -110,6 +204,7 @@ class SimplePESamples(SamplesDict):
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
         param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
+        self.trim_unphysical()
         if chi_p_dist == 'uniform':
             chi_p_samples = np.random.uniform(0, np.sqrt(0.99 - self.maximum[param] ** 2), self.number_of_samples)
         elif chi_p_dist == "isotropic_on_sky":
@@ -135,7 +230,7 @@ class SimplePESamples(SamplesDict):
             mass_2 = m2_from_mchirp_q(chirp_mass, mass_ratio)
             chi_p_samples = _chi_p(mass_1, mass_2, spin_1x, spin_1y, spin_2x, spin_2y)
         else:
-            print("only implemented for 'uniform'")
+            print("only implemented for 'uniform' and 'isotropic_on_sky'")
             return
 
         if 'chi_p' in self.keys() and overwrite:
@@ -178,10 +273,24 @@ class SimplePESamples(SamplesDict):
 
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
-        param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
-        if (param not in self.keys()) or ('chi_p' not in self.keys()):
-            print("Need to specify 'chi_eff'/'chi_align' and 'chi_p'")
+        if 'chi_p' not in self.keys() and "chi_p2" not in self.keys():
+            print("Need to specify precessing spin component, please give either 'chi_p' or 'chi_p2")
             return
+
+        param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
+        if param not in self.keys():
+            print("Need to specify aligned spin component, plese give either 'chi_eff' or 'chi_align'")
+            return
+
+        if "chi_p2" in self.keys():
+            if "chi_p" in self.keys():
+                if overwrite:
+                    print("Overwriting values of 'chi_p' using 'chi_p2'")
+                    self.pop('chi_p')
+                else:
+                    print("'chi_p' already in samples, not overwriting from 'chi_p2'")
+                    return
+            self['chi_p'] = np.sqrt(self['chi_p2'])
 
         for k in ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl']:
             if k in self.keys():
@@ -193,11 +302,44 @@ class SimplePESamples(SamplesDict):
                     return
 
         self['a_1'] = np.sqrt(self["chi_p"] ** 2 + self[param] ** 2)
+        # # limit a_1 < 1
+        # self['a_1'][self['a_1'] > 1.] = 1
         self['a_2'] = np.abs(self[param])
+        # # limit a_2 < 1
+        # self['a_2'][self['a_2'] > 1.] = 1.
         self['tilt_1'] = np.arctan2(self["chi_p"], self[param])
         self['tilt_2'] = np.arccos(np.sign(self[param]))
         self.add_fixed('phi_12', 0.)
         self.add_fixed('phi_jl', 0.)
+
+    def trim_unphysical(self, maxs=None, mins=None, set_to_bounds=False):
+        """
+        Trim unphysical points from SimplePESamples
+
+        :param maxs: the maximum permitted values of the physical parameters
+        :param mins: the minimum physical values of the physical parameters
+        :return physical_samples: SamplesDict with points outside the param max and min given
+        """
+        if mins is None:
+            mins = param_mins
+
+        if maxs is None:
+            maxs = param_maxs
+
+        if not set_to_bounds:
+            keep = np.ones(self.number_of_samples, bool)
+            for d, v in self.items():
+                if d in maxs:
+                    keep *= (v <= maxs[d])
+                if d in mins:
+                    keep *= (v >= mins[d])
+            self.__init__(self[keep])
+        else:
+            for d, v in self.items():
+                if d in maxs:
+                    self[d][v >= maxs[d]] = maxs[d]
+                if d in mins:
+                    self[d][v <= mins[d]] = mins[d]
 
     def calculate_rho_lm(self, psd, f_low, net_snr, modes, interp_directions, interp_points=5,
                          approximant="IMRPhenomXPHM"):
@@ -317,11 +459,14 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
     grid_samples.add_fixed('f_ref', 0)
     grid_samples.add_fixed('phase', 0)
     grid_samples.generate_prec_spin()
+    # need to use set_to_bounds=True so we do not modify the grid
+    grid_samples.trim_unphysical(set_to_bounds=True)
     grid_samples.generate_all_posterior_samples(disable_remnant=True)
 
     for i in range(grid_samples.number_of_samples):
         sample = grid_samples[i:i+1]
         _, f_mean, _ = noise_curves.calc_reach_bandwidth(sample["mass_1"], sample["mass_2"],
+                                                         sample["chi_eff"],
                                                          approximant, psd, f_low, thresh=8.)
         sample['f_ref'] = f_mean
 
@@ -407,8 +552,8 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_poin
 
 
 def calculate_interpolated_snrs(
-    samples, psd, f_low, dominant_snr, modes, alpha_net, hm_interp_dirs,
-    prec_interp_dirs, interp_points, approximant, **kwargs
+        samples, psd, f_low, dominant_snr, modes, alpha_net, distance_face_on,
+        hm_interp_dirs, prec_interp_dirs, interp_points, approximant, **kwargs
 ):
     """Wrapper function to calculate the SNR in the (l,m) multipoles,
     the SNR in the second polarisation and the SNR in precession.
@@ -429,6 +574,8 @@ def calculate_interpolated_snrs(
     alpha_net: float
         network sensitivity to x polarization (in DP frame) used to
         calculate the SNR in the second
+    distance_face_on: float
+        distance at which a face on signal would give the observed dominant SNR
     hm_interp_dirs: list
         directions to interpolate the higher multipole SNR calculation
     prec_interp_dirs: list
@@ -443,6 +590,8 @@ def calculate_interpolated_snrs(
     # generate required parameters if necessary
     if "theta_jn" not in samples.keys():
         samples.generate_theta_jn('left_circ')
+    if "distance" not in samples.keys():
+        samples.generate_distance(distance_face_on)
     if "chi_p" not in samples.keys():
         samples.generate_chi_p('isotropic_on_sky')
     samples.calculate_rho_lm(

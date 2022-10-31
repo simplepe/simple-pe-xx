@@ -6,11 +6,13 @@ from pycbc.waveform import get_fd_waveform
 from simple_pe.cosmology import cosmology
 
 
-def calc_reach_bandwidth(mass1, mass2, approx, power_spec, fmin, thresh=8.):
+def calc_reach_bandwidth(mass1, mass2, spin, approx, power_spec, fmin, thresh=8.):
     """
     Calculate the horizon, mean frequency and bandwidth for a given PSD in the detector frame
+
     :param mass1: the mass of the first component
-    :param mass2: the mass ratio of second component
+    :param mass2: the mass of the second component
+    :param spin: the aligned spin for both compoenents
     :param approx: the waveform used to calculate the horizon
     :param power_spec: the power spectrum to use
     :param fmin: the minimum frequency
@@ -21,8 +23,14 @@ def calc_reach_bandwidth(mass1, mass2, approx, power_spec, fmin, thresh=8.):
     """
     fmax = power_spec.sample_frequencies[-1]
     df = power_spec.delta_f
-    hpf, hcf = get_fd_waveform(approximant=approx, mass1=mass1, mass2=mass2,
-                               f_lower=fmin, f_final=fmax, delta_f=df)
+    hpf, hcf = get_fd_waveform(approximant=approx,
+                               mass1=mass1,
+                               mass2=mass2,
+                               spin1z=spin,
+                               spin2z=spin,
+                               f_lower=fmin,
+                               f_final=fmax,
+                               delta_f=df)
     ss = float(sigmasq(hpf, power_spec,
                        low_frequency_cutoff=fmin,
                        high_frequency_cutoff=hpf.sample_frequencies[-1]))
@@ -43,6 +51,7 @@ def calc_reach_bandwidth(mass1, mass2, approx, power_spec, fmin, thresh=8.):
 def calc_detector_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, waveform='IMRPhenomD', triangle=False):
     """
     Calculate the horizon for a given PSD [in the detector frame]
+
     :param mass1: the mass of the first component
     :param mass2: the mass ratio of second component
     :param spin: the z-component of spin for both components

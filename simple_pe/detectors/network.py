@@ -5,6 +5,8 @@ from simple_pe.detectors import dets
 ##################################################################
 # Class to store network information
 ##################################################################
+
+
 class Network(object):
     """
     class to hold the details of the network.
@@ -19,7 +21,7 @@ class Network(object):
         self.ifos = []
 
     def add_ifo(self, ifo, det_range, f_mean, f_band,
-                found_thresh=5.0, loc_thresh=4.0, duty_cycle=1.0):
+                found_thresh=5.0, loc_thresh=4.0, duty_cycle=1.0, bns_range=True):
         """
         :param ifo: name of ifo
         :param location: ifo location
@@ -30,9 +32,10 @@ class Network(object):
         :param found_thresh: threshold for declaring an event found
         :param loc_thresh: threshold for declaring an event localized
         :param duty_cycle: fraction of time the detector is operational
+        :param bns_range: is the given range for BNS (if yes, then rescale SNR with mchirp^5/6)
         """
         d = dets.Det(ifo, det_range, f_mean, f_band,
-                found_thresh, loc_thresh, duty_cycle)
+                found_thresh, loc_thresh, duty_cycle, bns_range)
         setattr(self, ifo, d)
         self.ifos.append(ifo)
 

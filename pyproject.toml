@@ -1,0 +1,58 @@
+[build-system]
+requires = [
+	"setuptools>=61.0",
+	"setuptools_scm[toml]>=3.4.3",
+	"wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simple-pe"
+version = "0.0.1"
+authors = [
+	{ name = "Stephen Fairhurst", email = "stephen.fairhurst@ligo.org" }
+]
+description = "A package to do simple GW parameter estimation"
+readme = "README.md"
+license = { text = "MIT" }
+classifiers = [
+	"Programming Language :: Python :: 3",
+	"License :: OSI Approved :: MIT License",
+	"Operating System :: OS Independent"
+]
+requires-python = ">=3.6"
+dependencies = [
+	"astropy>=3.2.3",
+        "gwosc",
+        "gwpy",
+	"h5py",
+	"lalsuite",
+	"mpmath",
+	"numpy>=1.15.4",
+	"pesummary",
+	"pycbc",
+	"pycondor",
+	"scipy",
+	"sympy",
+]
+
+[project.optional-dependencies]
+docs = [
+	"furo",
+	"sphinx",
+	"sphinx_rtd_theme",
+]
+
+[project.scripts]
+simple_pe_analysis = "simple_pe.cli.simple_pe_analysis:main"
+simple_pe_corner = "simple_pe.cli.simple_pe_corner:main"
+simple_pe_filter = "simple_pe.cli.simple_pe_filter:main"
+simple_pe_pipe = "simple_pe.cli.simple_pe_pipe:main"
+
+[project.urls]
+"Source code" = "https://git.ligo.org/stephen-fairhurst/simple-pe"
+
+[tool.setuptools]
+packages = [
+	"simple_pe",
+]

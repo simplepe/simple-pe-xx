@@ -8,6 +8,7 @@ class Result(GWSingleAnalysisRead):
     """
     """
     def __init__(self, f_low=None, psd=None, approximant=None, data_from_matched_filter={}):
+
         self.f_low = f_low
         self.psd = psd
         self.approximant = approximant
@@ -20,8 +21,16 @@ class Result(GWSingleAnalysisRead):
         self._alpha_net = data_from_matched_filter.get(
             "alpha_net", None
         )
+        self._f_net = data_from_matched_filter.get(
+            "f_net", None
+        )
+        self._distance_face_on = data_from_matched_filter.get(
+            "distance_face_on", None
+        )
         self._metric = None
         self.mcmc_samples = False
+        self.samples = None
+        self.parameters = None
         self.extra_kwargs = {"sampler": {}, "meta_data": {}}
         
     @property
@@ -39,6 +48,14 @@ class Result(GWSingleAnalysisRead):
     @property
     def alpha_net(self):
         return self._alpha_net
+
+    @property
+    def f_net(self):
+        return self._f_net
+
+    @property
+    def distance_face_on(self):
+        return self._distance_face_on
 
     @property
     def samples_dict(self):
@@ -95,6 +112,7 @@ class Result(GWSingleAnalysisRead):
             approximant=self.approximant,
             modes=modes,
             alpha_net=self.alpha_net,
+            distance_face_on=self.distance_face_on,
             hm_interp_dirs=metric_directions,
             prec_interp_dirs=prec_interp_dirs,
             interp_points=interp_points
