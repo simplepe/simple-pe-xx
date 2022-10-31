@@ -547,8 +547,12 @@ def average_mismatch(x, dx, scaling, f_low, psd,
     h0 = make_waveform(x, psd.delta_f, f_low, len(psd), approximant)
     for s in [1., -1.]:
         a[s] = check_physical(x, dx, s * scaling)
-        h = make_offset_waveform(x, dx, s * a[s] * scaling, psd.delta_f, f_low, len(psd), approximant)
-        m[s] = match(h0, h, psd, low_frequency_cutoff=f_low, subsample_interpolation=True)[0]
+        try:
+            h = make_offset_waveform(x, dx, s * a[s] * scaling, psd.delta_f, f_low, len(psd), approximant)
+            m[s] = match(h0, h, psd, low_frequency_cutoff=f_low, subsample_interpolation=True)[0]
+        except RuntimeError:
+            m[s] = 1e-5
+
     if verbose:
         print("Had to scale steps to %.2f, %.2f" % (a[-1], a[1]))
         print("Mismatches %.3g, %.3g" % (1 - m[-1], 1 - m[1]))
