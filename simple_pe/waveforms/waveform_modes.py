@@ -111,13 +111,6 @@ def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low,
                 params, ifo_psd.delta_f, f_low, N, approximant=approximant,
                 modes=mode_array(lm, approximant)
             )
-            #h[lm], _ = 
-            #h[lm], _ = get_td_waveform(approximant=approximant,
-            #                           mass1=mass1, mass2=mass2, spin1x=spin1x, spin1y=spin1y, spin1z=spin1z,
-            #                           spin2x=spin2x, spin2y=spin2y, spin2z=spin2z,
-            #                           distance=1, delta_t=ifo_psd.delta_t, f_lower=f_low,
-            #                           inclination=inc, mode_array=mode_array(lm, approximant))
-            #h[lm].resize(2 * (len(ifo_psd) - 1))
         else:
             print("Bad approximant")
             return -1
