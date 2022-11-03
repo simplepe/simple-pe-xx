@@ -401,6 +401,12 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD"):
         hp, hc = SimInspiralFD(
             *args, waveform_dictionary, GetApproximantFromString(approximant)
         )
+        dt = 1 / hp.deltaF + (hp.epoch.gpsSeconds + hp.epoch.gpsNanoSeconds * 1e-9)
+        time_shift = np.exp(
+            -1j * 2 * np.pi * dt * np.array(range(len(hp.data.data[:]))) * hp.deltaF
+        )
+        hp.data.data[:] *= time_shift
+        hc.data.data[:] *= time_shift
         h_plus = FrequencySeries(hp.data.data[:], delta_f=hp.deltaF, epoch=hp.epoch)
         h_cross = FrequencySeries(hc.data.data[:], delta_f=hc.deltaF, epoch=hc.epoch)
 
