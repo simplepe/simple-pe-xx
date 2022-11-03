@@ -1,5 +1,10 @@
 import numpy as np
-from pycbc.waveform import get_fd_waveform
+import lal
+from lalsimulation import (
+    SimInspiralFD, SimInspiralCreateModeArray, SimInspiralModeArrayActivateMode,
+    SimInspiralWaveformParamsInsertModeArray, GetApproximantFromString
+)
+from pycbc.types import FrequencySeries
 from pycbc.filter import match
 from simple_pe.waveforms import waveform_modes
 import copy
@@ -342,7 +347,7 @@ class Metric:
         return sample_pts
 
 
-def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD"):
+def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=False, modes=None):
     """
     This function makes a waveform for the given parameters and
     returns h_plus generated at value x.
@@ -357,9 +362,11 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD"):
     x = SimplePESamples(copy.deepcopy(params))
     if 'phase' not in x.keys():
         x['phase'] = np.zeros_like(list(x.values())[0])
-    x['f_ref'] = f_low * np.ones_like(list(x.values())[0])
+    if 'f_ref' not in x.keys():
+        x['f_ref'] = f_low * np.ones_like(list(x.values())[0])
 
-    modes = waveform_modes.mode_array('22', approximant)
+    if modes is None:
+        modes = waveform_modes.mode_array('22', approximant)
 
     if ('chi_p' in x.keys()) or ('chi_p2' in x.keys()):
         # generate the leading harmonic of the precessing waveform
@@ -380,16 +387,45 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD"):
     else:
         if ('spin_1z' not in x.keys()) or ('spin_2z' not in x.keys()):
             x.generate_spin_z()
+        if "inc" not in x.keys():
+            x["inc"] = 0.
 
         x.generate_all_posterior_samples(disable_remnant=True)
-        h_plus, h_cross = get_fd_waveform(mass1=x['mass_1'], mass2=x['mass_2'],
-                                          spin1z=x['spin_1z'],
-                                          spin2z=x['spin_2z'],
-                                          delta_f=df, distance=x['distance'], f_lower=f_low,
-                                          approximant=approximant,
-                                          mode_array=modes)
+        waveform_dictionary = lal.CreateDict()
+        mode_array_lal = SimInspiralCreateModeArray()
+        for mode in modes:
+            SimInspiralModeArrayActivateMode(mode_array_lal, mode[0], mode[1])
+        SimInspiralWaveformParamsInsertModeArray(waveform_dictionary, mode_array_lal)
+        if isinstance(x["mass_1"], list):
+            m1 = x["mass_1"][0]
+        else:
+            m1 = x["mass_1"]
+        if isinstance(x["mass_2"], list):
+            m2 = x["mass_2"][0]
+        else:
+            m2 = x["mass_2"]
+        args = [
+            m1 * lal.MSUN_SI, m2 * lal.MSUN_SI, 0., 0.,
+            x["spin_1z"], 0., 0., x["spin_2z"], x['distance'] * 1e6 * lal.PC_SI,
+            x["inc"], 0., 0., 0., 0., df, f_low, 2048., x['f_ref']
+        ]
+        args = [float(arg) for arg in args]
+        hp, hc = SimInspiralFD(
+            *args, waveform_dictionary, GetApproximantFromString(approximant)
+        )
+        dt = 1 / hp.deltaF + (hp.epoch.gpsSeconds + hp.epoch.gpsNanoSeconds * 1e-9)
+        time_shift = np.exp(
+            -1j * 2 * np.pi * dt * np.array(range(len(hp.data.data[:]))) * hp.deltaF
+        )
+        hp.data.data[:] *= time_shift
+        hc.data.data[:] *= time_shift
+        h_plus = FrequencySeries(hp.data.data[:], delta_f=hp.deltaF, epoch=hp.epoch)
+        h_cross = FrequencySeries(hc.data.data[:], delta_f=hc.deltaF, epoch=hc.epoch)
 
     h_plus.resize(flen)
+    h_cross.resize(flen)
+    if return_hc:
+        return h_plus, h_cross
     return h_plus
 
 

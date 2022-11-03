@@ -21,16 +21,17 @@ def calc_reach_bandwidth(mass1, mass2, spin, approx, power_spec, fmin, thresh=8.
     :return meanf: the mean frequency
     :return sigf: the frequency bandwidth
     """
+    from simple_pe.param_est.metric import make_waveform
     fmax = power_spec.sample_frequencies[-1]
     df = power_spec.delta_f
-    hpf, hcf = get_fd_waveform(approximant=approx,
-                               mass1=mass1,
-                               mass2=mass2,
-                               spin1z=spin,
-                               spin2z=spin,
-                               f_lower=fmin,
-                               f_final=fmax,
-                               delta_f=df)
+    params = {
+        "mass_1": [mass1], "mass_2": [mass2], "spin_1z": [spin],
+        "spin_2z": [spin], "distance": [1.]
+    }
+    hpf, hcf = make_waveform(
+        params, df, fmin, int(fmax / df) + 1, approximant=approx,
+        return_hc=True
+    )
     ss = float(sigmasq(hpf, power_spec,
                        low_frequency_cutoff=fmin,
                        high_frequency_cutoff=hpf.sample_frequencies[-1]))
