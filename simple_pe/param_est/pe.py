@@ -279,7 +279,7 @@ class SimplePESamples(SamplesDict):
 
         param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
         if param not in self.keys():
-            print("Need to specify aligned spin component, plese give either 'chi_eff' or 'chi_align'")
+            print("Need to specify aligned spin component, please give either 'chi_eff' or 'chi_align'")
             return
 
         if "chi_p2" in self.keys():
