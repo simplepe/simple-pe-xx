@@ -357,6 +357,8 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
     :param f_low: low frequency cutoff
     :param flen: length of the frequency domain array to generate
     :param approximant: the approximant generator to use
+    :param return_hc: flag to choose to return cross polarization (only non-precessing)
+    :param modes: the modes to generate (only for non-precessing)
     :return h_plus: waveform at parameter space point x
     """
     x = SimplePESamples(copy.deepcopy(params))
@@ -383,6 +385,10 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
                                                                  mode_array=modes,
                                                                  df=df, f_low=f_low,
                                                                  f_ref=x["f_ref"][0])[0]
+        if return_hc:
+            print('return_hc not available for precessing system')
+        h_plus.resize(flen)
+        return h_plus
 
     else:
         if ('spin_1z' not in x.keys()) or ('spin_2z' not in x.keys()):
