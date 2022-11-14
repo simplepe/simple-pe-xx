@@ -465,8 +465,9 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
 
     for i in range(grid_samples.number_of_samples):
         sample = grid_samples[i:i+1]
+        param = "chi_eff" if "chi_eff" in sample.keys() else "chi_align"
         _, f_mean, _ = noise_curves.calc_reach_bandwidth(sample["mass_1"], sample["mass_2"],
-                                                         sample["chi_eff"],
+                                                         sample[param],
                                                          approximant, psd, f_low, thresh=8.)
         sample['f_ref'] = f_mean
 
@@ -522,35 +523,6 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_poin
     return alpha, pts
 
 
-# def waveform_distances(tau, b, a_net, a_33, snrs, d_o, tau_o):
-#     """
-#     Calculate the inferred distance as a function of angle
-#
-#     :param b: the precession opening angle
-#     :param tau: tan(theta_jn/2)
-#     :param alpha: relative network sensitivity to 2nd polarization
-#     :param d_L: the distance
-#     """
-#     amp = snrs['22'] * d_o * (1 + tau_o ** 2) ** 2 / (1 + tau ** 2) ** 2
-#     amp_fac = {'22': 1.,
-#                '33': 2 * tau / (1 + tau ** 2) * 2 * a_33,
-#                'prec': 4 * b * tau,
-#                'left': 2 * tau ** 4 * 2 * a_net / (1 + a_net ** 2)
-#                }
-#
-#     dist = {}
-#     dt = {}
-#     modes = ['22', '33', 'prec', 'left']
-#     for mode in modes:
-#         m, v = ncx2.stats(2, snrs[mode] ** 2, moments='mv')
-#         snr = np.array([np.sqrt(max(m + i * np.sqrt(v), 1e-15)) for i in range(-2, 3)])
-#         mode_amp = amp * amp_fac[mode]
-#         a, s = np.meshgrid(mode_amp, snr)
-#         dist[mode] = a / s
-#         dt[mode] = dist[mode] * (1 + tau ** 2) ** 2
-#     return dist, dt
-
-
 def calculate_interpolated_snrs(
         samples, psd, f_low, dominant_snr, modes, alpha_net, distance_face_on,
         hm_interp_dirs, prec_interp_dirs, interp_points, approximant, **kwargs
@@ -592,7 +564,7 @@ def calculate_interpolated_snrs(
         samples.generate_theta_jn('left_circ')
     if "distance" not in samples.keys():
         samples.generate_distance(distance_face_on)
-    if "chi_p" not in samples.keys():
+    if "chi_p" not in samples.keys() and "chi_p2" not in samples.keys():
         samples.generate_chi_p('isotropic_on_sky')
     samples.calculate_rho_lm(
         psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points, approximant
@@ -601,6 +573,8 @@ def calculate_interpolated_snrs(
     samples.calculate_rho_p(
         psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
     )
+    if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
+        samples['chi_p'] = samples['chi_p2']**0.5
     return samples
 
 
