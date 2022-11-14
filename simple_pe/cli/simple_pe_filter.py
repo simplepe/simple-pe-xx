@@ -100,6 +100,12 @@ def command_line():
         help="Directory to store the output",
         default="./",
     )
+    parser.add_argument(
+        "--metric_directions",
+        help="Directions to calculate metric",
+        nargs="+",
+        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
+    )
     return parser
 
 
@@ -615,7 +621,7 @@ def main(args=None):
     t_end = trigger_parameters["time"] + 0.1
     peak_parameters, event_snr = find_peak(
         trigger_parameters, strain_f, psd, opts.approximant, opts.f_low,
-        t_start, t_end
+        t_start, t_end, dx_directions=opts.metric_directions
     )
     _snrs, z_hm = calculate_higher_multipole_snr(
         peak_parameters, psd, opts.approximant, strain_f, opts.f_low,

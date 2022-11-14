@@ -299,7 +299,8 @@ class FilterNode(Node):
             "minimum_data_length"
         ]
         dict_args = ["strain", "asd", "psd"]
-        args = self._format_arg_lists(string_args, dict_args, [])
+        list_args = ["metric_directions"]
+        args = self._format_arg_lists(string_args, dict_args, list_args)
         args += [["--outdir", f"{self.opts.outdir}/output"]]
         return " ".join([item for sublist in args for item in sublist])
 
