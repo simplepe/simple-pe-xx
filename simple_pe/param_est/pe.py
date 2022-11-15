@@ -138,6 +138,8 @@ class SimplePESamples(SamplesDict):
         **kwargs: dict, optional
             All additional kwargs passed to function
         """
+        if "chi_p" not in self.keys() and "chi_p2" in self.keys():
+            self["chi_p"] = np.sqrt(self["chi_p2"])
         if function is None:
             function = convert
         return super(SimplePESamples, self).generate_all_posterior_samples(
