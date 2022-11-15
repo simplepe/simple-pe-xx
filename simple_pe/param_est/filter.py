@@ -1,6 +1,7 @@
 import numpy as np
 from pycbc.filter.matchedfilter import matched_filter
 from simple_pe.param_est import metric, pe
+from simple_pe.waveforms import waveform_modes
 from scipy import optimize
 from pesummary.utils.samples_dict import SamplesDict
 
