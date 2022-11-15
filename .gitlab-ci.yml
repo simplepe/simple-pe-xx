@@ -83,6 +83,7 @@ documentation:
 
 GW150914:aligned-metric:
   extends: .metric
+  variables:
     METRIC_DIRECTIONS: (chirp_mass symmetric_mass_ratio chi_align)
 
 GW150914:prec-metric:
