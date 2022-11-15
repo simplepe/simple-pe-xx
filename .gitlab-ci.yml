@@ -92,6 +92,9 @@ GW150914:aligned_metric:
 
 GW150914:precession_metric:
   extends: .metric
+  parallel:
+    matrix:
+      - WVF: ["IMRPhenomXPHM"] # precession metric code doesn't work for TD approximants
   variables:
     METRIC_DIRECTIONS: chirp_mass symmetric_mass_ratio chi_align chi_p2
 
