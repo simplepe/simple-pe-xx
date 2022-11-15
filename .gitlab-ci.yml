@@ -85,12 +85,12 @@ documentation:
         - peak_snrs.json
         - corner.png
 
-GW150914:aligned-metric:
+GW150914:Ametric:
   extends: .metric
   variables:
     METRIC_DIRECTIONS: chirp_mass symmetric_mass_ratio chi_align
 
-GW150914:prec-metric:
+GW150914:Pmetric:
   extends: .metric
   variables:
     METRIC_DIRECTIONS: chirp_mass symmetric_mass_ratio chi_align chi_p2
