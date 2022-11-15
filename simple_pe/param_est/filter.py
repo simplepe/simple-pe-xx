@@ -1,6 +1,6 @@
 import numpy as np
 from pycbc.filter.matchedfilter import matched_filter
-from simple_pe.param_est import metric
+from simple_pe.param_est import metric, pe
 from scipy import optimize
 from pesummary.utils.samples_dict import SamplesDict
 
@@ -168,12 +168,39 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
     
     elif method == 'scipy':
         bounds = [(metric.param_mins[k], metric.param_maxs[k]) for k in dx_directions]
-        x0 = np.array([x[k] for k in dx_directions])
+        x0 = np.array([x[k] for k in dx_directions]).flatten()
         fixed_pars = {k: float(v) for k, v in x.items() if k not in dx_directions}
 
-        out = optimize.minimize(_neg_net_snr, x0,
-                                args=(dx_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars),
-                                bounds=bounds)
+        # generate bounds on spins:
+        chia = "chi_eff" if "chi_eff" in x.keys() else "chi_align"
+        chip = "chi_p2" if "chi_p2" in x.keys() else "chi_p"
+        if chip == "chi_p2":
+            n = 1
+        else:
+            n = 2
+
+        if (chia in x) and (chip in x) and ((chia in dx_directions) or (chip in dx_directions)):
+            # need bounds based on spin limits
+            if (chia in dx_directions) and (chip in dx_directions):
+                con = lambda y: y[dx_directions.index(chia)]**2 + y[dx_directions.index(chip)]**n
+            elif chia in dx_directions:
+                con = lambda y: y[dx_directions.index(chia)]**2 + x[chip]**n
+            else:
+                con = lambda y: x[chia]**2 + y[dx_directions.index(chip)]**n
+
+            nlc = optimize.NonlinearConstraint(con, pe.param_mins['a_1'], pe.param_maxs['a_1'])
+
+            out = optimize.minimize(_neg_net_snr, x0,
+                                    args=(
+                                    dx_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars),
+                                    bounds=bounds,
+                                    constraints=nlc)
+
+        else:
+            out = optimize.minimize(_neg_net_snr, x0,
+                                    args=(
+                                    dx_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars),
+                                    bounds=bounds)
 
         x = {}
         for dx, val in zip(dx_directions, out.x):
