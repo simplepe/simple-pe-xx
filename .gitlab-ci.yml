@@ -62,7 +62,6 @@ documentation:
       - docs/build/html/
 
 .metric:
-  <<: *parallel_wvf
   stage: pipeline
   image: python:3.8
   needs:
@@ -86,16 +85,15 @@ documentation:
         - corner.png
 
 GW150914:aligned_metric:
+  <<: *parallel_wvf
   extends: .metric
   variables:
     METRIC_DIRECTIONS: chirp_mass symmetric_mass_ratio chi_align
 
 GW150914:precession_metric:
   extends: .metric
-  parallel:
-    matrix:
-      - WVF: ["IMRPhenomXPHM"] # precession metric code doesn't work for TD approximants
   variables:
+    WVF: IMRPhenomXPHM # precession metric code doesn't work for TD approximants
     METRIC_DIRECTIONS: chirp_mass symmetric_mass_ratio chi_align chi_p2
 
 pages:
