@@ -361,7 +361,11 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
     :param modes: the modes to generate (only for non-precessing)
     :return h_plus: waveform at parameter space point x
     """
-    x = SimplePESamples(copy.deepcopy(params))
+    for k, i in params.items():
+        if not hasattr(i, '__len__'):
+            params[k] = [i]
+
+    x = SimplePESamples(params)
     if 'phase' not in x.keys():
         x['phase'] = np.zeros_like(list(x.values())[0])
     if 'f_ref' not in x.keys():
