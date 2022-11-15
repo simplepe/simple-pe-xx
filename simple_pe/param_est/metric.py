@@ -416,10 +416,18 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
             m2 = x["mass_2"][0]
         else:
             m2 = x["mass_2"]
+        if "eccentricity" in x.keys():
+            if isinstance(x["mass_2"], list):
+                ecc = x["eccentricity"][0]
+            else:
+                ecc = x["eccentricity"]
+        else:
+            ecc = 0.
+            
         args = [
             m1 * lal.MSUN_SI, m2 * lal.MSUN_SI, 0., 0.,
             x["spin_1z"], 0., 0., x["spin_2z"], x['distance'] * 1e6 * lal.PC_SI,
-            x["inc"], 0., 0., 0., 0., df, f_low, 2048., x['f_ref']
+            x["inc"], 0., 0., ecc, 0., df, f_low, 2048., x['f_ref']
         ]
         args = [float(arg) for arg in args]
         hp, hc = SimInspiralFD(
