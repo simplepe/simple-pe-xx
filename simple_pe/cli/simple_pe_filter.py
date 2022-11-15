@@ -303,10 +303,16 @@ def find_peak(
     event_info = {
         k: trigger_parameters[k] for k in dx_directions + fixed_directions
     }
-    x_peak, snr_peak = filter.find_peak_snr(
-        list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info, 
-        dx_directions, f_low, approximant, method=method
-    )
+    if "chi_p" in dx_directions or "chi_p2" in dx_directions:
+        x_peak, snr_peak = filter.find_peak_snr_2harm(
+            list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info,
+            dx_directions, f_low
+        )
+    else:
+        x_peak, snr_peak = filter.find_peak_snr(
+            list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info, 
+            dx_directions, f_low, approximant, method=method
+        )
     x_peak = pe.convert(x_peak, disable_remnant=True)
     peak_template = pe.SimplePESamples(x_peak)
     peak_template.generate_spin_z()
@@ -401,12 +407,12 @@ def calculate_precession_snr(
         precession harmonics to calculate. Default ['0', '1']
     """
     _prec_parameters = pe.SimplePESamples(peak_template.copy())
-    _prec_parameters.update(
-        {
-            "chi_p": np.array([fiducial_chi_p]), "phase": np.array([0.]),
-            "f_ref": np.array([f_low])
-        }
-    )
+    _update =  {
+        "phase": np.array([0.]), "f_ref": np.array([f_low])
+    }
+    if "chi_p" not in _prec_parameters and "chi_p2" not in _prec_parameters:
+        _update.update({"chi_p": np.array([fiducial_chi_p])})
+    _prec_parameters.update(_update)
     _prec_parameters.generate_prec_spin()
     _prec_parameters.generate_all_posterior_samples()
     hp = _calculate_precessing_harmonics(

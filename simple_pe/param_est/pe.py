@@ -77,12 +77,24 @@ class SimplePESamples(SamplesDict):
         """
         Initialize as a SamplesDict
         """
+        if isinstance(args[0], dict):
+            _args = {}
+            for key, item in args[0].items():
+                if isinstance(item, (float, int, np.number)):
+                    _args[key] = [item]
+                else:
+                    _args[key] = item
+            args = (_args,)
         SamplesDict.__init__(self, *args, logger_warn, autoscale)
 
     def __setitem__(self, key, value):
         _value = value
-        if not isinstance(value, Array):
-            _value = Array(value)
+        if isinstance(_value, (float, int, np.number)):
+            _value = [_value]
+        if not isinstance(_value, Array):
+            _value = Array(_value)
+        if not _value.ndim:
+            _value = Array([_value])
         super(SamplesDict, self).__setitem__(key, _value)
         try:
             if key not in self.parameters:
@@ -96,11 +108,11 @@ class SimplePESamples(SamplesDict):
                 except Exception:
                     cond = False
                 if cond and isinstance(self.samples, np.ndarray):
-                    self.samples = np.append(self.samples, value)
+                    self.samples = np.append(self.samples, _value)
                 elif cond and isinstance(self.samples, list):
-                    self.samples.append(value)
+                    self.samples.append(_value)
                 else:
-                    self.samples = np.vstack([self.samples, value])
+                    self.samples = np.vstack([self.samples, _value])
                 self._update_latex_labels()
         except (AttributeError, TypeError):
             pass
@@ -126,6 +138,8 @@ class SimplePESamples(SamplesDict):
         **kwargs: dict, optional
             All additional kwargs passed to function
         """
+        if "chi_p" not in self.keys() and "chi_p2" in self.keys():
+            self["chi_p"] = np.sqrt(self["chi_p2"])
         if function is None:
             function = convert
         return super(SimplePESamples, self).generate_all_posterior_samples(
@@ -139,8 +153,11 @@ class SimplePESamples(SamplesDict):
         :param name: the name of the parameter
         :param value: its value
         """
-        npts = self.number_of_samples
-        self[name] = np.ones(npts) * value
+        try:
+            npts = self.number_of_samples
+            self[name] = np.ones(npts) * value
+        except TypeError:
+            self[name] = value 
 
     def generate_theta_jn(self, theta_dist='uniform', overwrite=False):
         """
@@ -291,6 +308,7 @@ class SimplePESamples(SamplesDict):
                     print("'chi_p' already in samples, not overwriting from 'chi_p2'")
                     return
             self['chi_p'] = np.sqrt(self['chi_p2'])
+                
 
         for k in ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl']:
             if k in self.keys():
@@ -299,7 +317,7 @@ class SimplePESamples(SamplesDict):
                     self.pop(k)
                 else:
                     print('%s already in samples, not overwriting' % k)
-                    return
+                    continue
 
         self['a_1'] = np.sqrt(self["chi_p"] ** 2 + self[param] ** 2)
         # # limit a_1 < 1
@@ -458,6 +476,8 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
         grid_samples.add_fixed(k, i)
     grid_samples.add_fixed('f_ref', 0)
     grid_samples.add_fixed('phase', 0)
+    if "chi_p2" in grid_samples.keys() and "chi_p" in grid_samples.keys():
+        grid_samples.pop("chi_p")
     grid_samples.generate_prec_spin()
     # need to use set_to_bounds=True so we do not modify the grid
     grid_samples.trim_unphysical(set_to_bounds=True)
@@ -472,7 +492,6 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
         sample['f_ref'] = f_mean
 
     grid_samples.generate_all_posterior_samples(disable_remnant=True)
-
     return grid_samples['beta'].reshape(list(grid_dict.values())[0].shape), pts
 
 
@@ -564,6 +583,8 @@ def calculate_interpolated_snrs(
         samples.generate_theta_jn('left_circ')
     if "distance" not in samples.keys():
         samples.generate_distance(distance_face_on)
+    if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
+        samples['chi_p'] = samples['chi_p2']**0.5
     if "chi_p" not in samples.keys() and "chi_p2" not in samples.keys():
         samples.generate_chi_p('isotropic_on_sky')
     samples.calculate_rho_lm(
@@ -573,8 +594,6 @@ def calculate_interpolated_snrs(
     samples.calculate_rho_p(
         psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
     )
-    if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
-        samples['chi_p'] = samples['chi_p2']**0.5
     return samples
 
 
