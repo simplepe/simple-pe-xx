@@ -347,7 +347,7 @@ class Metric:
         return sample_pts
 
 
-def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=False, modes=None, 2harm=False):
+def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=False, modes=None, harm2=False):
     """
     This function makes a waveform for the given parameters and
     returns h_plus generated at value x.
@@ -393,12 +393,12 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
             print('return_hc not available for precessing system')
         for k, h in h_plus.items():
             h.resize(flen)
-        if not 2harm:
+        if not harm2:
             return h_plus[0]
         return h_plus
 
     else:
-        if 2harm:
+        if harm2:
             raise ValueError(
                 "Currently unable to calculate 2 harmonic decomposition when "
                 "lalsimulation.SimInspiralFD is called"
