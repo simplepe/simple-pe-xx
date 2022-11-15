@@ -213,6 +213,17 @@ class SimplePESamples(SamplesDict):
         else:
             print('Did not overwrite distance samples')
 
+    def generate_tilt_angles_from_chi_p(self):
+        """
+        """
+        param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
+        self.trim_unphysical()
+        # put spin on primary black hole
+        self["tilt_1"] = np.arctan2(self[param], self["chi_p"])
+        self["tilt_2"] = np.zeros_like(self["tilt_1"])
+        self["a_1"] = np.sqrt(self[param]**2 + self["chi_p"]**2)
+        self["a_2"] = self[param]
+
     def generate_chi_p(self, chi_p_dist='uniform', overwrite=False):
         """
         generate chi_p points with the desired distribution and include in the existing samples dict
@@ -489,7 +500,6 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
         sample['f_ref'] = f_mean
 
     grid_samples.generate_all_posterior_samples(disable_remnant=True)
-
     return grid_samples['beta'].reshape(list(grid_dict.values())[0].shape), pts
 
 
@@ -581,8 +591,12 @@ def calculate_interpolated_snrs(
         samples.generate_theta_jn('left_circ')
     if "distance" not in samples.keys():
         samples.generate_distance(distance_face_on)
+    if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
+        samples['chi_p'] = samples['chi_p2']**0.5
     if "chi_p" not in samples.keys() and "chi_p2" not in samples.keys():
         samples.generate_chi_p('isotropic_on_sky')
+    else:
+        samples.generate_tilt_angles_from_chi_p()
     samples.calculate_rho_lm(
         psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points, approximant
     )
@@ -590,8 +604,6 @@ def calculate_interpolated_snrs(
     samples.calculate_rho_p(
         psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
     )
-    if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
-        samples['chi_p'] = samples['chi_p2']**0.5
     return samples
 
 
