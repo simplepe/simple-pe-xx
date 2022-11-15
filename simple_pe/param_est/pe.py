@@ -77,12 +77,24 @@ class SimplePESamples(SamplesDict):
         """
         Initialize as a SamplesDict
         """
+        if isinstance(args[0], dict):
+            _args = {}
+            for key, item in args[0].items():
+                if isinstance(item, (float, int, np.number)):
+                    _args[key] = [item]
+                else:
+                    _args[key] = item
+            args = (_args,)
         SamplesDict.__init__(self, *args, logger_warn, autoscale)
 
     def __setitem__(self, key, value):
         _value = value
-        if not isinstance(value, Array):
-            _value = Array(value)
+        if isinstance(_value, (float, int, np.number)):
+            _value = [_value]
+        if not isinstance(_value, Array):
+            _value = Array(_value)
+        if not _value.ndim:
+            _value = Array([_value])
         super(SamplesDict, self).__setitem__(key, _value)
         try:
             if key not in self.parameters:
@@ -96,11 +108,11 @@ class SimplePESamples(SamplesDict):
                 except Exception:
                     cond = False
                 if cond and isinstance(self.samples, np.ndarray):
-                    self.samples = np.append(self.samples, value)
+                    self.samples = np.append(self.samples, _value)
                 elif cond and isinstance(self.samples, list):
-                    self.samples.append(value)
+                    self.samples.append(_value)
                 else:
-                    self.samples = np.vstack([self.samples, value])
+                    self.samples = np.vstack([self.samples, _value])
                 self._update_latex_labels()
         except (AttributeError, TypeError):
             pass
@@ -139,8 +151,11 @@ class SimplePESamples(SamplesDict):
         :param name: the name of the parameter
         :param value: its value
         """
-        npts = self.number_of_samples
-        self[name] = np.ones(npts) * value
+        try:
+            npts = self.number_of_samples
+            self[name] = np.ones(npts) * value
+        except TypeError:
+            self[name] = value 
 
     def generate_theta_jn(self, theta_dist='uniform', overwrite=False):
         """
