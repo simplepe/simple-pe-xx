@@ -407,12 +407,12 @@ def calculate_precession_snr(
         precession harmonics to calculate. Default ['0', '1']
     """
     _prec_parameters = pe.SimplePESamples(peak_template.copy())
-    _prec_parameters.update(
-        {
-            "chi_p": np.array([fiducial_chi_p]), "phase": np.array([0.]),
-            "f_ref": np.array([f_low])
-        }
-    )
+    _update =  {
+        "phase": np.array([0.]), "f_ref": np.array([f_low])
+    }
+    if "chi_p" not in _prec_parameters and "chi_p2" not in _prec_parameters:
+        _update.update({"chi_p": np.array([fiducial_chi_p])})
+    _prec_parameters.update(_update)
     _prec_parameters.generate_prec_spin()
     _prec_parameters.generate_all_posterior_samples()
     hp = _calculate_precessing_harmonics(

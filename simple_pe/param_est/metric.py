@@ -390,7 +390,7 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
                                                                  harmonics=[0,1], approx=approximant,
                                                                  mode_array=modes,
                                                                  df=df, f_low=f_low,
-                                                                 f_ref=x["f_ref"][0])[0]
+                                                                 f_ref=x["f_ref"][0])
         if return_hc:
             print('return_hc not available for precessing system')
         for k, h in h_plus.items():
