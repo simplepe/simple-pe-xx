@@ -35,7 +35,7 @@ def matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low, dominant_
     return np.sqrt(snrsq), smax
 
 
-def _neg_net_snr(x, x_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars=None, 2harm=False):
+def _neg_net_snr(x, x_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars=None, harm2=False):
     """
     Calculate the negative waveform match, taking x as the values and
     dx as the parameters.  This is in a format that's appropriate
@@ -60,7 +60,7 @@ def _neg_net_snr(x, x_directions, ifos, data, psds, t_start, t_end, f_low, appro
     try:
         h = metric.make_waveform(
             s, psds[ifos[0]].delta_f, f_low, len(psds[ifos[0]]), approximant,
-            2harm=2harm
+            harm2=harm2
         )
     except RuntimeError:
         return np.inf
