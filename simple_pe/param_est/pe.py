@@ -3,10 +3,12 @@ from scipy import interpolate
 from simple_pe.waveforms import waveform_modes
 from simple_pe.detectors import noise_curves
 from simple_pe.fstat import fstat_hm
+from simple_pe.param_est import metric
 from pesummary.utils.array import Array
 from pesummary.utils.samples_dict import SamplesDict
 from scipy.stats import ncx2
-
+from pycbc.filter import sigma
+import tqdm
 
 spin_max = 0.98
 
@@ -79,6 +81,7 @@ class SimplePESamples(SamplesDict):
         """
         if isinstance(args[0], dict):
             _args = {}
+
             for key, item in args[0].items():
                 if isinstance(item, (float, int, np.number)):
                     _args[key] = [item]
@@ -192,11 +195,19 @@ class SimplePESamples(SamplesDict):
         else:
             print('Did not overwrite theta_jn and cos_theta_jn samples')
 
-    def generate_distance(self, distance_face_on, overwrite=False):
+    def generate_distance(self, fiducial_distance, fiducial_sigma,
+                          psd, f_low, interp_directions, interp_points=5,
+                          approximant="IMRPhenomXPHM", overwrite=False):
         """
-        generate distance points using the existing theta_JN samples and the face-on distance
-
-        :param distance_face_on: the distance at which a face on signal gives the observed SNR
+        generate distance points using the existing theta_JN samples and fiducial distance.
+        interpolate sensitivity over the parameter space
+        :param fiducial_distance: distance for a fiducial set of parameters
+        :param fiducial_range: the range for a fiducial set of parameters
+        :param psd: the PSD to use
+        :param f_low: low frequency cutoff
+        :param interp_directions: directions to interpolate
+        :param interp_points: number of points to interpolate alpha_lm
+        :param approximant: waveform approximant
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
         if 'theta_jn' not in self.keys():
@@ -209,7 +220,18 @@ class SimplePESamples(SamplesDict):
 
         if 'distance' not in self.keys():
             tau = np.tan(self['theta_jn']/2)
-            self['distance'] = distance_face_on / (1 + tau**2) ** 2
+
+            maxs = dict((k, self.maximum[k]) for k in interp_directions)
+            mins = dict((k, self.minimum[k]) for k in interp_directions)
+            fixed_pars = {k: v[0] for k, v in self.mean.items() if k not in interp_directions}
+            fixed_pars['distance'] = 1.0
+
+            sigma_grid, pts = interpolate_sigma(maxs, mins, fixed_pars, psd, f_low, interp_points,
+                                                approximant)
+
+            sigma_int = interpolate.interpn(pts, sigma_grid, np.array([self[k] for k in interp_directions]).T)
+
+            self['distance'] = fiducial_distance * sigma_int/fiducial_sigma / (1 + tau**2) ** 2
         else:
             print('Did not overwrite distance samples')
 
@@ -308,7 +330,6 @@ class SimplePESamples(SamplesDict):
                     print("'chi_p' already in samples, not overwriting from 'chi_p2'")
                     return
             self['chi_p'] = np.sqrt(self['chi_p2'])
-                
 
         for k in ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl']:
             if k in self.keys():
@@ -470,7 +491,6 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
     dirs = param_max.keys()
     pts = [np.linspace(param_min[d][0], param_max[d][0], grid_points) for d in dirs]
     grid_dict = dict(zip(dirs, np.array(np.meshgrid(*pts, indexing='ij'))))
-
     grid_samples = SimplePESamples({k: i.flatten() for k, i in grid_dict.items()})
     for k, i in fixed_pars.items():
         grid_samples.add_fixed(k, i)
@@ -483,7 +503,7 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
     grid_samples.trim_unphysical(set_to_bounds=True)
     grid_samples.generate_all_posterior_samples(disable_remnant=True)
 
-    for i in range(grid_samples.number_of_samples):
+    for i in tqdm.tqdm(range(grid_samples.number_of_samples), desc="calculating opening angle on grid"):
         sample = grid_samples[i:i+1]
         param = "chi_eff" if "chi_eff" in sample.keys() else "chi_align"
         _, f_mean, _ = noise_curves.calc_reach_bandwidth(sample["mass_1"], sample["mass_2"],
@@ -493,6 +513,39 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
 
     grid_samples.generate_all_posterior_samples(disable_remnant=True)
     return grid_samples['beta'].reshape(list(grid_dict.values())[0].shape), pts
+
+
+def interpolate_sigma(param_max, param_min, fixed_pars, psd, f_low, grid_points, approximant):
+    """
+    generate interpolating function for sigma
+
+    :param param_max: A dictionary containing the maximum value of each parameter
+    :param param_min: A dictionary containing the maximum value of each parameter
+    :param fixed_pars: A dictionary containing values of fixed parameters
+    :param psd: the PSD to use
+    :param f_low: low frequency cutoff
+    :param grid_points: number of points to interpolate alpha_33 and beta
+    :param approximant: waveform approximant
+    :return alpha: dictionary of alpha[lm] values interpolated across the grid
+    :return pts: set of points used in each direction
+    """
+    dirs = param_max.keys()
+    pts = [np.linspace(param_min[d][0], param_max[d][0], grid_points) for d in dirs]
+    grid_dict = dict(zip(dirs, np.array(np.meshgrid(*pts, indexing='ij'))))
+
+    grid_samples = SimplePESamples({k: i.flatten() for k, i in grid_dict.items()})
+    for k, i in fixed_pars.items():
+        grid_samples.add_fixed(k, i)
+
+    sig = np.zeros(grid_samples.number_of_samples)
+
+    for i in tqdm.tqdm(range(grid_samples.number_of_samples), desc="calculating sigma on grid"):
+        sample = grid_samples[i:i+1]
+        h = metric.make_waveform(sample, psd.delta_f, f_low, len(psd), approximant)
+        sig[i] = sigma(h, psd, low_frequency_cutoff=f_low,
+                       high_frequency_cutoff=psd.sample_frequencies[-1])
+
+    return sig.reshape(list(grid_dict.values())[0].shape), pts
 
 
 def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_points, modes, approximant):
@@ -510,11 +563,9 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_poin
     :return alpha: dictionary of alpha[lm] values interpolated across the grid
     :return pts: set of points used in each direction
     """
-    import tqdm
     dirs = param_max.keys()
     pts = [np.linspace(param_min[d][0], param_max[d][0], grid_points) for d in dirs]
     grid_dict = dict(zip(dirs, np.array(np.meshgrid(*pts, indexing='ij'))))
-
     grid_samples = SimplePESamples({k: i.flatten() for k, i in grid_dict.items()})
     for k, i in fixed_pars.items():
         grid_samples.add_fixed(k, i)
@@ -543,7 +594,8 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_poin
 
 
 def calculate_interpolated_snrs(
-        samples, psd, f_low, dominant_snr, modes, alpha_net, distance_face_on,
+        samples, psd, f_low, dominant_snr, modes, alpha_net,
+        fiducial_distance, fiducial_sigma, dist_interp_dirs,
         hm_interp_dirs, prec_interp_dirs, interp_points, approximant, **kwargs
 ):
     """Wrapper function to calculate the SNR in the (l,m) multipoles,
@@ -565,8 +617,12 @@ def calculate_interpolated_snrs(
     alpha_net: float
         network sensitivity to x polarization (in DP frame) used to
         calculate the SNR in the second
-    distance_face_on: float
+    fiducial_distance: float
         distance at which a face on signal would give the observed dominant SNR
+    fiducial_sigma: float
+        distance at which a face on signal would give SNR=8 at (using params for fiducial_distance)
+    dist_interp_dirs: list
+        directions to interpolate the distance
     hm_interp_dirs: list
         directions to interpolate the higher multipole SNR calculation
     prec_interp_dirs: list
@@ -582,7 +638,8 @@ def calculate_interpolated_snrs(
     if "theta_jn" not in samples.keys():
         samples.generate_theta_jn('left_circ')
     if "distance" not in samples.keys():
-        samples.generate_distance(distance_face_on)
+        samples.generate_distance(fiducial_distance, fiducial_sigma,
+            psd, f_low, dist_interp_dirs, interp_points, approximant)
     if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
         samples['chi_p'] = samples['chi_p2']**0.5
     if "chi_p" not in samples.keys() and "chi_p2" not in samples.keys():
