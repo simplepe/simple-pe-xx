@@ -25,8 +25,8 @@ def calc_reach_bandwidth(mass1, mass2, spin, approx, power_spec, fmin, thresh=8.
     fmax = power_spec.sample_frequencies[-1]
     df = power_spec.delta_f
     params = {
-        "mass_1": [mass1], "mass_2": [mass2], "spin_1z": [spin],
-        "spin_2z": [spin], "distance": [1.]
+        "mass_1": mass1, "mass_2": mass2, "spin_1z": spin,
+        "spin_2z": spin, "distance": 1.
     }
     hpf, hcf = make_waveform(
         params, df, fmin, int(fmax / df) + 1, approximant=approx,
