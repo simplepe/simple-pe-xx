@@ -5,7 +5,7 @@ from simple_pe.detectors import noise_curves
 from simple_pe.fstat import fstat_hm
 from pesummary.utils.array import Array
 from pesummary.utils.samples_dict import SamplesDict
-from scipy.stats import ncx2
+from scipy.stats import ncx2, norm
 from pycbc.filter import sigma
 import tqdm
 
@@ -233,6 +233,33 @@ class SimplePESamples(SamplesDict):
             self['distance'] = fiducial_distance * sigma_int/fiducial_sigma / (1 + tau**2) ** 2
         else:
             print('Did not overwrite distance samples')
+
+    def jitter_distance(self, net_snr, response_sigma=0.):
+        """
+        jitter distance values based upon existing distances
+        jitter due to SNR and variation of network response
+        :param net_snr: the network SNR
+        :param response_sigma: standard deviation of network response (over sky)
+        """
+        if 'distance' not in self.keys():
+            print('Need existing distance values before jittering them')
+            return
+
+        std = np.sqrt(net_snr ** -2 + response_sigma ** 2)
+        # generate distance scaling factors
+        d_scale = norm.rvs(1, std, 10 * self.number_of_samples)
+        d_scale = d_scale[d_scale > 0]
+        # weight using uniform volume distribution
+        d_weight = d_scale ** 3
+        d_weight /= d_weight.max()
+        keep = (d_weight > np.random.uniform(0, 1, len(d_weight)))
+        try:
+            d_keep = d_scale[keep][:self.number_of_samples]
+            self['distance'] *= d_keep
+        except:
+            print('Failed to generate enough samples')
+            print('Not performing distance jitter')
+            return
 
     def generate_chi_p(self, chi_p_dist='uniform', overwrite=False):
         """
@@ -594,7 +621,7 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_poin
 
 
 def calculate_interpolated_snrs(
-        samples, psd, f_low, dominant_snr, modes, alpha_net,
+        samples, psd, f_low, dominant_snr, modes, alpha_net, response_sigma,
         fiducial_distance, fiducial_sigma, dist_interp_dirs,
         hm_interp_dirs, prec_interp_dirs, interp_points, approximant, **kwargs
 ):
@@ -617,6 +644,8 @@ def calculate_interpolated_snrs(
     alpha_net: float
         network sensitivity to x polarization (in DP frame) used to
         calculate the SNR in the second
+    response_sigma: float
+        standard deviation of network response over sky region
     fiducial_distance: float
         distance at which a face on signal would give the observed dominant SNR
     fiducial_sigma: float
@@ -638,8 +667,9 @@ def calculate_interpolated_snrs(
     if "theta_jn" not in samples.keys():
         samples.generate_theta_jn('left_circ')
     if "distance" not in samples.keys():
-        samples.generate_distance(fiducial_distance, fiducial_sigma,
-            psd, f_low, dist_interp_dirs, interp_points, approximant)
+        samples.generate_distance(fiducial_distance, fiducial_sigma, psd, f_low,
+                                  dist_interp_dirs, interp_points, approximant)
+        samples.jitter_distance(dominant_snr, response_sigma)
     if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
         samples['chi_p'] = samples['chi_p2']**0.5
     if "chi_p" not in samples.keys() and "chi_p2" not in samples.keys():
