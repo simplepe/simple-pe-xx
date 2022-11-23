@@ -140,8 +140,8 @@ class SimplePESamples(SamplesDict):
         **kwargs: dict, optional
             All additional kwargs passed to function
         """
-        if "chi_p" not in self.keys() and "chi_p2" in self.keys():
-            self["chi_p"] = np.sqrt(self["chi_p2"])
+        # if "chi_p" not in self.keys() and "chi_p2" in self.keys():
+        #     self["chi_p"] = np.sqrt(self["chi_p2"])
         if function is None:
             function = convert
         return super(SimplePESamples, self).generate_all_posterior_samples(
@@ -670,8 +670,6 @@ def calculate_interpolated_snrs(
         samples.generate_distance(fiducial_distance, fiducial_sigma, psd, f_low,
                                   dist_interp_dirs, interp_points, approximant)
         samples.jitter_distance(dominant_snr, response_sigma)
-    if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
-        samples['chi_p'] = samples['chi_p2']**0.5
     if "chi_p" not in samples.keys() and "chi_p2" not in samples.keys():
         samples.generate_chi_p('isotropic_on_sky')
     samples.calculate_rho_lm(
@@ -681,6 +679,8 @@ def calculate_interpolated_snrs(
     samples.calculate_rho_p(
         psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
     )
+    if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
+        samples['chi_p'] = samples['chi_p2']**0.5
     return samples
 
 
