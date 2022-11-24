@@ -344,6 +344,7 @@ class FilterNode(Node):
                 import json
                 with open(value, "r") as f:
                     injection_params = json.load(f)
+                print(injection_params)
                 hp, hc = get_td_waveform(
                     approximant=self.opts.approximant, **injection_params
                 )
