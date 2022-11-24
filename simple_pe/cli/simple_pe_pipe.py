@@ -344,7 +344,6 @@ class FilterNode(Node):
                 import json
                 with open(value, "r") as f:
                     injection_params = json.load(f)
-                print(injection_params)
                 hp, hc = get_td_waveform(
                     approximant=self.opts.approximant, **injection_params
                 )
@@ -354,7 +353,7 @@ class FilterNode(Node):
                 dec = injection_params["dec"]
                 psi = injection_params["psi"]
                 ht = Detector(ifo).project_wave(hp, hc, ra, dec, psi)
-                #ht = taper_timeseries(ht, tapermethod="TAPER_STARTEND")
+                ht = taper_timeseries(ht, tapermethod="TAPER_STARTEND")
                 prepend = int(512 / ht.delta_t)
                 ht.append_zeros(prepend)
                 ht.prepend_zeros(prepend)
