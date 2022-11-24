@@ -113,7 +113,7 @@ GW150914:precession_metric:
     matrix:
       - CHIP: [2, 8]
 
-injections:varying_chip:
+injections:zero-noise:
   <<: *parallel_chip
   extends: .injections
   variables:
