@@ -321,21 +321,34 @@ class FilterNode(Node):
         _strain = {}
         for key, value in strain.items():
             ifo, channel = key.split(":")
-            if channel.lower() != "gwosc":
+            if channel.lower() not in ["gwosc", "inj"]:
                 _strain[key] = value
                 continue
-            gps = event_gps(value)
-            start, stop = int(gps) + 512, int(gps) - 512
-            open_data = TimeSeries.fetch_open_data(ifo, start, stop)
-            _channel = open_data.name
-            open_data.name = f"{ifo}:{_channel}"
-            open_data.channel = f"{ifo}:{_channel}"
-            os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
-            filename = (
-                f"{self.opts.outdir}/output/{ifo}-{_channel}-{int(gps)}.gwf"
-            )
-            open_data.write(filename)
-            _strain[f"{ifo}:{_channel}"] = filename
+            elif channel.lower() == "gwosc":
+                gps = event_gps(value)
+                start, stop = int(gps) + 512, int(gps) - 512
+                open_data = TimeSeries.fetch_open_data(ifo, start, stop)
+                _channel = open_data.name
+                open_data.name = f"{ifo}:{_channel}"
+                open_data.channel = f"{ifo}:{_channel}"
+                os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
+                filename = (
+                    f"{self.opts.outdir}/output/{ifo}-{_channel}-{int(gps)}.gwf"
+                )
+                open_data.write(filename)
+                _strain[f"{ifo}:{_channel}"] = filename
+            else:
+                from pycbc.waveform import get_td_waveform
+                from pycbc.detector import Detector
+                import json
+                with open(value, "r") as f:
+                    injection_params = json.load(f)
+                hp, hc = get_td_waveform(
+                    approximant=self.approximant, **injection_params
+                )
+                hp.start_time += injection_params["time"]
+                hc.start_time += injection_params["time"]
+
         return _strain
 
 

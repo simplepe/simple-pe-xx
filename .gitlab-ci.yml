@@ -75,6 +75,7 @@ documentation:
     - "echo '{\"mass_1\": 36.8, \"mass_2\": 32.0, \"spin_1z\": -0.62, \"spin_2z\": 0.47, \"chi_p2\": 0.0625, \"distance\": 509.1, \"inclination\": 2.4, \"time\": 1126259462.41, \"ra\": 2.2, \"dec\": -1.2, \"psi\": 0.7}' > trigger_parameters.json"
     - simple_pe_pipe --strain H1:GWOSC:GW150914 L1:GWOSC:GW150914 --approximant ${WVF} --f_low 20 --f_high 2048 --accounting_group UNKNOWN --accounting_group_user albert.einstein --outdir ./outdir --trigger_parameters trigger_parameters.json --asd H1:GW150914_H1_asd.txt L1:GW150914_L1_asd.txt --metric_directions ${METRIC_DIRECTIONS}
     - bash ./outdir/submit/bash_simple_pe.sh
+  after_script:
     - mv ./outdir/output/peak_parameters.json peak_parameters.json
     - mv ./outdir/output/peak_snrs.json peak_snrs.json
     - mv ./outdir/output/corner.png corner.png
@@ -83,6 +84,12 @@ documentation:
         - peak_parameters.json
         - peak_snrs.json
         - corner.png
+
+.injections:
+  extends: .metric
+  script:
+    - simple_pe_pipe --strain H1:INJ:injection_params.json L1:INJ:injection_params.json --approximant ${WVF} --f_low 20 --f_high 2048 --accounting_group UNKNOWN --accounting_group_user albert.einstein --outdir ./outdir --trigger_parameters trigger_parameters.json --asd H1:GW150914_H1_asd.txt L1:GW150914_L1_asd.txt --metric_directions ${METRIC_DIRECTIONS}
+    - bash ./outdir/submit/bash_simple_pe.sh
 
 GW150914:aligned_metric:
   <<: *parallel_wvf
@@ -95,6 +102,12 @@ GW150914:precession_metric:
   variables:
     WVF: IMRPhenomXPHM # precession metric code doesn't work for TD approximants
     METRIC_DIRECTIONS: chirp_mass symmetric_mass_ratio chi_align chi_p2
+
+injections:zero_noise:
+  extends: .injections
+  variables:
+    mass1:
+    mass2:
 
 pages:
   stage: deploy
