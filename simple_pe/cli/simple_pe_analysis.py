@@ -97,14 +97,25 @@ def command_line():
         "--metric_directions",
         help="Directions to calculate metric",
         nargs="+",
-        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
+        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align', 'chi_p2']
     )
     parser.add_argument(
         "--precession_directions",
         help="Directions for precession",
         nargs="+",
-        default=['symmetric_mass_ratio', 'chi_align', 'chi_p']
+        default=['symmetric_mass_ratio', 'chi_align', 'chi_p2']
     )
+    parser.add_argument(
+        "--multipole_directions",
+        help="Directions for higher order multipoles",
+        nargs="+",
+        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
+    )
+    parser.add_argument(
+        "--distance_directions",
+        help="Directions for distance",
+        nargs="+",
+        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
     return parser
 
 
@@ -137,7 +148,8 @@ def main(args=None):
         data_from_matched_filter=data_from_matched_filter
     )
     _ = pe_result.generate_samples_from_aligned_spin_template_parameters(
-        opts.metric_directions, opts.precession_directions, interp_points=5
+        opts.metric_directions, opts.precession_directions, opts.multipole_directions,
+        opts.distance_directions, interp_points=5
     )
     pe_result.samples_dict.write(
         outdir=opts.outdir, filename="posterior_samples.dat", overwrite=True,
