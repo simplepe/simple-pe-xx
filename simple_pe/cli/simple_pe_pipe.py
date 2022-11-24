@@ -366,6 +366,7 @@ class FilterNode(Node):
                     filename = (
                         f"{self.opts.outdir}/output/{ifo}-INJECTION.gwf"
                     )
+                    print(filename)
                     strain.write(filename)
                     _strain[f"{ifo}:HWINJ_INJECTED"] = filename
         return _strain
