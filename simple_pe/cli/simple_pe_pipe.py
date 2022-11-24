@@ -344,7 +344,7 @@ class FilterNode(Node):
                 with open(value, "r") as f:
                     injection_params = json.load(f)
                 hp, hc = get_td_waveform(
-                    approximant=self.approximant, **injection_params
+                    approximant=self.opts.approximant, **injection_params
                 )
                 hp.start_time += injection_params["time"]
                 hc.start_time += injection_params["time"]
@@ -354,14 +354,12 @@ class FilterNode(Node):
                     psi = injection_params["psi"]
                     ht = Detector(ifo).project_wave(hp, hc, ra, dec, psi)
                     ht = taper_timeseries(ht, tapermethod="TAPER_STARTEND")
-                    strain = TimeSeries(
-                        ht, epoch=ht.epoch, delta_t=ht.delta_t
-                    )
+                    strain = TimeSeries(ht, epoch=ht._epoch, dt=ht.delta_t)
                     strain.name = f"{ifo}:HWINJ_INJECTED"
                     strain.channel = f"{ifo}:HWINJ_INJECTED"
                     os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
                     filename = (
-                        f"{self.opts.outdir}/output/{ifo}-{INJ}.gwf"
+                        f"{self.opts.outdir}/output/{ifo}-INJECTION.gwf"
                     )
                     strain.write(filename)
                     _strain[f"{ifo}:HWINJ_INJECTED"] = filename
