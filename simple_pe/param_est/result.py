@@ -127,7 +127,7 @@ class Result(GWSingleAnalysisRead):
             approximant=self.approximant,
             modes=modes,
             alpha_net=self.alpha_net,
-            response_sigma=self.response_sigma
+            response_sigma=self.response_sigma,
             fiducial_distance=self.distance_face_on,
             fiducial_sigma=self.sigma,
             dist_interp_dirs=dist_interp_dirs,
