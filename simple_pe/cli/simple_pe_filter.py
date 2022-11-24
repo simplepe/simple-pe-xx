@@ -600,7 +600,8 @@ def estimate_face_on_distance(
     return {
         "distance_face_on": (
             peak_template['distance'] * f_net * sigma_hm  / event_snr['network']
-        )
+        ),
+        "sigma": sigma_hm
     }
 
 
