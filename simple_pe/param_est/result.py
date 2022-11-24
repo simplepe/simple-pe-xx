@@ -27,6 +27,12 @@ class Result(GWSingleAnalysisRead):
         self._distance_face_on = data_from_matched_filter.get(
             "distance_face_on", None
         )
+        self._sigma = data_from_matched_filter.get(
+            "sigma", None
+        )
+        self._response_sigma = data_from_matched_filter.get(
+            "response_sigma", None
+        )
         self._metric = None
         self.mcmc_samples = False
         self.samples = None
@@ -56,6 +62,14 @@ class Result(GWSingleAnalysisRead):
     @property
     def distance_face_on(self):
         return self._distance_face_on
+
+    @property
+    def sigma(self):
+        return self._sigma
+
+    @property
+    def response_sigma(self):
+        return self._response_sigma
 
     @property
     def samples_dict(self):
@@ -90,8 +104,9 @@ class Result(GWSingleAnalysisRead):
         self.parameters = samples.parameters
         
     def generate_samples_from_aligned_spin_template_parameters(
-        self, metric_directions, prec_interp_dirs, modes=['33'], alpha_net=None,
-        interp_points=7, template_parameters=None, dominant_snr=None
+        self, metric_directions, prec_interp_dirs, hm_interp_dirs,
+        dist_interp_dirs, modes=['33'], alpha_net=None, interp_points=7,
+        template_parameters=None, dominant_snr=None,
     ):
         import time
         t0 = time.time()
@@ -112,8 +127,11 @@ class Result(GWSingleAnalysisRead):
             approximant=self.approximant,
             modes=modes,
             alpha_net=self.alpha_net,
-            distance_face_on=self.distance_face_on,
-            hm_interp_dirs=metric_directions,
+            response_sigma=self.response_sigma
+            fiducial_distance=self.distance_face_on,
+            fiducial_sigma=self.sigma,
+            dist_interp_dirs=dist_interp_dirs,
+            hm_interp_dirs=hm_interp_dirs,
             prec_interp_dirs=prec_interp_dirs,
             interp_points=interp_points
         )
