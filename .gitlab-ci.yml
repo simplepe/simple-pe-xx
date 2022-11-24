@@ -105,12 +105,19 @@ GW150914:precession_metric:
     WVF: IMRPhenomXPHM # precession metric code doesn't work for TD approximants
     METRIC_DIRECTIONS: chirp_mass symmetric_mass_ratio chi_align chi_p2
 
-injections:zero_noise:
+
+.parallel_chip: &parallel_chip
+  parallel:
+    matrix:
+      - CHIP: [2, 8]
+
+injections:chip_set:
+  <<: *parallel_chip
   extends: .injections
   variables:
     mass1: 40
     mass2: 10
-    spin1x: 8 # multiplied by 10
+    spin1x: ${CHIP} # multiplied by 10
     spin1z: 3 # multiplied by 10
     spin2z: 3 # multiplied by 10
 

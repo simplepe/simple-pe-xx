@@ -355,6 +355,9 @@ class FilterNode(Node):
                     psi = injection_params["psi"]
                     ht = Detector(ifo).project_wave(hp, hc, ra, dec, psi)
                     ht = taper_timeseries(ht, tapermethod="TAPER_STARTEND")
+                    prepend = int(512 / ht.delta_t)
+                    ht.append_zeros(prepend)
+                    ht.prepend_zeros(prepend)
                     strain = TimeSeries(ht, epoch=ht._epoch, dt=ht.delta_t)
                     strain.name = f"{ifo}:HWINJ_INJECTED"
                     strain.channel = f"{ifo}:HWINJ_INJECTED"
