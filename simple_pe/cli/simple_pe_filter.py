@@ -104,7 +104,7 @@ def command_line():
         "--metric_directions",
         help="Directions to calculate metric",
         nargs="+",
-        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
+        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align', 'chi_p2']
     )
     return parser
 
@@ -600,7 +600,8 @@ def estimate_face_on_distance(
     return {
         "distance_face_on": (
             peak_template['distance'] * f_net * sigma_hm  / event_snr['network']
-        )
+        ),
+        "sigma": sigma_hm
     }
 
 

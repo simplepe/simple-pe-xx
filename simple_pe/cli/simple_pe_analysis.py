@@ -97,13 +97,25 @@ def command_line():
         "--metric_directions",
         help="Directions to calculate metric",
         nargs="+",
-        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
+        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align', 'chi_p2']
     )
     parser.add_argument(
         "--precession_directions",
         help="Directions for precession",
         nargs="+",
-        default=['symmetric_mass_ratio', 'chi_align', 'chi_p']
+        default=['symmetric_mass_ratio', 'chi_align', 'chi_p2']
+    )
+    parser.add_argument(
+        "--multipole_directions",
+        help="Directions for higher order multipoles",
+        nargs="+",
+        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
+    )
+    parser.add_argument(
+        "--distance_directions",
+        help="Directions for distance",
+        nargs="+",
+        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
     )
     return parser
 
@@ -124,20 +136,24 @@ def main(args=None):
         opts.psd, opts.asd, int(opts.f_high * 2 / (opts.delta_f * 2) + 1),
         data_len, opts.delta_f, opts.f_low,
     )
+    if 'chi_p2' in opts.metric_directions and 'chi_p2' not in peak_parameters:
+        peak_parameters['chi_p2'] = peak_parameters['chi_p']**2
     data_from_matched_filter = {
         "template_parameters": {
             k: peak_parameters[k][0] for k in opts.metric_directions
         },
         "snrs": snrs,
         "alpha_net": peak_parameters['net_alpha'][0],
-        "distance_face_on": peak_parameters['distance_face_on'][0]
+        "distance_face_on": peak_parameters['distance_face_on'][0],
+        "sigma": peak_parameters['sigma'][0]
     }
     pe_result = result.Result(
         f_low=opts.f_low, psd=psd["hm"], approximant=opts.approximant,
         data_from_matched_filter=data_from_matched_filter
     )
     _ = pe_result.generate_samples_from_aligned_spin_template_parameters(
-        opts.metric_directions, opts.precession_directions, interp_points=5
+        opts.metric_directions, opts.precession_directions, opts.multipole_directions,
+        opts.distance_directions, interp_points=5
     )
     pe_result.samples_dict.write(
         outdir=opts.outdir, filename="posterior_samples.dat", overwrite=True,
