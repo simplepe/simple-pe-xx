@@ -143,6 +143,7 @@ def main(args=None):
         "snrs": snrs,
         "alpha_net": peak_parameters['net_alpha'][0],
         "distance_face_on": peak_parameters['distance_face_on'][0]
+        "sigma": peak_params['sigma'][0]
     }
     pe_result = result.Result(
         f_low=opts.f_low, psd=psd["hm"], approximant=opts.approximant,
