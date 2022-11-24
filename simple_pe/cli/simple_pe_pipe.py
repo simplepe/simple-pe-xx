@@ -349,26 +349,24 @@ class FilterNode(Node):
                 )
                 hp.start_time += injection_params["time"]
                 hc.start_time += injection_params["time"]
-                for ifo in ["H1", "L1", "V1"]:
-                    ra = injection_params["ra"]
-                    dec = injection_params["dec"]
-                    psi = injection_params["psi"]
-                    ht = Detector(ifo).project_wave(hp, hc, ra, dec, psi)
-                    ht = taper_timeseries(ht, tapermethod="TAPER_STARTEND")
-                    prepend = int(512 / ht.delta_t)
-                    ht.append_zeros(prepend)
-                    ht.prepend_zeros(prepend)
-                    print(ht.sample_times[0])
-                    strain = TimeSeries(ht, epoch=ht.sample_times[0], dt=ht.delta_t)
-                    strain.name = f"{ifo}:HWINJ_INJECTED"
-                    strain.channel = f"{ifo}:HWINJ_INJECTED"
-                    os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
-                    filename = (
-                        f"{self.opts.outdir}/output/{ifo}-INJECTION.gwf"
-                    )
-                    print(filename)
-                    strain.write(filename)
-                    _strain[f"{ifo}:HWINJ_INJECTED"] = filename
+                ra = injection_params["ra"]
+                dec = injection_params["dec"]
+                psi = injection_params["psi"]
+                ht = Detector(ifo).project_wave(hp, hc, ra, dec, psi)
+                ht = taper_timeseries(ht, tapermethod="TAPER_STARTEND")
+                prepend = int(512 / ht.delta_t)
+                ht.append_zeros(prepend)
+                ht.prepend_zeros(prepend)
+                strain = TimeSeries(ht, epoch=ht.sample_times[0], dt=ht.delta_t)
+                strain.name = f"{ifo}:HWINJ_INJECTED"
+                strain.channel = f"{ifo}:HWINJ_INJECTED"
+                os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
+                filename = (
+                    f"{self.opts.outdir}/output/{ifo}-INJECTION.gwf"
+                )
+                print(filename)
+                strain.write(filename)
+                _strain[f"{ifo}:HWINJ_INJECTED"] = filename
         return _strain
 
 
