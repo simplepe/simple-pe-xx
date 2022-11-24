@@ -358,7 +358,7 @@ class FilterNode(Node):
                     prepend = int(512 / ht.delta_t)
                     ht.append_zeros(prepend)
                     ht.prepend_zeros(prepend)
-                    strain = TimeSeries(ht, epoch=ht._epoch, dt=ht.delta_t)
+                    strain = TimeSeries(ht, epoch=ht.sample_times[0], dt=ht.delta_t)
                     strain.name = f"{ifo}:HWINJ_INJECTED"
                     strain.channel = f"{ifo}:HWINJ_INJECTED"
                     os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)

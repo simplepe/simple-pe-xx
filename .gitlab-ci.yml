@@ -111,7 +111,7 @@ GW150914:precession_metric:
     matrix:
       - CHIP: [2, 8]
 
-injections:chip_set:
+injections:varying_chip:
   <<: *parallel_chip
   extends: .injections
   variables:
