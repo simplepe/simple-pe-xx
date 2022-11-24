@@ -8,7 +8,7 @@ import numpy as np
 from gwpy.timeseries import TimeSeries
 from pesummary.core.command_line import CheckFilesExistAction, DictionaryAction
 from pesummary.gw.conversions.snr import _calculate_precessing_harmonics 
-from pycbc.psd.analytical import flat_unity
+from pycbc.psd.analytical import aLIGOMidHighSensitivityP1200087
 import pycbc.psd.read
 from pycbc.filter.matchedfilter import sigmasq
 from pycbc.detector import Detector
@@ -253,7 +253,7 @@ def _load_psd_from_file(
     elif len(psd_data):
         _psd_kwargs = {"is_asd_file": False}
     psd = {}
-    psa = flat_unity(length, delta_f, f_low)
+    psa = aLIGOMidHighSensitivityP1200087(length, delta_f, f_low)
     for ifo, path in psd_data.items():
         p = pycbc.psd.read.from_txt(
             path, data_length, delta_f, f_low, **_psd_kwargs
@@ -620,6 +620,7 @@ def main(args=None):
         minimum_data_length=opts.minimum_data_length
     )
     delta_f = list(strain_f.values())[0].delta_f
+
     psd = _load_psd_from_file(
         opts.psd, opts.asd, int(opts.f_high * 2 / (delta_f * 2) + 1),
         int(len(list(strain.values())[0]) / 2.) + 1, delta_f, opts.f_low,
