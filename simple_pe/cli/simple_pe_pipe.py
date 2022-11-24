@@ -338,6 +338,7 @@ class FilterNode(Node):
                 open_data.write(filename)
                 _strain[f"{ifo}:{_channel}"] = filename
             else:
+                # make waveform with independent code: pycbc.waveform.get_td_waveform
                 from pycbc.waveform import get_td_waveform, taper_timeseries
                 from pycbc.detector import Detector
                 import json
