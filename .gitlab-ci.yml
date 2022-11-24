@@ -120,8 +120,8 @@ injections:zero-noise:
     mass1: 40
     mass2: 10
     spin1x: ${CHIP} # multiplied by 10
-    spin1z: 3 # multiplied by 10
-    spin2z: 3 # multiplied by 10
+    spin1z: 0 # multiplied by 10
+    spin2z: 0 # multiplied by 10
 
 pages:
   stage: deploy
