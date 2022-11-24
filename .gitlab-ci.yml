@@ -111,7 +111,7 @@ GW150914:precession_metric:
 .parallel_chip: &parallel_chip
   parallel:
     matrix:
-      - CHIP: [2, 8]
+      - CHIP: [2, 6]
 
 injections:zero-noise:
   <<: *parallel_chip
