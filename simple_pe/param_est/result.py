@@ -120,6 +120,7 @@ class Result(GWSingleAnalysisRead):
         self.generate_samples_from_metric(
             metric_directions, self.template_parameters, self.snrs['22']
         )
+        print(self.distance_face_on, self.sigma)
         self.generate_all_posterior_samples(
             function=pe.calculate_interpolated_snrs,
             psd=self.psd,
