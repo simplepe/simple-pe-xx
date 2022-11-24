@@ -136,6 +136,8 @@ def main(args=None):
         opts.psd, opts.asd, int(opts.f_high * 2 / (opts.delta_f * 2) + 1),
         data_len, opts.delta_f, opts.f_low,
     )
+    if 'chi_p2' in opts.metric_directions:
+        peak_parameters['chi_p2'] = peak_parameters['chi_p']**2
     data_from_matched_filter = {
         "template_parameters": {
             k: peak_parameters[k][0] for k in opts.metric_directions
