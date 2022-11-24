@@ -31,7 +31,8 @@ class Result(GWSingleAnalysisRead):
             "sigma", None
         )
         self._response_sigma = data_from_matched_filter.get(
-            "response_sigma", None
+            "response_sigma",
+            0.07 # obtained from generating samples on the sky and averaging
         )
         self._metric = None
         self.mcmc_samples = False
