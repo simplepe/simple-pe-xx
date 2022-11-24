@@ -653,6 +653,7 @@ def main(args=None):
             delta_f, opts.f_high
         )
     )
+    print("simple_pe_filter", peak_parameters)
     peak_parameters.write(
         outdir=opts.outdir, filename="peak_parameters.json", overwrite=True,
         file_format="json"
