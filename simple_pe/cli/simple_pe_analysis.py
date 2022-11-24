@@ -116,6 +116,7 @@ def command_line():
         help="Directions for distance",
         nargs="+",
         default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
+    )
     return parser
 
 
