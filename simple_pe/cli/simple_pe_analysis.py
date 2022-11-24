@@ -155,6 +155,8 @@ def main(args=None):
         opts.metric_directions, opts.precession_directions, opts.multipole_directions,
         opts.distance_directions, interp_points=5
     )
+    print(pe_result.samples_dict.keys())
+    print(pe_result.samples_dict["distance"])
     pe_result.samples_dict.write(
         outdir=opts.outdir, filename="posterior_samples.dat", overwrite=True,
         file_format="dat"
