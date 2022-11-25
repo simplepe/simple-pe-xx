@@ -256,7 +256,7 @@ def _load_psd_from_file(
     psa = aLIGOMidHighSensitivityP1200087(length, delta_f, f_low)
     for ifo, path in psd_data.items():
         p = pycbc.psd.read.from_txt(
-            path, data_length, delta_f, f_low, **_psd_kwargs
+            path, length, delta_f, f_low, **_psd_kwargs
         )
         psd[ifo] = copy.deepcopy(psa)
         psd[ifo][0:len(p)] = p[:]
