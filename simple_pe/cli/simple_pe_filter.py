@@ -8,7 +8,7 @@ import numpy as np
 from gwpy.timeseries import TimeSeries
 from pesummary.core.command_line import CheckFilesExistAction, DictionaryAction
 from pesummary.gw.conversions.snr import _calculate_precessing_harmonics 
-from pycbc.psd.analytical import flat_unity
+from pycbc.psd.analytical import aLIGOMidHighSensitivityP1200087
 import pycbc.psd.read
 from pycbc.filter.matchedfilter import sigmasq
 from pycbc.detector import Detector
@@ -104,7 +104,7 @@ def command_line():
         "--metric_directions",
         help="Directions to calculate metric",
         nargs="+",
-        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
+        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align', 'chi_p2']
     )
     return parser
 
@@ -253,10 +253,10 @@ def _load_psd_from_file(
     elif len(psd_data):
         _psd_kwargs = {"is_asd_file": False}
     psd = {}
-    psa = flat_unity(length, delta_f, f_low)
+    psa = aLIGOMidHighSensitivityP1200087(length, delta_f, f_low)
     for ifo, path in psd_data.items():
         p = pycbc.psd.read.from_txt(
-            path, data_length, delta_f, f_low, **_psd_kwargs
+            path, length, delta_f, f_low, **_psd_kwargs
         )
         psd[ifo] = copy.deepcopy(psa)
         psd[ifo][0:len(p)] = p[:]
@@ -600,7 +600,8 @@ def estimate_face_on_distance(
     return {
         "distance_face_on": (
             peak_template['distance'] * f_net * sigma_hm  / event_snr['network']
-        )
+        ),
+        "sigma": sigma_hm
     }
 
 
@@ -619,6 +620,7 @@ def main(args=None):
         minimum_data_length=opts.minimum_data_length
     )
     delta_f = list(strain_f.values())[0].delta_f
+
     psd = _load_psd_from_file(
         opts.psd, opts.asd, int(opts.f_high * 2 / (delta_f * 2) + 1),
         int(len(list(strain.values())[0]) / 2.) + 1, delta_f, opts.f_low,
