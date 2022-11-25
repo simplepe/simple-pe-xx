@@ -120,7 +120,7 @@ injections:zero-noise:
   extends: .injections
   variables:
     mass1: 40
-    mass2: 10
+    mass2: 20
     spin1x: ${CHIP} # multiplied by 10
     spin1z: 3 # multiplied by 10
     spin2z: 3 # multiplied by 10
