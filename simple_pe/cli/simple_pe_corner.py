@@ -62,6 +62,8 @@ def main(args=None):
             import json
             with open(opts.truth, "r") as f:
                 _truth = json.load(f)
+        if "approximant" in _truth.keys():
+            _truth.pop("approximant")
         truth = SimplePESamples(
             {standard_names.get(key, key): value for key, value in _truth.items()}
         )
