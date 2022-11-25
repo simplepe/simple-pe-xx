@@ -379,6 +379,8 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
         x.generate_prec_spin()
 
     if 'tilt_1' in x.keys() and x['tilt_1']:
+        for key, value in x.items():
+            print(key, value)
         x.generate_all_posterior_samples(disable_remnant=True)
         h_plus = conversions.snr._calculate_precessing_harmonics(x["mass_1"][0], x["mass_2"][0],
                                                                  x["a_1"][0], x["a_2"][0],
