@@ -10,6 +10,7 @@ from pycbc.filter import sigma
 import tqdm
 
 spin_max = 0.98
+ecc_max = 0.5
 
 param_mins = {'chirp_mass': 1.,
               'total_mass': 2.,
@@ -26,6 +27,8 @@ param_mins = {'chirp_mass': 1.,
               'a_2': 0.,
               'tilt_1': 0.,
               'tilt_2': 0.,
+              'eccentricity': 0.,
+              'ecc2': 0.,
               }
 
 param_maxs = {'chirp_mass': 1e4,
@@ -43,6 +46,8 @@ param_maxs = {'chirp_mass': 1e4,
               'a_2': spin_max,
               'tilt_1': np.pi,
               'tilt_2': np.pi,
+              'eccentriticy': ecc_max,
+              'ecc2': ecc_max**2,
               }
 
 
