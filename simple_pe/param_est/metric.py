@@ -423,10 +423,15 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
         else:
             m2 = x["mass_2"]
         if "eccentricity" in x.keys():
-            if isinstance(x["mass_2"], list):
+            if isinstance(x["eccentricity"], list):
                 ecc = x["eccentricity"][0]
             else:
                 ecc = x["eccentricity"]
+        elif "ecc2" in x.keys():
+            if isinstance(x["ecc2"], list):
+                ecc = x["ecc2"][0]**0.5
+            else:
+                ecc = x["ecc2"]**0.5  
         else:
             ecc = 0.
             
