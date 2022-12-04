@@ -382,12 +382,17 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
 
     if 'tilt_1' in x.keys() and x['tilt_1']:
         x.generate_all_posterior_samples(disable_remnant=True)
+        if harm2:
+            harmonics = [0, 1]
+        else:
+            harmonics = [0]
+
         h_plus = conversions.snr._calculate_precessing_harmonics(x["mass_1"][0], x["mass_2"][0],
                                                                  x["a_1"][0], x["a_2"][0],
                                                                  x["tilt_1"][0], x["tilt_2"][0],
                                                                  x["phi_12"][0],
                                                                  x["beta"][0], x["distance"][0],
-                                                                 harmonics=[0,1], approx=approximant,
+                                                                 harmonics=harmonics, approx=approximant,
                                                                  mode_array=modes,
                                                                  df=df, f_low=f_low,
                                                                  f_ref=x["f_ref"][0])
