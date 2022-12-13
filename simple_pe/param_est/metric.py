@@ -374,7 +374,9 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
     if modes is None:
         modes = waveform_modes.mode_array('22', approximant)
 
-    if ('chi_p' in x.keys()) or ('chi_p2' in x.keys()):
+    prec = "chi_p" if "chi_p" in x.keys() else "chi_p2"
+
+    if (prec in x.keys()) and x[prec]:
         # generate the leading harmonic of the precessing waveform
         x.generate_prec_spin()
 
