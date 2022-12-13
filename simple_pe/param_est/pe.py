@@ -46,7 +46,7 @@ param_maxs = {'chirp_mass': 1e4,
               'a_2': spin_max,
               'tilt_1': np.pi,
               'tilt_2': np.pi,
-              'eccentriticy': ecc_max,
+              'eccentricity': ecc_max,
               'ecc2': ecc_max**2,
               }
 
