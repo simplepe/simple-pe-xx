@@ -22,6 +22,48 @@ def evec_sigma(M):
     return evec, sigma
 
 
+def project_to_sky(x, y, event_xyz, evec, ellipse=False):
+    """
+     Project a set of points onto the sky.
+
+     :param x: x coordinates of points (relative to sky location)
+     :param y: y coordinate of points (relative to sky location)
+     :param event_xyz: xyz location of event
+     :param evec: localization eigenvectors
+     :param ellipse: is this an ellipse
+     """
+    # check that we're not going outside of unit circle
+    # if we are, first roll this to the beginning then truncate
+    bad = x ** 2 + y ** 2 > 1
+    if ellipse and sum(bad.flatten()) > 0:
+        # ensure we have a continuous shape
+        x = np.roll(x, -bad.argmax())
+        y = np.roll(y, -bad.argmax())
+        bad = np.roll(bad, -bad.argmax())
+
+    x = x[~bad]
+    y = y[~bad]
+
+    z = np.sqrt(1 - x ** 2 - y ** 2) * np.sign(np.inner(event_xyz, evec[2]))
+
+    # if we hit the edge then the localization region is 2 parts, above and below z=0 surface
+    if sum(bad.flatten()) > 0:
+        x = np.append(np.concatenate((x, x[::-1])), x[0])
+        y = np.append(np.concatenate((y, y[::-1])), y[0])
+        z = np.append(np.concatenate((z, -z[::-1])), z[0])
+
+    x_net = evec[:, 0]
+    y_net = evec[:, 1]
+    z_net = evec[:, 2]
+
+    r = {}
+    for i in range(3):
+        r[i] = x * x_net[i] + y * y_net[i] + z * z_net[i]
+    theta = np.arcsin(r[2] / np.sqrt(r[0] ** 2 + r[1] ** 2 + r[2] ** 2))
+    phi = np.arctan2(r[1], r[0])
+
+    return phi, theta
+
 ##################################################################
 # Class to store localization information
 ##################################################################
@@ -174,10 +216,15 @@ class Localization(object):
         # use the minimum (that's not nan)
         self.area = np.nanmin((ellipse, band))
 
-    def make_ellipse(self):
+    def make_ellipse(self, npts=101, scale=1.0):
         """
         Calculate the localization ellipse
+
+        :param npts: number of points
+        :param scale: factor by which to scale the ellipse
         """
+        scale *= np.sqrt(- 2 * np.log(1 - self.p))
+
         # check if the event is localized (in xyz), if so, use the projected matrix
         # if not, don't project
         evec, sigma = evec_sigma(self.M)
@@ -185,13 +232,8 @@ class Localization(object):
             evec = self.evec
             sigma = self.sigma
 
-        x_net = evec[:, 0]
-        y_net = evec[:, 1]
-        z_net = evec[:, 2]
-
         # set up co-ordinates
-        r = {}
-        ang = np.linspace(0, 2 * np.pi, 101)
+        ang = np.linspace(0, 2 * np.pi, npts)
 
         # normalization to get area for given p-value:
         if self.mirror:
@@ -199,33 +241,62 @@ class Localization(object):
         else:
             xyz = self.event.xyz
 
-        x = np.inner(xyz, x_net) + \
-            np.sqrt(- 2 * np.log(1 - self.p)) * sigma[0] * np.cos(ang)
-        y = np.inner(xyz, y_net) + \
-            np.sqrt(- 2 * np.log(1 - self.p)) * sigma[1] * np.sin(ang)
+        x = np.inner(xyz, evec[0]) + scale * sigma[0] * np.cos(ang)
+        y = np.inner(xyz, evec[1]) + scale * sigma[1] * np.sin(ang)
 
-        # check that we're not going outside of unit circle
-        # if we are, first roll this to the beginning then truncate
-        bad = x ** 2 + y ** 2 > 1
-        if sum(bad) > 0:
-            x = np.roll(x, -bad.argmax())
-            y = np.roll(y, -bad.argmax())
-            bad = np.roll(bad, -bad.argmax())
+        return project_to_sky(x, y, xyz, evec, ellipse=True)
 
-            x = x[~bad]
-            y = y[~bad]
+    def generate_loc_grid(self, npts=10, scale=1.):
+        """
+        Generate a grid of points with extent governed by the localization
 
-        z = np.sqrt(1 - x ** 2 - y ** 2) * np.sign(np.inner(xyz, z_net))
+        :param npts: number of points in each dimension of the grid
+        :param scale: factor by which to scale grid
+        :return grid_dict: SimplePESamples with grid of points and match at each point
+        """
+        scale *= np.sqrt(- 2 * np.log(1 - self.p))
 
-        # if we hit the edge then the localization region is 2 parts, above and below z=0 surface
-        if sum(bad) > 0:
-            x = np.append(np.concatenate((x, x[::-1])), x[0])
-            y = np.append(np.concatenate((y, y[::-1])), y[0])
-            z = np.append(np.concatenate((z, -z[::-1])), z[0])
+        evec, sigma = evec_sigma(self.M)
+        if sigma[2] < 1:
+            evec = self.evec
+            sigma = self.sigma
 
-        for i in range(3):
-            r[i] = x * x_net[i] + y * y_net[i] + z * z_net[i]
-        theta = np.arcsin(r[2] / np.sqrt(r[0] ** 2 + r[1] ** 2 + r[2] ** 2))
-        phi = np.arctan2(r[1], r[0])
+        # set up co-ordinates
+        grid = np.mgrid[-scale:scale:npts * 1j, -scale:scale:npts * 1j]
 
-        return phi, theta
+        # normalization to get area for given p-value:
+        if self.mirror:
+            xyz = self.event.mirror_xyz
+        else:
+            xyz = self.event.xyz
+
+        x = np.inner(xyz, evec[0]) + scale * sigma[0] * grid[0]
+        y = np.inner(xyz, evec[1]) + scale * sigma[1] * grid[1]
+
+        return project_to_sky(x, y, xyz, evec)
+
+    def generate_samples(self, npts=int(1e5)):
+        """
+        Generate an ellipse of points of constant mismatch
+
+        :param npts: number of points to generate
+        :return phys_samples: SimplePESamples with samples
+        """
+        pts = np.random.normal(0, 1, [2 * npts, 2])
+
+        evec, sigma = evec_sigma(self.M)
+        if sigma[2] < 1:
+            evec = self.evec
+            sigma = self.sigma
+
+        # normalization to get area for given p-value:
+        if self.mirror:
+            xyz = self.event.mirror_xyz
+        else:
+            xyz = self.event.xyz
+
+        x = np.inner(xyz, evec[0]) + sigma[0] * pts[0]
+        y = np.inner(xyz, evec[1]) + sigma[1] * pts[1]
+
+        return project_to_sky(x, y, xyz, evec)
+
