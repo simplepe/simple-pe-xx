@@ -415,7 +415,7 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
         if "inc" not in x.keys():
             x["inc"] = 0.
 
-        x.generate_all_posterior_samples(disable_remnant=True)
+        x.generate_all_posterior_samples(f_low=f_low, f_ref=f_low, disable_remnant=True)
         waveform_dictionary = lal.CreateDict()
         mode_array_lal = SimInspiralCreateModeArray()
         for mode in modes:
