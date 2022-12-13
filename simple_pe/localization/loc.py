@@ -3,9 +3,6 @@ from simple_pe.fstat import fstat
 from scipy import special
 
 
-##################################################################
-# Helper functions
-##################################################################
 def evec_sigma(M):
     """
     Calculate the eigenvalues and vectors of M.
@@ -32,7 +29,7 @@ def project_to_sky(x, y, event_xyz, evec, ellipse=False):
      :param evec: localization eigenvectors
      :param ellipse: is this an ellipse
      """
-    # check that we're not going outside of unit circle
+    # check that we're not going outside the unit circle
     # if we are, first roll this to the beginning then truncate
     bad = x ** 2 + y ** 2 > 1
     if ellipse and sum(bad.flatten()) > 0:
@@ -64,15 +61,13 @@ def project_to_sky(x, y, event_xyz, evec, ellipse=False):
 
     return phi, theta
 
-##################################################################
-# Class to store localization information
-##################################################################
+
 class Localization(object):
     """
     class to hold the details and results of localization based on a given method
     """
 
-    def __init__(self, method, event, mirror=False, p=0.9, Dmax=1000, area=0):
+    def __init__(self, method, event, mirror=False, p=0.9, d_max=1000, area=0):
         """
         Initialization
 
@@ -80,7 +75,7 @@ class Localization(object):
         :param event: details of event
         :param mirror: are we looking in the mirror location
         :param p: probability
-        :param Dmax: maximum distance to consider
+        :param d_max: maximum distance to consider
         """
         self.method = method
         self.mirror = mirror
@@ -110,7 +105,7 @@ class Localization(object):
 
         self.like = 0.
         if method != "time" and method != "marg":
-            self.approx_like(Dmax)
+            self.approx_like(d_max)
 
     def calculate_m(self):
         """
@@ -128,7 +123,7 @@ class Localization(object):
         for i1 in range(len(self.event.ifos)):
             for i2 in range(len(self.event.ifos)):
                 M += np.outer(locations[i1] - locations[i2],
-                           locations[i1] - locations[i2]) / (3e8) ** 2 \
+                           locations[i1] - locations[i2]) / 3e8 ** 2 \
                      * CC[i1, i2]
         self.M = M
 
@@ -172,11 +167,11 @@ class Localization(object):
         snr = np.linalg.norm(z)
         return z, snr
 
-    def approx_like(self, Dmax=1000):
+    def approx_like(self, d_max=1000):
         """
         Calculate the approximate likelihood, based on equations XXX
 
-        :param Dmax: maximum distance, used for normalization
+        :param d_max: maximum distance, used for normalization
         """
         if self.snr == 0:
             self.like = 0
@@ -186,10 +181,10 @@ class Localization(object):
         if (self.method == "left") or (self.method == "right"):
             cos_fac = np.sqrt((Fp ** 2 + Fc ** 2) / (Fp * Fc))
             cosf = min(cos_fac / np.sqrt(self.snr), 0.5)
-            self.like += np.log((self.D / Dmax) ** 3 / self.snr ** 2 * cosf)
+            self.like += np.log((self.D / d_max) ** 3 / self.snr ** 2 * cosf)
         else:
-            self.like += np.log(32. * (self.D / Dmax) ** 3 * self.D ** 4 / (Fp ** 2 * Fc ** 2)
-                             / (1 - self.cosi ** 2) ** 3)
+            self.like += np.log(32. * (self.D / d_max) ** 3 * self.D ** 4 / (Fp ** 2 * Fc ** 2)
+                                / (1 - self.cosi ** 2) ** 3)
 
     def sky_project(self):
         """
@@ -241,8 +236,8 @@ class Localization(object):
         else:
             xyz = self.event.xyz
 
-        x = np.inner(xyz, evec[0]) + scale * sigma[0] * np.cos(ang)
-        y = np.inner(xyz, evec[1]) + scale * sigma[1] * np.sin(ang)
+        x = np.inner(xyz, evec[:, 0]) + scale * sigma[0] * np.cos(ang)
+        y = np.inner(xyz, evec[:, 1]) + scale * sigma[1] * np.sin(ang)
 
         return project_to_sky(x, y, xyz, evec, ellipse=True)
 
@@ -270,17 +265,17 @@ class Localization(object):
         else:
             xyz = self.event.xyz
 
-        x = np.inner(xyz, evec[0]) + scale * sigma[0] * grid[0]
-        y = np.inner(xyz, evec[1]) + scale * sigma[1] * grid[1]
+        x = np.inner(xyz, evec[:, 0]) + scale * sigma[0] * grid[0]
+        y = np.inner(xyz, evec[:, 1]) + scale * sigma[1] * grid[1]
 
         return project_to_sky(x, y, xyz, evec)
 
     def generate_samples(self, npts=int(1e5)):
         """
-        Generate an ellipse of points of constant mismatch
+        Generate a set of samples based on Gaussian distribution in localization eigendirections
 
         :param npts: number of points to generate
-        :return phys_samples: SimplePESamples with samples
+        :return samples: phi, theta samples
         """
         pts = np.random.normal(0, 1, [2 * npts, 2])
 
@@ -295,8 +290,8 @@ class Localization(object):
         else:
             xyz = self.event.xyz
 
-        x = np.inner(xyz, evec[0]) + sigma[0] * pts[0]
-        y = np.inner(xyz, evec[1]) + sigma[1] * pts[1]
+        x = np.inner(xyz, evec[:, 0]) + sigma[0] * pts[0]
+        y = np.inner(xyz, evec[:, 1]) + sigma[1] * pts[1]
 
         return project_to_sky(x, y, xyz, evec)
 
