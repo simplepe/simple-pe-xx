@@ -445,7 +445,7 @@ class SimplePESamples(SamplesDict):
         :param a_net: network sensitivity to x polarization (in DP frame)
         :param net_snr: the network SNR
         """
-        self['rho_2pol'] = net_snr * 2 * np.tan(self['theta_jn'] / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
+        self['rho_2pol'] = net_snr * np.tan(self['theta_jn'] / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
 
     def calculate_rho_p(self, psd, f_low, net_snr, interp_directions, interp_points=5,
                         approximant="IMRPhenomXP"):
