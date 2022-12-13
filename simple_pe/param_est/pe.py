@@ -349,13 +349,9 @@ class SimplePESamples(SamplesDict):
 
         if "chi_p2" in self.keys():
             if "chi_p" in self.keys():
-                if overwrite:
-                    print("Overwriting values of 'chi_p' using 'chi_p2'")
-                    self.pop('chi_p')
-                else:
-                    print("'chi_p' already in samples, not overwriting from 'chi_p2'")
-                    return
-            self['chi_p'] = np.sqrt(self['chi_p2'])
+                print('Both chi_p and chi_p2 in samples, using chi_p')
+            else:
+                self['chi_p'] = np.sqrt(self['chi_p2'])
 
         for k in ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl']:
             if k in self.keys():
@@ -364,7 +360,7 @@ class SimplePESamples(SamplesDict):
                     self.pop(k)
                 else:
                     print('%s already in samples, not overwriting' % k)
-                    continue
+                    return
 
         self['a_1'] = np.sqrt(self["chi_p"] ** 2 + self[param] ** 2)
         # # limit a_1 < 1
@@ -458,8 +454,8 @@ class SimplePESamples(SamplesDict):
         :param interp_points: number of points to interpolate alpha_lm
         :param approximant: waveform approximant
         """
-        maxs = dict((k, self.maximum[k]) for k in interp_directions)
-        mins = dict((k, self.minimum[k]) for k in interp_directions)
+        maxs = dict((k, [self[k].max()]) for k in interp_directions)
+        mins = dict((k, [self[k].min()]) for k in interp_directions)
 
         fixed_pars = {k: v[0] for k, v in self.mean.items() if k not in interp_directions}
 
@@ -522,8 +518,8 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
         grid_samples.add_fixed(k, i)
     grid_samples.add_fixed('f_ref', 0)
     grid_samples.add_fixed('phase', 0)
-    if "chi_p2" in grid_samples.keys() and "chi_p" in grid_samples.keys():
-        grid_samples.pop("chi_p")
+    # if "chi_p2" in grid_samples.keys() and "chi_p" in grid_samples.keys():
+    #     grid_samples.pop("chi_p")
     grid_samples.generate_prec_spin()
     # need to use set_to_bounds=True so we do not modify the grid
     grid_samples.trim_unphysical(set_to_bounds=True)
@@ -676,6 +672,8 @@ def calculate_interpolated_snrs(
         psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points, approximant
     )
     samples.calculate_rho_2nd_pol(alpha_net, dominant_snr)
+    if ("chi_p" in prec_interp_dirs) and ("chi_p" not in samples.keys()):
+        samples['chi_p'] = samples['chi_p2']**0.5
     samples.calculate_rho_p(
         psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
     )
