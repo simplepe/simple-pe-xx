@@ -362,11 +362,11 @@ class SimplePESamples(SamplesDict):
             if "chi_p" in self.keys():
                 print('Both chi_p and chi_p2 in samples, using chi_p')
             else:
-                if self['chi_p2'] < 0:
-                    print('chi_p2 negative (=%.2g' % self['chi_p2'])
+                if sum(self['chi_p2'] < 0):
+                    print('negative values of chi_p2, smallest = %.2g' % min(self['chi_p2']) )
                     print('setting equal 0')
-                    self['chi_p2'] = 0
-                print('setting chi_p from chi_p2=%.2g' % self['chi_p2'])
+                    self['chi_p2'][self['chi_p2'] < 0] = 0
+                print('setting chi_p from chi_p2')
                 self['chi_p'] = np.sqrt(self['chi_p2'])
 
         for k in ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl']:
