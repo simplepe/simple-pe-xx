@@ -359,6 +359,7 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
     :param approximant: the approximant generator to use
     :param return_hc: flag to choose to return cross polarization (only non-precessing)
     :param modes: the modes to generate (only for non-precessing)
+    :param harm2: generate the 2-harmonics
     :return h_plus: waveform at parameter space point x
     """
     for k, i in params.items():
@@ -377,9 +378,6 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
     if 'chi' in x.keys() and 'tilt' in x.keys():
         x['chi_p'] = x['chi'] * np.sin(x['tilt'])
         x['chi_align'] = x['chi'] * np.cos(x['tilt'])
-        print("chi=%.2g and tilt=%.2g specified" % (x['chi'][0], x['tilt'][0]))
-        print("chip=%.2g and chi_align=%.2g calculated" % (x['chi_p'][0], x['chi_align'][0]))
-
         x.pop('tilt')
         x.pop('chi')
 
