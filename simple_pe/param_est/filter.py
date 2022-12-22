@@ -20,19 +20,27 @@ def matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low, dominant_
     :param dominant_mode: the dominant waveform mode (if a dictionary was passed)
     :return snr: the network snr
     :return smax: the max snr in each ifo
+    :return tmax: return the time of max snr in each ifo
     """
     if not isinstance(h, dict):
         h = {0: h}
     modes = list(h.keys())
     snrsq = 0
     smax = {}
+    tmax = {}
     for ifo in ifos:   
         h_perp, _, _ = waveform_modes.orthonormalize_modes(h, psds[ifo], f_low, modes, dominant_mode)
-        z_dict = waveform_modes.calculate_mode_snr(data[ifo], psds[ifo], h_perp, t_start, t_end, f_low,
+        z_dict, tmax[ifo] = waveform_modes.calculate_mode_snr(data[ifo], psds[ifo], h_perp, t_start, t_end, f_low,
                                                    h.keys(), dominant_mode)
-        smax[ifo] = np.linalg.norm(np.array(list(z_dict.values())))
-        snrsq += smax[ifo] ** 2
-    return np.sqrt(snrsq), smax
+        if len(modes) > 1:
+            # return the RSS SNR
+            smax[ifo] = np.linalg.norm(np.array(list(z_dict.values())))
+        else:
+            # return the complex SNR for the 1 mode
+            smax[ifo] = z_dict[modes[0]]
+
+        snrsq += np.abs(smax[ifo]) ** 2
+    return np.sqrt(snrsq), smax, tmax
 
 
 def _neg_net_snr(x, dx_directions, ifos, data, psds, t_start, t_end, f_low, approximant, fixed_pars=None,
