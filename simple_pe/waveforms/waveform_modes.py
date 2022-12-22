@@ -210,6 +210,8 @@ def calculate_mode_snr(strain_data, ifo_psd, waveform_modes, t_start, t_end, f_l
     :param f_low: low frequency cutoff
     :param modes: the modes to calculate SNR for
     :param dominant_mode: mode that is used to define the peak time
+    :return z: dictionary of complex SNRs for each mode
+    :return t: the time of the max SNR
     """
 
     if dominant_mode not in waveform_modes.keys():
@@ -221,6 +223,7 @@ def calculate_mode_snr(strain_data, ifo_psd, waveform_modes, t_start, t_end, f_l
 
     # find the peak and use this for the other modes later
     i_max = snr.abs_arg_max()
+    t_max = snr.sample_times[i_max]
 
     z = {}
     for mode in modes:
@@ -229,7 +232,7 @@ def calculate_mode_snr(strain_data, ifo_psd, waveform_modes, t_start, t_end, f_l
         snr_ts = s.crop(t_start - s.start_time, s.end_time - t_end)
         z[mode] = snr_ts[i_max]
 
-    return z
+    return z, t_max
 
 
 def network_mode_snr(z, z_perp, ifos, modes, dominant_mode='22'):
