@@ -553,10 +553,10 @@ def _calculate_mode_snr(
     h_perp: pycbc.frequencyseries.FrequencySeries
         frequency domain perpendicular waveform
     """
-    aligned, _ = waveform_modes.calculate_mode_snr(
+    aligned = waveform_modes.calculate_mode_snr(
         strain_f, psd, h, t_start, t_end, f_low, harmonics, **kwargs
     )
-    perp, _ = waveform_modes.calculate_mode_snr(
+    perp = waveform_modes.calculate_mode_snr(
         strain_f, psd, h_perp, t_start, t_end, f_low, harmonics, **kwargs
     )
     return aligned, perp
