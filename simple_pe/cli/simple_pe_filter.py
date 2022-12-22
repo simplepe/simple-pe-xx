@@ -304,15 +304,14 @@ def find_peak(
         k: trigger_parameters[k] for k in dx_directions + fixed_directions
     }
     if "chi_p" in dx_directions or "chi_p2" in dx_directions:
-        x_peak, snr_peak = filter.find_peak_snr_2harm(
-            list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info,
-            dx_directions, f_low
-        )
+        harm2 = True
     else:
-        x_peak, snr_peak = filter.find_peak_snr(
+        harm2 = False
+
+    x_peak, snr_peak = filter.find_peak_snr(
             list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info, 
-            dx_directions, f_low, approximant, method=method
-        )
+            dx_directions, f_low, approximant, method=method, harm2=harm2
+            )
     x_peak = pe.convert(x_peak, disable_remnant=True)
     peak_template = pe.SimplePESamples(x_peak)
     peak_template.generate_spin_z()
