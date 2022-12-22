@@ -172,24 +172,16 @@ class SimplePESamples(SamplesDict):
         except TypeError:
             self[name] = value 
 
-    def generate_theta_jn(self, theta_dist='uniform', overwrite=False):
+    def generate_theta_jn(self, theta_dist='uniform', snr_left=0., snr_right=0., overwrite=False):
         """
         generate theta JN points with the desired distribution and include in the SimplePESamples
 
-        :param theta_dist: the distribution to use for theta.  Currently supports 'uniform', 'left_circ', 'right_circ'
+        :param theta_dist: the distribution to use for theta.  Currently, supports 'uniform', 'left_circ', 'right_circ',
+        'left_right'
+        :param snr_left: left snr
+        :param snr_right: right snr
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
-        npts = self.number_of_samples
-        if theta_dist == 'uniform':
-            cos_theta = np.random.uniform(-1, 1, npts)
-        elif theta_dist == 'left_circ':
-            cos_theta = 2 * np.random.power(1 + 6, npts) - 1
-        elif theta_dist == 'right_circ':
-            cos_theta = 1 - 2 * np.random.power(1 + 6, npts)
-        else:
-            print("only implemented for 'uniform', 'left_circ', 'right_circ")
-            return
-
         if 'theta_jn' in self.keys() and overwrite:
             print('Overwriting theta_jn values')
             self.pop('theta_jn')
@@ -198,12 +190,36 @@ class SimplePESamples(SamplesDict):
             print('Overwriting cos_theta_jn values')
             self.pop('cos_theta_jn')
 
-        if ('theta_jn' not in self.keys()) and ('cos_theta_jn' not in self.keys()):
-            theta = np.arccos(cos_theta)
-            self['theta_jn'] = theta
-            self['cos_theta_jn'] = cos_theta
-        else:
+        if ('theta_jn' in self.keys()) or ('cos_theta_jn' in self.keys()):
             print('Did not overwrite theta_jn and cos_theta_jn samples')
+            return
+
+        npts = self.number_of_samples
+        if theta_dist == 'uniform':
+            cos_theta = np.random.uniform(-1, 1, npts)
+        else:
+            if theta_dist == 'left_circ':
+                n_left = npts
+                n_right = 0
+            elif theta_dist == 'right_circ':
+                n_left = 0
+                n_right = npts
+            elif theta_dist == 'left_right':
+                n_left = int(
+                    npts * np.exp(0.5 * snr_left ** 2) /
+                    (np.exp(0.5 * snr_left ** 2) + np.exp(0.5 * snr_right ** 2)))
+                n_right = npts - n_left
+            else:
+                print("only implemented for 'uniform', 'left_circ', 'right_circ', 'left_right'")
+                return
+
+            cos_theta_l = 2 * np.random.power(1 + 6, n_left) - 1
+            cos_theta_r = 1 - 2 * np.random.power(1 + 6, n_right)
+            cos_theta = np.concatenate((cos_theta_l, cos_theta_r))
+
+        theta = np.arccos(cos_theta)
+        self['theta_jn'] = theta
+        self['cos_theta_jn'] = cos_theta
 
     def generate_distance(self, fiducial_distance, fiducial_sigma,
                           psd, f_low, interp_directions, interp_points=5,
@@ -229,7 +245,7 @@ class SimplePESamples(SamplesDict):
             self.pop('distance')
 
         if 'distance' not in self.keys():
-            tau = np.tan(self['theta_jn']/2)
+            tau = np.tan(np.minimum(self['theta_jn'], np.pi - self['theta_jn']) / 2)
 
             maxs = dict((k, self.maximum[k]) for k in interp_directions)
             mins = dict((k, self.minimum[k]) for k in interp_directions)
@@ -366,7 +382,6 @@ class SimplePESamples(SamplesDict):
                     print('negative values of chi_p2, smallest = %.2g' % min(self['chi_p2']) )
                     print('setting equal 0')
                     self['chi_p2'][self['chi_p2'] < 0] = 0
-                print('setting chi_p from chi_p2')
                 self['chi_p'] = np.sqrt(self['chi_p2'])
 
         for k in ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl']:
@@ -457,7 +472,11 @@ class SimplePESamples(SamplesDict):
         :param a_net: network sensitivity to x polarization (in DP frame)
         :param net_snr: the network SNR
         """
-        self['rho_2pol'] = net_snr * np.tan(self['theta_jn'] / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
+        self['rho_not_left'] = net_snr * np.tan(self['theta_jn'] / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
+        self['rho_not_right'] = net_snr * np.tan((np.pi - self['theta_jn']) / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
+        # doesn't make sense to have this larger than net_snr:
+        self['rho_not_left'][self['rho_not_left'] > net_snr] = net_snr
+        self['rho_not_right'][self['rho_not_right'] > net_snr] = net_snr
 
     def calculate_rho_p(self, psd, f_low, net_snr, interp_directions, interp_points=5,
                         approximant="IMRPhenomXP"):
@@ -505,9 +524,13 @@ class SimplePESamples(SamplesDict):
             weights *= self['p_p']
 
         if snr_2pol is not None:
-            rv = ncx2(2, snr_2pol ** 2)
-            p = rv.pdf(self['rho_2pol'] ** 2)
-            self['p_2pol'] = p/p.max()
+            self.add_fixed('p_2pol', 0)
+            for pol, snr in snr_2pol.items():
+                rv = ncx2(2, snr ** 2)
+                self['p_' + pol] = rv.pdf(self['rho_' + pol] ** 2)
+                self['p_2pol'] = np.maximum(self['p_2pol'], self['p_' + pol])
+
+            self['p_2pol'] /= self['p_2pol'].max()
             weights *= self['p_2pol']
 
         self['weight'] = weights
