@@ -213,8 +213,8 @@ class SimplePESamples(SamplesDict):
                 print("only implemented for 'uniform', 'left_circ', 'right_circ', 'left_right'")
                 return
 
-            cos_theta_l = 2 * np.random.power(1 + 6, n_left) - 1
-            cos_theta_r = 1 - 2 * np.random.power(1 + 6, n_right)
+            cos_theta_r = 2 * np.random.power(1 + 6, n_left) - 1
+            cos_theta_l = 1 - 2 * np.random.power(1 + 6, n_right)
             cos_theta = np.concatenate((cos_theta_l, cos_theta_r))
 
         theta = np.arccos(cos_theta)
@@ -472,11 +472,11 @@ class SimplePESamples(SamplesDict):
         :param a_net: network sensitivity to x polarization (in DP frame)
         :param net_snr: the network SNR
         """
-        self['rho_not_left'] = net_snr * np.tan(self['theta_jn'] / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
-        self['rho_not_right'] = net_snr * np.tan((np.pi - self['theta_jn']) / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
+        self['rho_not_right'] = net_snr * np.tan(self['theta_jn'] / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
+        self['rho_not_left'] = net_snr * np.tan((np.pi - self['theta_jn']) / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
         # doesn't make sense to have this larger than net_snr:
-        self['rho_not_left'][self['rho_not_left'] > net_snr] = net_snr
         self['rho_not_right'][self['rho_not_right'] > net_snr] = net_snr
+        self['rho_not_left'][self['rho_not_left'] > net_snr] = net_snr
 
     def calculate_rho_p(self, psd, f_low, net_snr, interp_directions, interp_points=5,
                         approximant="IMRPhenomXP"):
