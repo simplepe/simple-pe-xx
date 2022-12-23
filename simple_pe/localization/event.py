@@ -2,7 +2,7 @@ import numpy as np
 import random as rnd
 import copy
 from simple_pe.detectors import detectors
-from simple_pe.localization import loc
+from simple_pe.localization import loc, sky_loc
 from pesummary.gw.conversions.mass import mchirp_from_m1_m2
 from astropy.time import Time
 from scipy.optimize import brentq
@@ -50,7 +50,6 @@ class Event(object):
         """
         Initialize event.
         """
-
         self.D = float(dist)
         self.ra = float(ra)
         self.dec = float(dec)
@@ -120,6 +119,37 @@ class Event(object):
                    t_gps=t_gps
                    )
 
+    @classmethod
+    def from_snrs(cls, net, snrs, times, mchirp):
+        """
+        Give a network with SNR and time in each detector and use this
+        to populate the event information
+        :param net: a network with SNR and time for each detector
+        :param snrs: the complex snr in each detector
+        :param times: the time in each detector
+        :param mchirp: the chirp mass of the event
+        """
+        for i in net.ifos:
+            getattr(net, i).snr = snrs[i]
+            getattr(net, i).time = times[i]
+        f_band = {i: getattr(net, i).f_band for i in net.ifos}
+
+        ra, dec = sky_loc.localization_from_timing(net.ifos, times, f_band)
+
+        ev = cls(dist=0.,
+                 ra=ra,
+                 dec=dec,
+                 phi=0.,
+                 psi=0.,
+                 cosi=0.,
+                 mchirp=mchirp,
+                 t_gps=np.mean(list(times.values())),
+                 )
+
+        ev.add_network(net)
+
+        return ev
+
     def add_network(self, network):
         """
         calculate the sensitivities and SNRs for the various detectors in network
@@ -134,10 +164,14 @@ class Event(object):
             i = getattr(network, ifo)
             if rnd.random() < i.duty_cycle:  # don't use numpy's RNG here as messes up seeding for networks
                 det = copy.deepcopy(i)
-                det.calculate_snr(self)
-                # calculate SNR and see if the signal was found/useful for loc
-                s = abs(det.snr)
                 setattr(self, ifo, det)
+                # calculate SNR (if not already given)
+                if det.snr is None:
+                    det.calculate_snr(self)
+                else:
+                    det.calculate_sensitivity(self)
+
+                s = abs(det.snr)
                 if s > det.found_thresh:
                     self.found += 1
                 if s > det.loc_thresh:
