@@ -19,13 +19,14 @@ def evec_sigma(M):
     return evec, sigma
 
 
-def project_to_sky(x, y, event_xyz, evec, ellipse=False):
+def project_to_sky(x, y, event_xyz, gmst, evec, ellipse=False):
     """
      Project a set of points onto the sky.
 
      :param x: x coordinates of points (relative to sky location)
      :param y: y coordinate of points (relative to sky location)
      :param event_xyz: xyz location of event
+     :param gmst: gmst of event
      :param evec: localization eigenvectors
      :param ellipse: is this an ellipse
      """
@@ -57,7 +58,7 @@ def project_to_sky(x, y, event_xyz, evec, ellipse=False):
     for i in range(3):
         r[i] = x * x_net[i] + y * y_net[i] + z * z_net[i]
     theta = np.arcsin(r[2] / np.sqrt(r[0] ** 2 + r[1] ** 2 + r[2] ** 2))
-    phi = np.arctan2(r[1], r[0])
+    phi = (np.arctan2(r[1], r[0]) + gmst) % (2 * np.pi)
 
     return phi, theta
 
@@ -239,7 +240,7 @@ class Localization(object):
         x = np.inner(xyz, evec[:, 0]) + scale * sigma[0] * np.cos(ang)
         y = np.inner(xyz, evec[:, 1]) + scale * sigma[1] * np.sin(ang)
 
-        return project_to_sky(x, y, xyz, evec, ellipse=True)
+        return project_to_sky(x, y, xyz, self.event.gmst, evec, ellipse=True)
 
     def generate_loc_grid(self, npts=10, scale=1.):
         """
@@ -268,7 +269,7 @@ class Localization(object):
         x = np.inner(xyz, evec[:, 0]) + scale * sigma[0] * grid[0]
         y = np.inner(xyz, evec[:, 1]) + scale * sigma[1] * grid[1]
 
-        return project_to_sky(x, y, xyz, evec)
+        return project_to_sky(x, y, xyz, self.event.gmst,evec)
 
     def generate_samples(self, npts=int(1e5)):
         """
@@ -290,8 +291,8 @@ class Localization(object):
         else:
             xyz = self.event.xyz
 
-        x = np.inner(xyz, evec[:, 0]) + sigma[0] * pts[0]
-        y = np.inner(xyz, evec[:, 1]) + sigma[1] * pts[1]
+        x = np.inner(xyz, evec[:, 0]) + sigma[0] * pts[:, 0]
+        y = np.inner(xyz, evec[:, 1]) + sigma[1] * pts[:, 1]
 
-        return project_to_sky(x, y, xyz, evec)
+        return project_to_sky(x, y, xyz, self.event.gmst, evec)
 

@@ -38,6 +38,7 @@ class Det(detector.Detector):
         self.mirror_f_cross = None
         self.mirror_f_plus = None
         self.snr = None
+        self.time = None
 
     def calculate_sensitivity(self, event):
         """
