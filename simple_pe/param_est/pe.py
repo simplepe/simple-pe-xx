@@ -213,8 +213,8 @@ class SimplePESamples(SamplesDict):
                 print("only implemented for 'uniform', 'left_circ', 'right_circ', 'left_right'")
                 return
 
-            cos_theta_r = 2 * np.random.power(1 + 6, n_left) - 1
-            cos_theta_l = 1 - 2 * np.random.power(1 + 6, n_right)
+            cos_theta_r = 2 * np.random.power(1 + 6, n_right) - 1
+            cos_theta_l = 1 - 2 * np.random.power(1 + 6, n_left)
             cos_theta = np.concatenate((cos_theta_l, cos_theta_r))
 
         theta = np.arccos(cos_theta)
@@ -657,7 +657,7 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_poin
 
 
 def calculate_interpolated_snrs(
-        samples, psd, f_low, dominant_snr, modes, alpha_net, response_sigma,
+        samples, psd, f_low, dominant_snr, left_snr, right_snr, modes, alpha_net, response_sigma,
         fiducial_distance, fiducial_sigma, dist_interp_dirs,
         hm_interp_dirs, prec_interp_dirs, interp_points, approximant, **kwargs
 ):
@@ -674,6 +674,10 @@ def calculate_interpolated_snrs(
         low frequency cut-off to use for SNR calculations
     dominant_snr: float
         SNR in the dominant 22 multipole
+    left_snr: float
+        SNR consistent with left circular polarization
+    right_snr: float
+        SNR consistent with right circular polarization
     modes: list
         list of higher order multipoles that you wish to calculate
         the SNR for
@@ -701,7 +705,7 @@ def calculate_interpolated_snrs(
         samples = SimplePESamples(samples)
     # generate required parameters if necessary
     if "theta_jn" not in samples.keys():
-        samples.generate_theta_jn('left_circ')
+        samples.generate_theta_jn('left_right', snr_left=left_snr, snr_right=right_snr)
     if "distance" not in samples.keys():
         samples.generate_distance(fiducial_distance, fiducial_sigma, psd, f_low,
                                   dist_interp_dirs, interp_points, approximant)
