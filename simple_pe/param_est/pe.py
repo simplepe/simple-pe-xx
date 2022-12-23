@@ -11,6 +11,7 @@ import tqdm
 
 spin_max = 0.98
 ecc_max = 0.5
+prec_min = 1e-3
 
 param_mins = {'chirp_mass': 1.,
               'total_mass': 2.,
@@ -19,14 +20,17 @@ param_mins = {'chirp_mass': 1.,
               'symmetric_mass_ratio': 0.04,
               'chi_eff': -1 * spin_max,
               'chi_align': -1 * spin_max,
-              'chi_p': 1e-3,
-              'chi_p2': 1e-6,
+              'chi_p': prec_min,
+              'chi_p2': prec_min,
+              'prec': prec_min,
+              'chi': prec_min,
               'spin_1z': -1 * spin_max,
               'spin_2z': -1 * spin_max,
               'a_1': 0.,
               'a_2': 0.,
               'tilt_1': 0.,
               'tilt_2': 0.,
+              'tilt': prec_min,
               'eccentricity': 0.,
               'ecc2': 0.,
               }
@@ -40,12 +44,14 @@ param_maxs = {'chirp_mass': 1e4,
               'chi_align': spin_max,
               'chi_p': spin_max,
               'chi_p2': spin_max**2,
+              'chi': spin_max,
               'spin_1z': spin_max,
               'spin_2z': spin_max,
               'a_1': spin_max,
               'a_2': spin_max,
               'tilt_1': np.pi,
               'tilt_2': np.pi,
+              'tilt': np.pi - prec_min,
               'eccentricity': ecc_max,
               'ecc2': ecc_max**2,
               }
@@ -206,7 +212,7 @@ class SimplePESamples(SamplesDict):
         generate distance points using the existing theta_JN samples and fiducial distance.
         interpolate sensitivity over the parameter space
         :param fiducial_distance: distance for a fiducial set of parameters
-        :param fiducial_range: the range for a fiducial set of parameters
+        :param fiducial_sigma: the range for a fiducial set of parameters
         :param psd: the PSD to use
         :param f_low: low frequency cutoff
         :param interp_directions: directions to interpolate
@@ -356,6 +362,11 @@ class SimplePESamples(SamplesDict):
             if "chi_p" in self.keys():
                 print('Both chi_p and chi_p2 in samples, using chi_p')
             else:
+                if sum(self['chi_p2'] < 0):
+                    print('negative values of chi_p2, smallest = %.2g' % min(self['chi_p2']) )
+                    print('setting equal 0')
+                    self['chi_p2'][self['chi_p2'] < 0] = 0
+                print('setting chi_p from chi_p2')
                 self['chi_p'] = np.sqrt(self['chi_p2'])
 
         for k in ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl']:
@@ -384,6 +395,7 @@ class SimplePESamples(SamplesDict):
 
         :param maxs: the maximum permitted values of the physical parameters
         :param mins: the minimum physical values of the physical parameters
+        :param set_to_bounds: move points that lie outside physical space to the boundary of allowed space
         :return physical_samples: SamplesDict with points outside the param max and min given
         """
         if mins is None:
