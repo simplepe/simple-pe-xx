@@ -359,6 +359,7 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
     :param approximant: the approximant generator to use
     :param return_hc: flag to choose to return cross polarization (only non-precessing)
     :param modes: the modes to generate (only for non-precessing)
+    :param harm2: generate the 2-harmonics
     :return h_plus: waveform at parameter space point x
     """
     for k, i in params.items():
@@ -374,6 +375,12 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
     if modes is None:
         modes = waveform_modes.mode_array('22', approximant)
 
+    if 'chi' in x.keys() and 'tilt' in x.keys():
+        x['chi_p'] = x['chi'] * np.sin(x['tilt'])
+        x['chi_align'] = x['chi'] * np.cos(x['tilt'])
+        x.pop('tilt')
+        x.pop('chi')
+
     prec = "chi_p" if "chi_p" in x.keys() else "chi_p2"
 
     if (prec in x.keys()) and x[prec]:
@@ -381,7 +388,7 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
         x.generate_prec_spin()
 
     if 'tilt_1' in x.keys() and x['tilt_1']:
-        x.generate_all_posterior_samples(disable_remnant=True)
+        x.generate_all_posterior_samples(f_low=f_low, f_ref=x["f_ref"][0], delta_f=df, disable_remnant=True)
         if harm2:
             harmonics = [0, 1]
         else:
@@ -415,7 +422,7 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
         if "inc" not in x.keys():
             x["inc"] = 0.
 
-        x.generate_all_posterior_samples(f_low=f_low, f_ref=f_low, disable_remnant=True)
+        x.generate_all_posterior_samples(f_low=f_low, f_ref=x["f_ref"][0], delta_f=df, disable_remnant=True)
         waveform_dictionary = lal.CreateDict()
         mode_array_lal = SimInspiralCreateModeArray()
         for mode in modes:
@@ -582,6 +589,11 @@ def check_physical(x, dx, scaling, maxs=None, mins=None, verbose=False):
             print("scaling to %.2f for precession" % alpha_prec)
 
         alpha = min(alpha, alpha_prec)
+
+        if verbose:
+            x_prime = offset_params(x, dx, alpha * scaling)
+            print('new point')
+            print(x_prime)
 
     return alpha
 
