@@ -1,6 +1,7 @@
 import numpy as np
 from simple_pe.fstat import fstat
 from scipy import special
+from pesummary.core.reweight import rejection_sampling
 
 
 def evec_sigma(M):
@@ -19,7 +20,7 @@ def evec_sigma(M):
     return evec, sigma
 
 
-def project_to_sky(x, y, event_xyz, gmst, evec, ellipse=False):
+def project_to_sky(x, y, event_xyz, gmst, evec, ellipse=False, sky_weight=False):
     """
      Project a set of points onto the sky.
 
@@ -29,6 +30,7 @@ def project_to_sky(x, y, event_xyz, gmst, evec, ellipse=False):
      :param gmst: gmst of event
      :param evec: localization eigenvectors
      :param ellipse: is this an ellipse
+     :param sky_weight: re-weight to uniform on sky
      """
     # check that we're not going outside the unit circle
     # if we are, first roll this to the beginning then truncate
@@ -43,6 +45,11 @@ def project_to_sky(x, y, event_xyz, gmst, evec, ellipse=False):
     y = y[~bad]
 
     z = np.sqrt(1 - x ** 2 - y ** 2) * np.sign(np.inner(event_xyz, evec[2]))
+
+    if sky_weight:
+        weights = abs(1./z)
+        weights /= weights.max()
+        x, y, z = rejection_sampling(np.array([x, y, z]).T, weights).T
 
     # if we hit the edge then the localization region is 2 parts, above and below z=0 surface
     if sum(bad.flatten()) > 0:
@@ -271,14 +278,20 @@ class Localization(object):
 
         return project_to_sky(x, y, xyz, self.event.gmst,evec)
 
-    def generate_samples(self, npts=int(1e5)):
+    def generate_samples(self, npts=int(1e5), sky_weight=True):
         """
         Generate a set of samples based on Gaussian distribution in localization eigendirections
 
         :param npts: number of points to generate
+        :param sky_weight: weight points to be uniform on the sky
         :return samples: phi, theta samples
         """
-        pts = np.random.normal(0, 1, [2 * npts, 2])
+        if sky_weight:
+            safety_fac = 10
+        else:
+            safety_fac = 2
+
+        pts = np.random.normal(0, 1, [int(safety_fac * npts), 2])
 
         evec, sigma = evec_sigma(self.M)
         if sigma[2] < 1:
@@ -294,5 +307,13 @@ class Localization(object):
         x = np.inner(xyz, evec[:, 0]) + sigma[0] * pts[:, 0]
         y = np.inner(xyz, evec[:, 1]) + sigma[1] * pts[:, 1]
 
-        return project_to_sky(x, y, xyz, self.event.gmst, evec)
+        phi, theta = project_to_sky(x, y, xyz, self.event.gmst, evec, sky_weight)
+
+        if len(theta) > npts:
+            phi = phi[:npts]
+            theta = theta[:npts]
+        else:
+            print("Re-weighting resulted in fewer than requested trials")
+
+        return phi, theta
 
