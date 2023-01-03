@@ -310,8 +310,10 @@ class Localization(object):
         phi, theta = project_to_sky(x, y, xyz, self.event.gmst, evec, sky_weight)
 
         if len(theta) > npts:
-            phi = phi[:npts]
-            theta = theta[:npts]
+            keep = np.random.choice(len(theta), npts)
+            theta = theta[keep]
+            phi = phi[keep]
+
         else:
             print("Re-weighting resulted in fewer than requested trials")
 
