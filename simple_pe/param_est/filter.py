@@ -141,7 +141,7 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
 
             if chia in dx_directions:
                 mins[chia] = - np.sqrt(mins[chia] ** 2 - x[chip] ** n)
-                maxs[chia] = np.sqrt(mins[chia] ** 2 - x[chip] ** n)
+                maxs[chia] = np.sqrt(maxs[chia] ** 2 - x[chip] ** n)
             if chip in dx_directions:
                 maxs[chip] = (maxs[chip]**n - x[chia]**2) ** (1/n)
                 if harm2:
