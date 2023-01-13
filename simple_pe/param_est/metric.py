@@ -161,7 +161,7 @@ class Metric:
         self.scale_dxs()
         self.calculate_metric()
 
-    def iteratively_update_metric(self, max_iter=20):
+    def iteratively_update_metric(self, max_iter=20, verbose=True):
         """
         A method to re-calculate the metric gij based on the matches obtained
         for the eigenvectors of the original metric
@@ -170,14 +170,26 @@ class Metric:
         self.calc_metric_error()
 
         op = 0
-
+        if verbose:
+            from tqdm import tqdm
+            base_desc = "Calculating the metric | iteration {} < {} | error {:.2g} > {:.2g}"
+            pbar = tqdm(
+                np.arange(max_iter), bar_format="{desc}",
+                desc=base_desc.format(op, max_iter, self.err, tol[0])
+            )
         while (self.err > tol) and (op < max_iter):
             self.update_metric()
             self.calc_metric_error()
             op += 1
+            if verbose:
+                pbar.set_description(base_desc.format(op, max_iter, self.err, tol[0]))
+                pbar.update(1)
 
         if self.err > tol:
-            print("Failed to achieve requested tolerance.  Requested: %.2g; achieved %.2g" % (tol, self.err))
+            pbar.set_description(
+                f"Failed to achieve requested tolerance.  Requested: {tol[0]:.2g} "
+                f"achieved {self.err:.2g}"
+            )
 
     def project_metric(self, projected_directions):
         """

@@ -12,6 +12,8 @@ from pycbc.psd.analytical import aLIGOMidHighSensitivityP1200087
 import pycbc.psd.read
 from pycbc.filter.matchedfilter import sigmasq
 from pycbc.detector import Detector
+from simple_pe.detectors import noise_curves, network
+from simple_pe.localization import event
 from simple_pe.param_est import metric, filter, pe
 from simple_pe.waveforms import waveform_modes
 from simple_pe.fstat import fstat
@@ -266,7 +268,7 @@ def _load_psd_from_file(
 
 
 def find_peak(
-    trigger_parameters, strain_f, psd, approximant, f_low, t_start, t_end,
+    trigger_parameters, strain_f, psd, approximant, delta_f, f_low, t_start, t_end,
     dx_directions=["chirp_mass", "symmetric_mass_ratio", "chi_align"],
     fixed_directions=["distance"], method="scipy"
 ):
@@ -309,9 +311,9 @@ def find_peak(
         harm2 = False
 
     x_peak, snr_peak = filter.find_peak_snr(
-            list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info, 
-            dx_directions, f_low, approximant, method=method, harm2=harm2
-            )
+        list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info, 
+        dx_directions, f_low, approximant, method=method, harm2=harm2
+    )
     x_peak = pe.convert(x_peak, disable_remnant=True)
     peak_template = pe.SimplePESamples(x_peak)
     peak_template.generate_spin_z()
@@ -326,6 +328,17 @@ def find_peak(
        }
     )
     event_snr = {"network": snr_peak}
+    h = metric.make_waveform(
+        peak_template, delta_f, f_low, len(list(psd.values())[0]),
+        approximant=approximant
+    )
+    ifos = [key for key in psd.keys() if key != "hm"]
+    net_snr, ifo_snr, ifo_time = filter.matched_filter_network(
+        ifos, strain_f, psd, t_start, t_end, h, f_low
+    )
+    event_snr.update(
+        {"ifo_snr": ifo_snr, "ifo_time": ifo_time}
+    )
     return peak_template, event_snr
 
 
@@ -531,6 +544,85 @@ def calculate_second_polarization_snr(
     return {"not_left": rho_not_l[0], "not_right": rho_not_r[0]}
 
 
+def add_localisation_information(
+    peak_template, psd, approximant, strain_f, f_low, delta_f, f_high, event_snr,
+    dominant_waveform
+):
+    """Calculate the SNR in the second polarisation for the peak template
+
+    Parameters
+    ----------
+    peak_template: dict
+        dictionary of parameters correspond to peak template
+    psd: dict
+        dictionary of PSDs
+    approximant: str
+        approximant to use for the analysis
+    strain_f: dict
+        dictionary of frequency domain strain data
+    f_low: float
+        low frequency cutoff to use for the analysis
+    delta_f: float
+        difference between frequency samples to use for the analysis
+    f_high: float
+        high frequency cutoff to use for the analysis
+    network_snr: float
+        network snr of the candidate GW
+    """
+    snrs = {}
+    ifos = [key for key in psd if key != "hm"]
+    net = network.Network(threshold=10.)
+    for ifo in ifos:
+        hor, f_mean, f_band = noise_curves.calc_reach_bandwidth(
+            peak_template['mass_1'], peak_template['mass_2'], peak_template["chi_align"],
+            approximant, psd[ifo], f_low
+        )
+        net.add_ifo(ifo, hor/2.26, f_mean, f_band, bns_range=False)
+    ev = event.Event.from_snrs(
+        net, event_snr["ifo_snr"], event_snr["ifo_time"], peak_template['chirp_mass']
+    )
+    ev.calculate_mirror()
+    ev.localize_all()
+    if not len(ev.mirror_loc):
+        # unable to find mirror location. Likely because there are only 2 detectors
+        # use alternative method
+        return calculate_second_polarization_snr(
+            peak_template, psd, approximant, strain_f, f_low, delta_f, f_high,
+            dominant_waveform
+        )
+    for hand in ['left', 'right']:
+        snrs[hand] = max(ev.localization[hand].snr, ev.mirror_loc[hand].snr)
+        snrs[f"not_{hand}"] = np.sqrt(np.linalg.norm(ev.get_snr()) ** 2 - snrs[hand] ** 2)
+    ra, dec = ev.localization['coh'].generate_samples(npts=int(1e3), sky_weight=True)
+    fp = np.zeros_like(ra)
+    fc = np.zeros_like(ra)
+    for _ra, _dec in zip(ra, dec):
+        ee = event.Event(
+            peak_template['distance'], _ra, _dec , ev.phi, ev.psi, ev.cosi, ev.mchirp,
+            ev.gps
+        )
+        ee.add_network(net)
+        fp[i], fc[i] = ee.get_f()
+    h = metric.make_waveform(
+        peak_template, delta_f, f_low, len(list(psd.values())[0]),
+        approximant=approximant
+    )
+    sigma = np.sqrt(
+        sigmasq(h, psd["hm"], low_frequency_cutoff=f_low, high_frequency_cutoff=f_high)
+    )
+    f_net = np.sqrt(fp**2 + fc**2) / sigma
+    peak_template.add_fixed('f_net', np.mean(f_net))
+    peak_template.add_fixed('sigma', sigma)
+    peak_template.add_fixed(
+        "distance_face_on", (
+            peak_template["distance"] * peak_template["f_net"] * peak_template['sigma'] / network_snr
+        )
+    )
+    peak_template.add_fixed("response_sigma", np.std(f_net) / np.mean(f_net))
+    peak_template.add_fixed("net_alpha", np.mean(fc / fp))
+    return snrs
+
+
 def _calculate_mode_snr(
     strain_f, psd, t_start, t_end, f_low, harmonics, h, h_perp, **kwargs
 ):
@@ -627,7 +719,7 @@ def main(args=None):
     t_start = trigger_parameters["time"] - 0.1 # this time window should be an option
     t_end = trigger_parameters["time"] + 0.1
     peak_parameters, event_snr = find_peak(
-        trigger_parameters, strain_f, psd, opts.approximant, opts.f_low,
+        trigger_parameters, strain_f, psd, opts.approximant, delta_f, opts.f_low,
         t_start, t_end, dx_directions=opts.metric_directions
     )
     _snrs, z_hm = calculate_higher_multipole_snr(
@@ -642,9 +734,10 @@ def main(args=None):
         )
     )
     event_snr.update(
-        calculate_second_polarization_snr(
+        add_localisation_information(
             peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
-            delta_f, opts.f_high, {key: value['22'] for key, value in z_hm.items()}
+            delta_f, opts.f_high, event_snr,
+            {key: value['22'] for key, value in z_hm.items()}
         )
     )
     peak_parameters.update(
@@ -657,13 +750,13 @@ def main(args=None):
         outdir=opts.outdir, filename="peak_parameters.json", overwrite=True,
         file_format="json"
     )
+    event_snr.pop("ifo_snr")
     pe.SimplePESamples(
         {key: [value] for key, value in event_snr.items()}
     ).write(
         outdir=opts.outdir, filename="peak_snrs.json", overwrite=True,
         file_format="json"
     )
-
 
 if __name__ == "__main__":
     main()
