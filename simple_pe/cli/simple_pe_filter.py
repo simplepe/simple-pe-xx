@@ -128,9 +128,12 @@ def _load_trigger_parameters_from_file(path):
         data = json.load(f)
     data = pe.SimplePESamples(data)
     required_params = [
-        "mass_1", "mass_2", "spin_1z", "spin_2z", "time", "ra", "dec", "psi",
-        "distance"
+        "mass_1", "mass_2", "spin_1z", "spin_2z", "time",
     ]
+    if "distance" in data.keys():
+        data["distance"] /= data["distance"]
+    else:
+        data["distance"] = 1.0
     data = pe.convert(data, disable_remnant=True)
     if not all(param in data.keys() for param in required_params):
         raise ValueError(
@@ -578,25 +581,38 @@ def add_localisation_information(
             approximant, psd[ifo], f_low
         )
         net.add_ifo(ifo, hor/2.26, f_mean, f_band, bns_range=False)
-    ev = event.Event.from_snrs(
-        net, event_snr["ifo_snr"], event_snr["ifo_time"], peak_template['chirp_mass']
-    )
-    ev.calculate_mirror()
-    ev.localize_all()
-    if not len(ev.mirror_loc):
+    try:
+        ev = event.Event.from_snrs(
+            net, event_snr["ifo_snr"], event_snr["ifo_time"], peak_template['chirp_mass']
+        )
+        ev.calculate_mirror()
+        ev.localize_all()
+        for hand in ['left', 'right']:
+            snrs[hand] = max(ev.localization[hand].snr, ev.mirror_loc[hand].snr)
+            snrs[f"not_{hand}"] = np.sqrt(np.linalg.norm(ev.get_snr()) ** 2 - snrs[hand] ** 2)
+    except (KeyError, ValueError):
         # unable to find mirror location. Likely because there are only 2 detectors
         # use alternative method
-        return calculate_second_polarization_snr(
+        if not all(param in peak_template for param in ["ra", "dec", "psi"]):
+            raise ValueError(
+                "Please provide an estimate for 'ra', 'dec' and 'psi' for "
+                "the best matching template"
+            )
+        out = calculate_second_polarization_snr(
             peak_template, psd, approximant, strain_f, f_low, delta_f, f_high,
             dominant_waveform
         )
-    for hand in ['left', 'right']:
-        snrs[hand] = max(ev.localization[hand].snr, ev.mirror_loc[hand].snr)
-        snrs[f"not_{hand}"] = np.sqrt(np.linalg.norm(ev.get_snr()) ** 2 - snrs[hand] ** 2)
+        peak_template.update(
+            estimate_face_on_distance(
+                peak_template, event_snr, psd, approximant, f_low,
+                delta_f, f_high
+            )
+        )
+        return out
     ra, dec = ev.localization['coh'].generate_samples(npts=int(1e3), sky_weight=True)
     fp = np.zeros_like(ra)
     fc = np.zeros_like(ra)
-    for _ra, _dec in zip(ra, dec):
+    for i, (_ra, _dec) in enumerate(zip(ra, dec)):
         ee = event.Event(
             peak_template['distance'], _ra, _dec , ev.phi, ev.psi, ev.cosi, ev.mchirp,
             ev.gps
@@ -615,7 +631,7 @@ def add_localisation_information(
     peak_template.add_fixed('sigma', sigma)
     peak_template.add_fixed(
         "distance_face_on", (
-            peak_template["distance"] * peak_template["f_net"] * peak_template['sigma'] / network_snr
+            peak_template["distance"] * peak_template["f_net"] * peak_template['sigma'] / event_snr["network"]
         )
     )
     peak_template.add_fixed("response_sigma", np.std(f_net) / np.mean(f_net))
@@ -738,12 +754,6 @@ def main(args=None):
             peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
             delta_f, opts.f_high, event_snr,
             {key: value['22'] for key, value in z_hm.items()}
-        )
-    )
-    peak_parameters.update(
-        estimate_face_on_distance(
-            peak_parameters, event_snr, psd, opts.approximant, opts.f_low,
-            delta_f, opts.f_high
         )
     )
     peak_parameters.write(
