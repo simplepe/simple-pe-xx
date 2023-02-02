@@ -1,14 +1,12 @@
 import numpy as np
-from pycbc.types import FrequencySeries
 from pycbc.filter import match
-from simple_pe.waveforms import waveform_modes
 import copy
 from scipy import optimize
 from scipy.stats import chi2
 from simple_pe.param_est.pe import SimplePESamples, param_maxs, param_mins
-from pesummary.gw import conversions
 from pesummary.utils.samples_dict import SamplesDict
-from waveforms.waveform import make_waveform
+from simple_pe.waveforms.waveform import make_waveform
+
 
 class Metric:
     """
