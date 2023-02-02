@@ -1,6 +1,6 @@
 import numpy as np
 from simple_pe.param_est import metric, pe
-from simple_pe.waveforms import waveform_modes
+from simple_pe.waveforms import waveform_modes, waveform
 from scipy import optimize
 from pesummary.utils.samples_dict import SamplesDict
 import copy
@@ -72,7 +72,7 @@ def _neg_net_snr(x, dx_directions, ifos, data, psds, t_start, t_end, f_low, appr
         print('making waveform at parameters')
         print(s)
     try:
-        h = metric.make_waveform(
+        h = waveform.make_waveform(
             s, psds[ifos[0]].delta_f, f_low, len(psds[ifos[0]]), approximant,
             harm2=harm2
         )
@@ -212,7 +212,7 @@ def _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions, f_low,
     g.iteratively_update_metric()
 
     while True:
-        h = metric.make_waveform(x, g.psd.delta_f, g.f_low, len(g.psd), g.approximant)
+        h = waveform.make_waveform(x, g.psd.delta_f, g.f_low, len(g.psd), g.approximant)
         snr_0 = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
         snrs = np.zeros([g.ndim, 2])
