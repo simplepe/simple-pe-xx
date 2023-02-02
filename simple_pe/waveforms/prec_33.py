@@ -1,6 +1,6 @@
 import numpy as np
 from pesummary.gw.conversions.angles import _dphi, _dpsi
-
+from simple_pe.waveforms import waveform_modes
 
 def _make_waveform(
         approx, theta_jn, phi_jl, phase, psi_J, mass_1, mass_2, tilt_1, tilt_2,
@@ -56,7 +56,7 @@ def _make_waveform(
         _samples, approx, kwargs.get("df", 1. / 256),
         kwargs.get("f_low", 20.), kwargs.get("f_final", 1024.),
         f_ref=kwargs.get("f_ref", 20.), ind=0, pycbc=True,
-        mode_array=kwargs.get("mode_array", None)
+        mode_array=waveform_modes.mode_array_dict['33']
     )
     hp, hc = waveforms["h_plus"], waveforms["h_cross"]
     if kwargs.get("flen", None) is not None:
@@ -116,7 +116,7 @@ def calculate_precessing_harmonics(
             phi_12, a_1, a_2, beta, distance, **kwargs
         )
         h_eo_pi2 = _make_waveform(
-            approx, np.pi/2, np.pi/2, np.pi/6,
+            approx, np.pi/2, np.pi/2, np.pi/6, 0,
             mass_1, mass_2, tilt_1, tilt_2,
             phi_12, a_1, a_2, beta, distance, **kwargs
         )
