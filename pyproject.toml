@@ -56,3 +56,6 @@ simple_pe_pipe = "simple_pe.cli.simple_pe_pipe:main"
 packages = [
 	"simple_pe",
 ]
+
+[project.entry-points.'asimov.pipelines']
+simple_pe = 'simple_pe.asimov:AsimovPipeline'
