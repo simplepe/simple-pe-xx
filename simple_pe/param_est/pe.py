@@ -601,7 +601,7 @@ def interpolate_sigma(param_max, param_min, fixed_pars, psd, f_low, grid_points,
     :return alpha: dictionary of alpha[lm] values interpolated across the grid
     :return pts: set of points used in each direction
     """
-    from simple_pe.param_est import metric
+    from simple_pe.waveforms import waveform
     dirs = param_max.keys()
     pts = [np.linspace(param_min[d][0], param_max[d][0], grid_points) for d in dirs]
     grid_dict = dict(zip(dirs, np.array(np.meshgrid(*pts, indexing='ij'))))
@@ -614,7 +614,7 @@ def interpolate_sigma(param_max, param_min, fixed_pars, psd, f_low, grid_points,
 
     for i in tqdm.tqdm(range(grid_samples.number_of_samples), desc="calculating sigma on grid"):
         sample = grid_samples[i:i+1]
-        h = metric.make_waveform(sample, psd.delta_f, f_low, len(psd), approximant)
+        h = waveform.make_waveform(sample, psd.delta_f, f_low, len(psd), approximant)
         sig[i] = sigma(h, psd, low_frequency_cutoff=f_low,
                        high_frequency_cutoff=psd.sample_frequencies[-1])
 
