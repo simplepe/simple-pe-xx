@@ -520,8 +520,12 @@ class SimplePESamples(SamplesDict):
         self['rho_not_right'] = net_snr * np.tan(self['theta_jn'] / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
         self['rho_not_left'] = net_snr * np.tan((np.pi - self['theta_jn']) / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
         # doesn't make sense to have this larger than net_snr:
-        self['rho_not_right'][self['rho_not_right'] > net_snr] = net_snr
-        self['rho_not_left'][self['rho_not_left'] > net_snr] = net_snr
+        if np.shape(net_snr) == np.shape(self['theta_jn']):
+            self['rho_not_right'][self['rho_not_right'] > net_snr] = net_snr[self['rho_not_right'] > net_snr]
+            self['rho_not_left'][self['rho_not_left'] > net_snr] = net_snr[self['rho_not_left'] > net_snr]
+        else:
+            self['rho_not_right'][self['rho_not_right'] > net_snr] = net_snr
+            self['rho_not_left'][self['rho_not_left'] > net_snr] = net_snr
 
     def calculate_rho_p(self, psd, f_low, net_snr, interp_directions, interp_points=5,
                         approximant="IMRPhenomXP"):
