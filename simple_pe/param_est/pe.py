@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import interpolate
-from simple_pe.waveforms import waveform_modes, waveform
+from simple_pe.waveforms import waveform_modes
 from simple_pe.detectors import noise_curves
 from simple_pe.fstat import fstat_hm
 from pesummary.utils.array import Array
@@ -591,6 +591,7 @@ def interpolate_sigma(param_max, param_min, fixed_pars, psd, f_low, grid_points,
     :return alpha: dictionary of alpha[lm] values interpolated across the grid
     :return pts: set of points used in each direction
     """
+    from simple_pe.waveforms import waveform
     dirs = param_max.keys()
     pts = [np.linspace(param_min[d][0], param_max[d][0], grid_points) for d in dirs]
     grid_dict = dict(zip(dirs, np.array(np.meshgrid(*pts, indexing='ij'))))
