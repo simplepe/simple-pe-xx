@@ -89,7 +89,7 @@ def _neg_net_snr(x, dx_directions, ifos, data, psds, t_start, t_end, f_low, appr
 
 
 def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
-                  f_low, approximant="IMRPhenomD", method='scipy', harm2=False,
+                  f_low, approximant="IMRPhenomD", method='scipy', harm2=False, bounds=None,
                   initial_mismatch=0.03, final_mismatch=0.001, tolerance=0.01, verbose=False):
     """
     A function to find the maximum SNR.
@@ -107,6 +107,7 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
     :param approximant: the approximant to use
     :param method: how to find the maximum (either 'scipy' or 'metric')
     :param harm2: use SNR from second harmonic (only with method='scipy')
+    :param bounds: give initial bounds for the range of parameters to investigate
     :param initial_mismatch: the mismatch for calculating the metric
     :param final_mismatch: the mismatch required to stop iteration
     :param tolerance: the allowed error in the metric is (tolerance * mismatch)
@@ -121,22 +122,24 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
         return
     
     elif method == 'scipy':
-        bounds = pe.param_bounds(x, dx_directions, harm2)
-
-        # generate constraint on spins:
-        chia = "chi_eff" if "chi_eff" in x.keys() else "chi_align"
-        chip = "chi_p2" if "chi_p2" in x.keys() else "chi_p"
-        if chip == "chi_p2":
-            n = 1
-        else:
-            n = 2
 
         nlc = None
-        if (chia in x) and (chip in x) and ((chia in dx_directions) or (chip in dx_directions)):
-            # need bounds based on spin limits
-            if (chia in dx_directions) and (chip in dx_directions):
-                con = lambda y: y[dx_directions.index(chia)] ** 2 + y[dx_directions.index(chip)] ** n
-                nlc = optimize.NonlinearConstraint(con, pe.param_mins['a_1'], pe.param_maxs['a_1'])
+        if bounds is None:
+            bounds = pe.param_bounds(x, dx_directions, harm2)
+
+            # generate constraint on spins:
+            chia = "chi_eff" if "chi_eff" in x.keys() else "chi_align"
+            chip = "chi_p2" if "chi_p2" in x.keys() else "chi_p"
+            if chip == "chi_p2":
+                n = 1
+            else:
+                n = 2
+
+            if (chia in x) and (chip in x) and ((chia in dx_directions) or (chip in dx_directions)):
+                # need bounds based on spin limits
+                if (chia in dx_directions) and (chip in dx_directions):
+                    con = lambda y: y[dx_directions.index(chia)] ** 2 + y[dx_directions.index(chip)] ** n
+                    nlc = optimize.NonlinearConstraint(con, pe.param_mins['a_1'], pe.param_maxs['a_1'])
 
         x0 = np.array([x[k] for k in dx_directions]).flatten()
         fixed_pars = {k: float(v) for k, v in x.items() if k not in dx_directions}
