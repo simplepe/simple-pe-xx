@@ -3,7 +3,7 @@ from pycbc.filter import match
 import copy
 from scipy import optimize
 from scipy.stats import chi2
-from simple_pe.param_est.pe import SimplePESamples, param_maxs, param_mins
+from simple_pe.param_est.pe import SimplePESamples, param_bounds
 from pesummary.utils.samples_dict import SamplesDict
 from simple_pe.waveforms.waveform import make_waveform
 
@@ -641,7 +641,7 @@ def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD"
         m_peak = -1
 
     elif method == 'scipy':
-        bounds = [(param_mins[k], param_maxs[k]) for k in dx_directions]
+        bounds = param_bounds(x, dx_directions, harm2=False)
         x0 = np.array([x[k] for k in dx_directions])
         fixed_pars = {k: v for k, v in x.items() if k not in dx_directions}
 

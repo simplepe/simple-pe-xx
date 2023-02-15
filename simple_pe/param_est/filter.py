@@ -121,10 +121,9 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
         return
     
     elif method == 'scipy':
-        mins = copy.deepcopy(metric.param_mins)
-        maxs = copy.deepcopy(metric.param_maxs)
+        bounds = pe.param_bounds(x, dx_directions, harm2)
 
-        # generate bounds on spins:
+        # generate constraint on spins:
         chia = "chi_eff" if "chi_eff" in x.keys() else "chi_align"
         chip = "chi_p2" if "chi_p2" in x.keys() else "chi_p"
         if chip == "chi_p2":
@@ -139,16 +138,6 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
                 con = lambda y: y[dx_directions.index(chia)] ** 2 + y[dx_directions.index(chip)] ** n
                 nlc = optimize.NonlinearConstraint(con, pe.param_mins['a_1'], pe.param_maxs['a_1'])
 
-            if chia in dx_directions:
-                mins[chia] = - np.sqrt(mins[chia] ** 2 - x[chip] ** n)
-                maxs[chia] = np.sqrt(maxs[chia] ** 2 - x[chip] ** n)
-            if chip in dx_directions:
-                maxs[chip] = (maxs[chip]**n - x[chia]**2) ** (1/n)
-                if harm2:
-                    # need to have nonzero chi_p to generate 2 harmonics
-                    mins[chip] = mins['prec'] ** n
-
-        bounds = [(mins[k], maxs[k]) for k in dx_directions]
         x0 = np.array([x[k] for k in dx_directions]).flatten()
         fixed_pars = {k: float(v) for k, v in x.items() if k not in dx_directions}
 

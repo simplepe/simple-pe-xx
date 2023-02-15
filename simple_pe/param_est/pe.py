@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 from scipy import interpolate
 from simple_pe.waveforms import waveform_modes
 from simple_pe.detectors import noise_curves
@@ -55,6 +56,46 @@ param_maxs = {'chirp_mass': 1e4,
               'eccentricity': ecc_max,
               'ecc2': ecc_max**2,
               }
+
+
+def param_bounds(params, dx_directions, harm2=False):
+    """
+    calculate appropriate bounds on the dx_directions given the value of params
+
+    :param params: dictionary with parameter values for initial point
+    :param dx_directions: list of parameters for which to calculate waveform variations
+    :param harm2: flag to indicate filtering 2-harmonic waveform
+    """
+    mins = copy.deepcopy(param_mins)
+    maxs = copy.deepcopy(param_maxs)
+
+    # generate bounds on spins:
+    chia = "chi_eff" if "chi_eff" in params.keys() else "chi_align"
+    chip = "chi_p2" if "chi_p2" in params.keys() else "chi_p"
+    if chip == "chi_p2":
+        n = 1
+    else:
+        n = 2
+
+       if (chia in x) and (chip in x) and ((chia in dx_directions) or (chip in dx_directions)):
+            # need bounds based on spin limits
+            if (chia in dx_directions) and (chip in dx_directions):
+                con = lambda y: y[dx_directions.index(chia)] ** 2 + y[dx_directions.index(chip)] ** n
+                nlc = optimize.NonlinearConstraint(con, pe.param_mins['a_1'], pe.param_maxs['a_1'])
+
+    if (chia in params) and (chip in params) and ((chia in dx_directions) or (chip in dx_directions)):
+        if chia in dx_directions:
+            mins[chia] = - np.sqrt(mins[chia] ** 2 - params[chip] ** n)
+            maxs[chia] = np.sqrt(maxs[chia] ** 2 - params[chip] ** n)
+        if chip in dx_directions:
+            maxs[chip] = (maxs[chip] ** n - params[chia] ** 2) ** (1 / n)
+            if harm2:
+                # need to have nonzero chi_p to generate 2 harmonics
+                mins[chip] = mins['prec'] ** n
+
+    bounds = [(mins[k], maxs[k]) for k in dx_directions]
+
+    return bounds
 
 
 def _add_chi_align(data):
