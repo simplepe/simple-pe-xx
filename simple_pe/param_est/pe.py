@@ -77,12 +77,6 @@ def param_bounds(params, dx_directions, harm2=False):
     else:
         n = 2
 
-       if (chia in x) and (chip in x) and ((chia in dx_directions) or (chip in dx_directions)):
-            # need bounds based on spin limits
-            if (chia in dx_directions) and (chip in dx_directions):
-                con = lambda y: y[dx_directions.index(chia)] ** 2 + y[dx_directions.index(chip)] ** n
-                nlc = optimize.NonlinearConstraint(con, pe.param_mins['a_1'], pe.param_maxs['a_1'])
-
     if (chia in params) and (chip in params) and ((chia in dx_directions) or (chip in dx_directions)):
         if chia in dx_directions:
             mins[chia] = - np.sqrt(mins[chia] ** 2 - params[chip] ** n)
