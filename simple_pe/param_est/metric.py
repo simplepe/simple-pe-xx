@@ -3,7 +3,7 @@ from pycbc.filter import match
 import copy
 from scipy import optimize
 from scipy.stats import chi2
-from simple_pe.param_est.pe import SimplePESamples, param_bounds
+from simple_pe.param_est.pe import SimplePESamples, param_mins, param_maxs, param_bounds
 from pesummary.utils.samples_dict import SamplesDict
 from simple_pe.waveforms.waveform import make_waveform
 
