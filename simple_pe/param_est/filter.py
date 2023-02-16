@@ -166,6 +166,7 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
 
     elif method == 'metric':
         mismatch = initial_mismatch
+        x = pe.SimplePESamples(x)
 
         while mismatch > final_mismatch:
             x, snr_peak = _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions,
