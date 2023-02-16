@@ -361,7 +361,7 @@ class SimplePESamples(SamplesDict):
 
     def generate_prec_spin(self, overwrite=False):
         """
-        Generate component spins from chi_eff and chi_p
+        Generate component spins from chi_eff/chi_align/spin_z and chi_p
 
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
@@ -370,9 +370,19 @@ class SimplePESamples(SamplesDict):
             return
 
         param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
-        if param not in self.keys():
-            print("Need to specify aligned spin component, please give either 'chi_eff' or 'chi_align'")
+
+        if ('spin_1z' in self.keys()) and ('spin_2z' in self.keys()):
+            s1z = self['spin_1z']
+            s2z = self['spin_2z']
+        elif ('spin_1z' in self.keys()) or ('spin_2z' in self.keys()):
+            print("Need to specify both 'spin_1z' and 'spin_2z' (not just one) or else chi_align/chi_eff")
             return
+        elif param not in self.keys():
+            print("Need to specify aligned spin component, please give either 'chi_eff', 'chi_align' or components")
+            return
+        else:
+            s1z = self[param]
+            s2z = self[param]
 
         if "chi_p2" in self.keys():
             if "chi_p" in self.keys():
@@ -393,14 +403,14 @@ class SimplePESamples(SamplesDict):
                     print('%s already in samples, not overwriting' % k)
                     return
 
-        self['a_1'] = np.sqrt(self["chi_p"] ** 2 + self[param] ** 2)
+        self['a_1'] = np.sqrt(self["chi_p"] ** 2 + s1z ** 2)
+        self['tilt_1'] = np.arctan2(self["chi_p"], s1z)
         # # limit a_1 < 1
         # self['a_1'][self['a_1'] > 1.] = 1
-        self['a_2'] = np.abs(self[param])
+        self['a_2'] = np.abs(s2z)
+        self['tilt_2'] = np.arccos(np.sign(s2z))
         # # limit a_2 < 1
         # self['a_2'][self['a_2'] > 1.] = 1.
-        self['tilt_1'] = np.arctan2(self["chi_p"], self[param])
-        self['tilt_2'] = np.arccos(np.sign(self[param]))
         self.add_fixed('phi_12', 0.)
         self.add_fixed('phi_jl', 0.)
 
