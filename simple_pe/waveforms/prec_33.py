@@ -2,6 +2,7 @@ import numpy as np
 from pesummary.gw.conversions.angles import _dphi, _dpsi
 from simple_pe.waveforms import waveform_modes
 
+
 def _make_waveform(
         approx, theta_jn, phi_jl, phase, psi_J, mass_1, mass_2, tilt_1, tilt_2,
         phi_12, a_1, a_2, beta, distance, apply_detector_response=True, **kwargs
@@ -19,6 +20,8 @@ def _make_waveform(
         total angular momentum
     phase: float
         The phase of the binary at coaelescence
+    psi_J: float
+        The polarization in the J-frame
     mass_1: float
         Primary mass of the binary
     mass_2: float
@@ -83,28 +86,30 @@ def calculate_precessing_harmonics(
 
     Parameters
     ----------
-    mass_1: np.ndarray
+    mass_1: float
         Primary mass of the bianry
-    mass_2: np.ndarray
+    mass_2: float
         Secondary mass of the binary
-    a_1: np.ndarray
+    a_1: float
         The spin magnitude on the larger object
-    a_2: np.ndarray
+    a_2: float
         The spin magnitude on the secondary object
-    tilt_1: np.ndarray
+    tilt_1: float
         The angle between the total orbital angular momentum and the primary
         spin
-    tilt_2: np.ndarray
+    tilt_2: float
         The angle between the total orbital angular momentum and the secondary
         spin
-    phi_12: np.ndarray
+    phi_12: float
         The angle between the primary spin and the secondary spin
-    beta: np.ndarray
+    beta: float
         The angle between the total angular momentum and the total orbital
         angular momentum
+    distance: float
+        The distance to the source
     harmonics: list, optional
         List of harmonics which you wish to calculate. Default [0, 1]
-    approximant: str, optional
+    approx: str, optional
         Approximant to use for the decomposition. Default IMRPhenomPv2
     """
     harm = {}
@@ -151,26 +156,24 @@ def make_waveform_from_precessing_harmonics(
     theta_jn: np.ndarray
         the angle between total angular momentum and line of sight
     phi_jl: np.ndarray
-        the initial polarization phase
+        the initial precession phase angle
     phase: np.ndarray
         the initial orbital phase
-    psi_J: np.ndarray
-        the polarization angle in the J-aligned frame
     f_plus_j: np.ndarray
         The Detector plus response function as defined using the J-aligned frame
     f_cross_j: np.ndarray
         The Detector cross response function as defined using the J-aligned
         frame
     """
-    A = harmonic_amplitudes(
+    amps = harmonic_amplitudes(
         theta_jn, phi_jl, f_plus_j, f_cross_j, harmonic_dict
     )
     h_app = 0
     for k, harm in harmonic_dict.items():
         if h_app:
-            h_app += A[k] * harm
+            h_app += amps[k] * harm
         else:
-            h_app = A[k] * harm
+            h_app = amps[k] * harm
     h_app *= np.exp(3j * phase + 3j * phi_jl)
     return h_app
 
@@ -199,17 +202,17 @@ def harmonic_amplitudes(
 
     amp = {}
     if 0 in harmonics:
-        amp[0] = 4 * (tau / (1 + tau ** 2) ** 3 * (f_plus_j + 1j * f_cross_j) +
-                      tau ** 5 / (1 + tau ** 2) ** 3 * (f_plus_j - 1j * f_cross_j)
-        )
+        amp[0] = - 4 * (tau / (1 + tau ** 2) ** 3 * (f_plus_j - 1j * f_cross_j) +
+                        tau ** 5 / (1 + tau ** 2) ** 3 * (f_plus_j + 1j * f_cross_j)
+                        )
     if 1 in harmonics:
-        amp[1] = 4 * np.exp(-1j * phi_jl) * (
-                (1 - 5 * tau ** 2) / (1 + tau ** 2) ** 3 * (f_plus_j + 1j * f_cross_j) -
-                (tau ** 6 - 5 * tau ** 4) / (1 + tau ** 2) ** 3 * (f_plus_j - 1j * f_cross_j)
+        amp[1] = -4 * np.exp(-1j * phi_jl) * (
+                (1 - 5 * tau ** 2) / (1 + tau ** 2) ** 3 * (f_plus_j - 1j * f_cross_j) -
+                (tau ** 6 - 5 * tau ** 4) / (1 + tau ** 2) ** 3 * (f_plus_j + 1j * f_cross_j)
         )
     if 2 in harmonics:
-        amp[2] = 20 * np.exp(-2j * phi_jl) * (
-                - tau * (1 - 2 * tau**2) / (1 + tau ** 2) ** 3 * (f_plus_j + 1j * f_cross_j)
-                - tau**3 * (tau**2 - 1) / (1 + tau ** 2) ** 3 * (f_plus_j - 1j * f_cross_j)
+        amp[2] = - 20 * np.exp(-2j * phi_jl) * (
+                - tau * (1 - 2 * tau**2) / (1 + tau ** 2) ** 3 * (f_plus_j - 1j * f_cross_j)
+                - tau**3 * (tau**2 - 1) / (1 + tau ** 2) ** 3 * (f_plus_j + 1j * f_cross_j)
         )
     return amp
