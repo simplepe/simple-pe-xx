@@ -106,7 +106,7 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
     :param f_low: low frequency cutoff
     :param approximant: the approximant to use
     :param method: how to find the maximum (either 'scipy' or 'metric')
-    :param harm2: use SNR from second harmonic (only with method='scipy')
+    :param harm2: use SNR from second harmonic
     :param bounds: give initial bounds for the range of parameters to investigate
     :param initial_mismatch: the mismatch for calculating the metric
     :param final_mismatch: the mismatch required to stop iteration
@@ -165,9 +165,8 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
         snr_peak = -out.fun
 
     elif method == 'metric':
-        if harm2:
-            print('2nd harmonic not implemented for metric')
         mismatch = initial_mismatch
+        x = pe.SimplePESamples(x)
 
         while mismatch > final_mismatch:
             x, snr_peak = _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions,
@@ -180,7 +179,7 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
 
 
 def _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions, f_low, approximant,
-                      mismatch, tolerance=0.01):
+                      mismatch, tolerance=0.01, harm2=False, verbose=False):
     """
     A function to find the maximum SNR for a given metric mismatch
     Calculate a metric at the point x in dx_directions and walk to peak
@@ -196,6 +195,8 @@ def _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions, f_low,
     :param approximant: the approximant to use
     :param mismatch: the mismatch for calculating the metric
     :param tolerance: the allowed error in the metric is (tolerance * mismatch)
+    :param harm2: use SNR from second harmonic
+    :param verbose: if True then print info
     :return x_prime: the point in the grid with the highest snr
     :return snr_peak: the SNR squared at this point
     """
@@ -204,7 +205,7 @@ def _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions, f_low,
     g.iteratively_update_metric()
 
     while True:
-        h = waveform.make_waveform(x, g.psd.delta_f, g.f_low, len(g.psd), g.approximant)
+        h = waveform.make_waveform(x, g.psd.delta_f, g.f_low, len(g.psd), g.approximant, harm2=harm2)
         snr_0 = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
         snrs = np.zeros([g.ndim, 2])
@@ -212,10 +213,10 @@ def _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions, f_low,
 
         for i in range(g.ndim):
             for j in range(2):
-                alphas[i, j] = metric.check_physical(x, g.normalized_evecs()[i:i + 1], (-1) ** j)
+                alphas[i, j] = metric.check_physical(x, g.normalized_evecs()[i:i + 1], (-1) ** j, verbose=verbose)
                 h = metric.make_offset_waveform(x, g.normalized_evecs()[i:i + 1], alphas[i, j] * (-1) ** j,
                                                 g.psd.delta_f, g.f_low, len(g.psd),
-                                                g.approximant)
+                                                g.approximant, harm2=harm2)
                 snrs[i, j] = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
         if snrs.max() > snr_0:
@@ -231,9 +232,9 @@ def _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions, f_low,
     s = (snrs[:, 0] - snrs[:, 1]) * 0.25 / \
         (snr_0 - 0.5 * (snrs[:, 0] + snrs[:, 1]))
     delta_x = SamplesDict(dx_directions, np.matmul(g.normalized_evecs().samples, s))
-    alpha = metric.check_physical(x, delta_x, 1)
+    alpha = metric.check_physical(x, delta_x, 1, verbose=verbose)
 
-    h = metric.make_offset_waveform(x, delta_x, alpha, g.psd.delta_f, f_low, len(g.psd), approximant)
+    h = metric.make_offset_waveform(x, delta_x, alpha, g.psd.delta_f, f_low, len(g.psd), approximant, harm2=harm2)
     snr_peak = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
     for k, dx_val in delta_x.items():

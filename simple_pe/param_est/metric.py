@@ -361,7 +361,7 @@ def offset_params(x, dx, scaling):
     return x_prime
 
 
-def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenomD"):
+def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenomD", harm2=False):
     """
     This function makes a waveform for the given parameters and
     returns h_plus generated at value (x + scaling * dx).
@@ -373,9 +373,10 @@ def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenom
     :param f_low: low frequency cutoff
     :param flen: length of the frequency domain array to generate
     :param approximant: the approximant generator to use
+    :param harm2: generate the 2-harmonics
     :return h_plus: waveform at parameter space point x + scaling * dx
     """
-    h_plus = make_waveform(offset_params(x, dx, scaling), df, f_low, flen, approximant)
+    h_plus = make_waveform(offset_params(x, dx, scaling), df, f_low, flen, approximant, harm2=harm2)
 
     return h_plus
 
