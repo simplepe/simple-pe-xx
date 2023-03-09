@@ -6,6 +6,7 @@ from simple_pe.detectors import noise_curves
 from simple_pe.fstat import fstat_hm
 from pesummary.utils.array import Array
 from pesummary.utils.samples_dict import SamplesDict
+from pesummary.gw.conversions.spins import opening_angle
 from scipy.stats import ncx2, norm
 from pycbc.filter import sigma
 import tqdm
@@ -614,16 +615,19 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
     grid_samples.trim_unphysical(set_to_bounds=True)
     grid_samples.generate_all_posterior_samples(disable_remnant=True)
 
+    beta = np.zeros(grid_samples.number_of_samples)
     for i in tqdm.tqdm(range(grid_samples.number_of_samples), desc="calculating opening angle on grid"):
         sample = grid_samples[i:i+1]
         param = "chi_eff" if "chi_eff" in sample.keys() else "chi_align"
         _, f_mean, _ = noise_curves.calc_reach_bandwidth(sample["mass_1"], sample["mass_2"],
                                                          sample[param],
                                                          approximant, psd, f_low, thresh=8.)
-        sample['f_ref'] = f_mean
+        beta[i] = opening_angle(
+            sample["mass_1"], sample["mass_2"], sample["phi_jl"], sample["tilt_1"], sample["tilt_2"],
+            sample["phi_12"], sample["a_1"], sample["a_2"], f_mean * np.ones_like(sample["mass_1"]),
+            sample["phase"])
 
-    grid_samples.generate_all_posterior_samples(disable_remnant=True)
-    return grid_samples['beta'].reshape(list(grid_dict.values())[0].shape), pts
+    return beta.reshape(list(grid_dict.values())[0].shape), pts
 
 
 def interpolate_sigma(param_max, param_min, fixed_pars, psd, f_low, grid_points, approximant):
