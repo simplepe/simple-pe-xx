@@ -19,20 +19,20 @@ def generate_eccentric_waveform(params, df, f_low, f_len):
     if "ecc2" in params.keys():
         ecc = params["ecc2"][0] ** 0.5
     else:
-        ecc = params["ecc2"] ** 0.5
+        ecc = params["ecc"][0]
 
     s_rate = 2 * int(f_len * df)
     t_len = int(1 / df)
 
     pars = {
-        'M': params['total_mass'],
-        'q': params['inverted_mass_ratio'],
-        'chi1': params['spin_1z'],
-        'chi2': params['spin_2z'],
+        'M': params['total_mass'][0],
+        'q': params['inverted_mass_ratio'][0],
+        'chi1': params['spin_1z'][0],
+        'chi2': params['spin_2z'][0],
         'LambdaAl2': 0.,
         'LambdaBl2': 0.,
         'ecc': ecc,
-        'ecc_freq': 2,
+        'ecc_freq': 0,
         'domain': 0,
         'srate_interp': s_rate,
         'use_geometric_units': "no",
