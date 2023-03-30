@@ -75,7 +75,7 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
             return h_plus[0]
         return h_plus
 
-    elif approximant == "teobesums":
+    elif approximant == "teobresums":
         if ('spin_1z' not in x.keys()) or ('spin_2z' not in x.keys()):
             x.generate_spin_z()
         x.generate_all_posterior_samples(f_low=f_low, f_ref=x["f_ref"][0], delta_f=df, disable_remnant=True)
