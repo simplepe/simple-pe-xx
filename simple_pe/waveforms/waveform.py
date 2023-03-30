@@ -79,8 +79,7 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
         if ('spin_1z' not in x.keys()) or ('spin_2z' not in x.keys()):
             x.generate_spin_z()
         x.generate_all_posterior_samples(f_low=f_low, f_ref=x["f_ref"][0], delta_f=df, disable_remnant=True)
-        from simple_pe.waveforms import eccentric
-        h_plus, h_cross = eccentric.generate_eccentric_waveform(x, df, f_low, f_len)
+        h_plus, h_cross = eccentric.generate_eccentric_waveform(x, df, f_low, flen)
         if return_hc:
             return h_plus, h_cross
         return h_plus
