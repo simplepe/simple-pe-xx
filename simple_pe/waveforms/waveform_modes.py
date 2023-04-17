@@ -100,7 +100,7 @@ def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low,
                                            f_final=ifo_psd.sample_frequencies[-1],
                                            inclination=inc, mode_array=mode_array(lm, approximant))
         elif approximant in td_approximants():
-            from simple_pe.param_est.metric import make_waveform
+            from simple_pe.waveforms.waveform import make_waveform
             params = {
                 "mass_1": [mass1], "mass_2": [mass2], "spin_1z": [spin1z],
                 "spin_2z": [spin2z], "distance": [1.], "phase": [0.],
