@@ -1,18 +1,11 @@
 import numpy as np
-import lal
-from lalsimulation import (
-    SimInspiralFD, SimInspiralCreateModeArray, SimInspiralModeArrayActivateMode,
-    SimInspiralWaveformParamsInsertModeArray, GetApproximantFromString
-)
-from pycbc.types import FrequencySeries
 from pycbc.filter import match
-from simple_pe.waveforms import waveform_modes
 import copy
 from scipy import optimize
 from scipy.stats import chi2
-from simple_pe.param_est.pe import SimplePESamples, param_maxs, param_mins
-from pesummary.gw import conversions
+from simple_pe.param_est.pe import SimplePESamples, param_mins, param_maxs, param_bounds
 from pesummary.utils.samples_dict import SamplesDict
+from simple_pe.waveforms.waveform import make_waveform
 
 
 class Metric:
@@ -161,7 +154,7 @@ class Metric:
         self.scale_dxs()
         self.calculate_metric()
 
-    def iteratively_update_metric(self, max_iter=20):
+    def iteratively_update_metric(self, max_iter=20, verbose=True):
         """
         A method to re-calculate the metric gij based on the matches obtained
         for the eigenvectors of the original metric
@@ -170,14 +163,26 @@ class Metric:
         self.calc_metric_error()
 
         op = 0
-
+        if verbose:
+            from tqdm import tqdm
+            base_desc = "Calculating the metric | iteration {} < {} | error {:.2g} > {:.2g}"
+            pbar = tqdm(
+                np.arange(max_iter), bar_format="{desc}",
+                desc=base_desc.format(op, max_iter, self.err, tol[0])
+            )
         while (self.err > tol) and (op < max_iter):
             self.update_metric()
             self.calc_metric_error()
             op += 1
+            if verbose:
+                pbar.set_description(base_desc.format(op, max_iter, self.err, tol[0]))
+                pbar.update(1)
 
         if self.err > tol:
-            print("Failed to achieve requested tolerance.  Requested: %.2g; achieved %.2g" % (tol, self.err))
+            pbar.set_description(
+                f"Failed to achieve requested tolerance.  Requested: {tol[0]:.2g} "
+                f"achieved {self.err:.2g}"
+            )
 
     def project_metric(self, projected_directions):
         """
@@ -347,114 +352,6 @@ class Metric:
         return sample_pts
 
 
-def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=False, modes=None, harm2=False):
-    """
-    This function makes a waveform for the given parameters and
-    returns h_plus generated at value x.
-
-    :param params: SimplePESamples with parameter values for waveform generation
-    :param df: frequency spacing of points
-    :param f_low: low frequency cutoff
-    :param flen: length of the frequency domain array to generate
-    :param approximant: the approximant generator to use
-    :param return_hc: flag to choose to return cross polarization (only non-precessing)
-    :param modes: the modes to generate (only for non-precessing)
-    :return h_plus: waveform at parameter space point x
-    """
-    for k, i in params.items():
-        if not hasattr(i, '__len__'):
-            params[k] = [i]
-
-    x = SimplePESamples(params)
-    if 'phase' not in x.keys():
-        x['phase'] = np.zeros_like(list(x.values())[0])
-    if 'f_ref' not in x.keys():
-        x['f_ref'] = f_low * np.ones_like(list(x.values())[0])
-
-    if modes is None:
-        modes = waveform_modes.mode_array('22', approximant)
-
-    if ('chi_p' in x.keys()) or ('chi_p2' in x.keys()):
-        # generate the leading harmonic of the precessing waveform
-        x.generate_prec_spin()
-
-    if 'tilt_1' in x.keys() and x['tilt_1']:
-        x.generate_all_posterior_samples(disable_remnant=True)
-        h_plus = conversions.snr._calculate_precessing_harmonics(x["mass_1"][0], x["mass_2"][0],
-                                                                 x["a_1"][0], x["a_2"][0],
-                                                                 x["tilt_1"][0], x["tilt_2"][0],
-                                                                 x["phi_12"][0],
-                                                                 x["beta"][0], x["distance"][0],
-                                                                 harmonics=[0,1], approx=approximant,
-                                                                 mode_array=modes,
-                                                                 df=df, f_low=f_low,
-                                                                 f_ref=x["f_ref"][0])
-        if return_hc:
-            print('return_hc not available for precessing system')
-        for k, h in h_plus.items():
-            h.resize(flen)
-        if not harm2:
-            return h_plus[0]
-        return h_plus
-
-    else:
-        if harm2:
-            raise ValueError(
-                "Currently unable to calculate 2 harmonic decomposition when "
-                "lalsimulation.SimInspiralFD is called"
-            )
-        if ('spin_1z' not in x.keys()) or ('spin_2z' not in x.keys()):
-            x.generate_spin_z()
-        if "inc" not in x.keys():
-            x["inc"] = 0.
-
-        x.generate_all_posterior_samples(disable_remnant=True)
-        waveform_dictionary = lal.CreateDict()
-        mode_array_lal = SimInspiralCreateModeArray()
-        for mode in modes:
-            SimInspiralModeArrayActivateMode(mode_array_lal, mode[0], mode[1])
-        SimInspiralWaveformParamsInsertModeArray(waveform_dictionary, mode_array_lal)
-        if isinstance(x["mass_1"], list):
-            m1 = x["mass_1"][0]
-        else:
-            m1 = x["mass_1"]
-        if isinstance(x["mass_2"], list):
-            m2 = x["mass_2"][0]
-        else:
-            m2 = x["mass_2"]
-        if "eccentricity" in x.keys():
-            if isinstance(x["mass_2"], list):
-                ecc = x["eccentricity"][0]
-            else:
-                ecc = x["eccentricity"]
-        else:
-            ecc = 0.
-            
-        args = [
-            m1 * lal.MSUN_SI, m2 * lal.MSUN_SI, 0., 0.,
-            x["spin_1z"], 0., 0., x["spin_2z"], x['distance'] * 1e6 * lal.PC_SI,
-            x["inc"], 0., 0., ecc, 0., df, f_low, 2048., x['f_ref']
-        ]
-        args = [float(arg) for arg in args]
-        hp, hc = SimInspiralFD(
-            *args, waveform_dictionary, GetApproximantFromString(approximant)
-        )
-        dt = 1 / hp.deltaF + (hp.epoch.gpsSeconds + hp.epoch.gpsNanoSeconds * 1e-9)
-        time_shift = np.exp(
-            -1j * 2 * np.pi * dt * np.array(range(len(hp.data.data[:]))) * hp.deltaF
-        )
-        hp.data.data[:] *= time_shift
-        hc.data.data[:] *= time_shift
-        h_plus = FrequencySeries(hp.data.data[:], delta_f=hp.deltaF, epoch=hp.epoch)
-        h_cross = FrequencySeries(hc.data.data[:], delta_f=hc.deltaF, epoch=hc.epoch)
-
-    h_plus.resize(flen)
-    h_cross.resize(flen)
-    if return_hc:
-        return h_plus, h_cross
-    return h_plus
-
-
 def offset_params(x, dx, scaling):
     """
     Update the parameters x by moving to a value (x + scaling * dx)
@@ -476,7 +373,7 @@ def offset_params(x, dx, scaling):
     return x_prime
 
 
-def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenomD"):
+def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenomD", harm2=False):
     """
     This function makes a waveform for the given parameters and
     returns h_plus generated at value (x + scaling * dx).
@@ -488,9 +385,10 @@ def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenom
     :param f_low: low frequency cutoff
     :param flen: length of the frequency domain array to generate
     :param approximant: the approximant generator to use
+    :param harm2: generate the 2-harmonics
     :return h_plus: waveform at parameter space point x + scaling * dx
     """
-    h_plus = make_waveform(offset_params(x, dx, scaling), df, f_low, flen, approximant)
+    h_plus = make_waveform(offset_params(x, dx, scaling), df, f_low, flen, approximant, harm2=harm2)
 
     return h_plus
 
@@ -570,6 +468,11 @@ def check_physical(x, dx, scaling, maxs=None, mins=None, verbose=False):
             print("scaling to %.2f for precession" % alpha_prec)
 
         alpha = min(alpha, alpha_prec)
+
+        if verbose:
+            x_prime = offset_params(x, dx, alpha * scaling)
+            print('new point')
+            print(x_prime)
 
     return alpha
 
@@ -751,7 +654,7 @@ def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD"
         m_peak = -1
 
     elif method == 'scipy':
-        bounds = [(param_mins[k], param_maxs[k]) for k in dx_directions]
+        bounds = param_bounds(x, dx_directions, harm2=False)
         x0 = np.array([x[k] for k in dx_directions])
         fixed_pars = {k: v for k, v in x.items() if k not in dx_directions}
 

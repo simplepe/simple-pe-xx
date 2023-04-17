@@ -24,8 +24,6 @@ class Network(object):
                 found_thresh=5.0, loc_thresh=4.0, duty_cycle=1.0, bns_range=True):
         """
         :param ifo: name of ifo
-        :param location: ifo location
-        :param response: matrix with detector response
         :param det_range: the BNS range of the detector
         :param f_mean: float, mean frequency
         :param f_band: float, frequency bandwidth
@@ -35,7 +33,7 @@ class Network(object):
         :param bns_range: is the given range for BNS (if yes, then rescale SNR with mchirp^5/6)
         """
         d = dets.Det(ifo, det_range, f_mean, f_band,
-                found_thresh, loc_thresh, duty_cycle, bns_range)
+                     found_thresh, loc_thresh, duty_cycle, bns_range)
         setattr(self, ifo, d)
         self.ifos.append(ifo)
 

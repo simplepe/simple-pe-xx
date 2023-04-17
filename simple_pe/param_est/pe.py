@@ -1,15 +1,19 @@
 import numpy as np
+import copy
 from scipy import interpolate
 from simple_pe.waveforms import waveform_modes
 from simple_pe.detectors import noise_curves
 from simple_pe.fstat import fstat_hm
 from pesummary.utils.array import Array
 from pesummary.utils.samples_dict import SamplesDict
+from pesummary.gw.conversions.spins import opening_angle
 from scipy.stats import ncx2, norm
 from pycbc.filter import sigma
 import tqdm
 
 spin_max = 0.98
+ecc_max = 0.5
+prec_min = 1e-3
 
 param_mins = {'chirp_mass': 1.,
               'total_mass': 2.,
@@ -18,14 +22,19 @@ param_mins = {'chirp_mass': 1.,
               'symmetric_mass_ratio': 0.04,
               'chi_eff': -1 * spin_max,
               'chi_align': -1 * spin_max,
-              'chi_p': 1e-3,
-              'chi_p2': 1e-6,
+              'chi_p': prec_min,
+              'chi_p2': prec_min,
+              'prec': prec_min,
+              'chi': prec_min,
               'spin_1z': -1 * spin_max,
               'spin_2z': -1 * spin_max,
               'a_1': 0.,
               'a_2': 0.,
               'tilt_1': 0.,
               'tilt_2': 0.,
+              'tilt': prec_min,
+              'eccentricity': 0.,
+              'ecc2': 0.,
               }
 
 param_maxs = {'chirp_mass': 1e4,
@@ -37,13 +46,51 @@ param_maxs = {'chirp_mass': 1e4,
               'chi_align': spin_max,
               'chi_p': spin_max,
               'chi_p2': spin_max**2,
+              'chi': spin_max,
               'spin_1z': spin_max,
               'spin_2z': spin_max,
               'a_1': spin_max,
               'a_2': spin_max,
               'tilt_1': np.pi,
               'tilt_2': np.pi,
+              'tilt': np.pi - prec_min,
+              'eccentricity': ecc_max,
+              'ecc2': ecc_max**2,
               }
+
+
+def param_bounds(params, dx_directions, harm2=False):
+    """
+    calculate appropriate bounds on the dx_directions given the value of params
+
+    :param params: dictionary with parameter values for initial point
+    :param dx_directions: list of parameters for which to calculate waveform variations
+    :param harm2: flag to indicate filtering 2-harmonic waveform
+    """
+    mins = copy.deepcopy(param_mins)
+    maxs = copy.deepcopy(param_maxs)
+
+    # generate bounds on spins:
+    chia = "chi_eff" if "chi_eff" in params.keys() else "chi_align"
+    chip = "chi_p2" if "chi_p2" in params.keys() else "chi_p"
+    if chip == "chi_p2":
+        n = 1
+    else:
+        n = 2
+
+    if (chia in params) and (chip in params) and ((chia in dx_directions) or (chip in dx_directions)):
+        if chia in dx_directions:
+            mins[chia] = - np.sqrt(mins[chia] ** 2 - params[chip] ** n)
+            maxs[chia] = np.sqrt(maxs[chia] ** 2 - params[chip] ** n)
+        if chip in dx_directions:
+            maxs[chip] = (maxs[chip] ** n - params[chia] ** 2) ** (1 / n)
+            if harm2:
+                # need to have nonzero chi_p to generate 2 harmonics
+                mins[chip] = mins['prec'] ** n
+
+    bounds = [(mins[k], maxs[k]) for k in dx_directions]
+
+    return bounds
 
 
 def _add_chi_align(data):
@@ -66,6 +113,14 @@ def _add_chi_align(data):
 
 def convert(*args, **kwargs):
     from pesummary.gw.conversions import convert as _convert
+    if isinstance(args[0], dict):
+        _dict = args[0]
+        for key, value in _dict.items():
+            if not isinstance(value, (np.ndarray, list)):
+                _dict[key] = np.array([value])
+            elif isinstance(value[0], (np.ndarray, list)):
+                _dict[key] = Array(np.array(value).flatten())
+        args = (_dict,)
     data = _convert(*args, **kwargs)
     return _add_chi_align(data)
 
@@ -84,6 +139,8 @@ class SimplePESamples(SamplesDict):
             for key, item in args[0].items():
                 if isinstance(item, (float, int, np.number)):
                     _args[key] = [item]
+                elif isinstance(item[0], (np.ndarray, list)):
+                    _args[key] = Array(np.array(item).flatten())
                 else:
                     _args[key] = item
             args = (_args,)
@@ -167,24 +224,16 @@ class SimplePESamples(SamplesDict):
         except TypeError:
             self[name] = value 
 
-    def generate_theta_jn(self, theta_dist='uniform', overwrite=False):
+    def generate_theta_jn(self, theta_dist='uniform', snr_left=0., snr_right=0., overwrite=False):
         """
         generate theta JN points with the desired distribution and include in the SimplePESamples
 
-        :param theta_dist: the distribution to use for theta.  Currently supports 'uniform', 'left_circ', 'right_circ'
+        :param theta_dist: the distribution to use for theta.  Currently, supports 'uniform', 'left_circ', 'right_circ',
+        'left_right'
+        :param snr_left: left snr
+        :param snr_right: right snr
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
-        npts = self.number_of_samples
-        if theta_dist == 'uniform':
-            cos_theta = np.random.uniform(-1, 1, npts)
-        elif theta_dist == 'left_circ':
-            cos_theta = 2 * np.random.power(1 + 6, npts) - 1
-        elif theta_dist == 'right_circ':
-            cos_theta = 1 - 2 * np.random.power(1 + 6, npts)
-        else:
-            print("only implemented for 'uniform', 'left_circ', 'right_circ")
-            return
-
         if 'theta_jn' in self.keys() and overwrite:
             print('Overwriting theta_jn values')
             self.pop('theta_jn')
@@ -193,12 +242,36 @@ class SimplePESamples(SamplesDict):
             print('Overwriting cos_theta_jn values')
             self.pop('cos_theta_jn')
 
-        if ('theta_jn' not in self.keys()) and ('cos_theta_jn' not in self.keys()):
-            theta = np.arccos(cos_theta)
-            self['theta_jn'] = theta
-            self['cos_theta_jn'] = cos_theta
-        else:
+        if ('theta_jn' in self.keys()) or ('cos_theta_jn' in self.keys()):
             print('Did not overwrite theta_jn and cos_theta_jn samples')
+            return
+
+        npts = self.number_of_samples
+        if theta_dist == 'uniform':
+            cos_theta = np.random.uniform(-1, 1, npts)
+        else:
+            if theta_dist == 'left_circ':
+                n_left = npts
+                n_right = 0
+            elif theta_dist == 'right_circ':
+                n_left = 0
+                n_right = npts
+            elif theta_dist == 'left_right':
+                n_left = int(
+                    npts * np.exp(0.5 * snr_left ** 2) /
+                    (np.exp(0.5 * snr_left ** 2) + np.exp(0.5 * snr_right ** 2)))
+                n_right = npts - n_left
+            else:
+                print("only implemented for 'uniform', 'left_circ', 'right_circ', 'left_right'")
+                return
+
+            cos_theta_r = 2 * np.random.power(1 + 6, n_right) - 1
+            cos_theta_l = 1 - 2 * np.random.power(1 + 6, n_left)
+            cos_theta = np.concatenate((cos_theta_l, cos_theta_r))
+
+        theta = np.arccos(cos_theta)
+        self['theta_jn'] = theta
+        self['cos_theta_jn'] = cos_theta
 
     def generate_distance(self, fiducial_distance, fiducial_sigma,
                           psd, f_low, interp_directions, interp_points=5,
@@ -207,7 +280,7 @@ class SimplePESamples(SamplesDict):
         generate distance points using the existing theta_JN samples and fiducial distance.
         interpolate sensitivity over the parameter space
         :param fiducial_distance: distance for a fiducial set of parameters
-        :param fiducial_range: the range for a fiducial set of parameters
+        :param fiducial_sigma: the range for a fiducial set of parameters
         :param psd: the PSD to use
         :param f_low: low frequency cutoff
         :param interp_directions: directions to interpolate
@@ -224,7 +297,7 @@ class SimplePESamples(SamplesDict):
             self.pop('distance')
 
         if 'distance' not in self.keys():
-            tau = np.tan(self['theta_jn']/2)
+            tau = np.tan(np.minimum(self['theta_jn'], np.pi - self['theta_jn']) / 2)
 
             maxs = dict((k, self.maximum[k]) for k in interp_directions)
             mins = dict((k, self.minimum[k]) for k in interp_directions)
@@ -340,7 +413,7 @@ class SimplePESamples(SamplesDict):
 
     def generate_prec_spin(self, overwrite=False):
         """
-        Generate component spins from chi_eff and chi_p
+        Generate component spins from chi_eff/chi_align/spin_z and chi_p
 
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
@@ -349,19 +422,29 @@ class SimplePESamples(SamplesDict):
             return
 
         param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
-        if param not in self.keys():
-            print("Need to specify aligned spin component, please give either 'chi_eff' or 'chi_align'")
+
+        if ('spin_1z' in self.keys()) and ('spin_2z' in self.keys()):
+            s1z = self['spin_1z']
+            s2z = self['spin_2z']
+        elif ('spin_1z' in self.keys()) or ('spin_2z' in self.keys()):
+            print("Need to specify both 'spin_1z' and 'spin_2z' (not just one) or else chi_align/chi_eff")
             return
+        elif param not in self.keys():
+            print("Need to specify aligned spin component, please give either 'chi_eff', 'chi_align' or components")
+            return
+        else:
+            s1z = self[param]
+            s2z = self[param]
 
         if "chi_p2" in self.keys():
             if "chi_p" in self.keys():
-                if overwrite:
-                    print("Overwriting values of 'chi_p' using 'chi_p2'")
-                    self.pop('chi_p')
-                else:
-                    print("'chi_p' already in samples, not overwriting from 'chi_p2'")
-                    return
-            self['chi_p'] = np.sqrt(self['chi_p2'])
+                print('Both chi_p and chi_p2 in samples, using chi_p')
+            else:
+                if sum(self['chi_p2'] < 0):
+                    print('negative values of chi_p2, smallest = %.2g' % min(self['chi_p2']) )
+                    print('setting equal 0')
+                    self['chi_p2'][self['chi_p2'] < 0] = 0
+                self['chi_p'] = np.sqrt(self['chi_p2'])
 
         for k in ['a_1', 'a_2', 'tilt_1', 'tilt_2', 'phi_12', 'phi_jl']:
             if k in self.keys():
@@ -370,16 +453,16 @@ class SimplePESamples(SamplesDict):
                     self.pop(k)
                 else:
                     print('%s already in samples, not overwriting' % k)
-                    continue
+                    return
 
-        self['a_1'] = np.sqrt(self["chi_p"] ** 2 + self[param] ** 2)
-        # # limit a_1 < 1
-        # self['a_1'][self['a_1'] > 1.] = 1
-        self['a_2'] = np.abs(self[param])
-        # # limit a_2 < 1
-        # self['a_2'][self['a_2'] > 1.] = 1.
-        self['tilt_1'] = np.arctan2(self["chi_p"], self[param])
-        self['tilt_2'] = np.arccos(np.sign(self[param]))
+        self['a_1'] = np.sqrt(self["chi_p"] ** 2 + s1z ** 2)
+        # limit a_1 < 1
+        #self['a_1'][self['a_1'] > 1.] = 1
+        self['tilt_1'] = np.arctan2(self["chi_p"], s1z)
+        self['a_2'] = np.abs(s2z)
+        # limit a_2 < 1
+        #self['a_2'][self['a_2'] > 1.] = 1.
+        self['tilt_2'] = np.arccos(np.sign(s2z))
         self.add_fixed('phi_12', 0.)
         self.add_fixed('phi_jl', 0.)
 
@@ -389,6 +472,7 @@ class SimplePESamples(SamplesDict):
 
         :param maxs: the maximum permitted values of the physical parameters
         :param mins: the minimum physical values of the physical parameters
+        :param set_to_bounds: move points that lie outside physical space to the boundary of allowed space
         :return physical_samples: SamplesDict with points outside the param max and min given
         """
         if mins is None:
@@ -411,6 +495,8 @@ class SimplePESamples(SamplesDict):
                     self[d][v >= maxs[d]] = maxs[d]
                 if d in mins:
                     self[d][v <= mins[d]] = mins[d]
+                ind = self.parameters.index(d)
+                self.samples[ind] = self[d]
 
     def calculate_rho_lm(self, psd, f_low, net_snr, modes, interp_directions, interp_points=5,
                          approximant="IMRPhenomXPHM"):
@@ -450,7 +536,15 @@ class SimplePESamples(SamplesDict):
         :param a_net: network sensitivity to x polarization (in DP frame)
         :param net_snr: the network SNR
         """
-        self['rho_2pol'] = net_snr * 2 * np.tan(self['theta_jn'] / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
+        self['rho_not_right'] = net_snr * np.tan(self['theta_jn'] / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
+        self['rho_not_left'] = net_snr * np.tan((np.pi - self['theta_jn']) / 2) ** 4 * 2 * a_net / (1 + a_net ** 2)
+        # doesn't make sense to have this larger than net_snr:
+        if np.shape(net_snr) == np.shape(self['theta_jn']):
+            self['rho_not_right'][self['rho_not_right'] > net_snr] = net_snr[self['rho_not_right'] > net_snr]
+            self['rho_not_left'][self['rho_not_left'] > net_snr] = net_snr[self['rho_not_left'] > net_snr]
+        else:
+            self['rho_not_right'][self['rho_not_right'] > net_snr] = net_snr
+            self['rho_not_left'][self['rho_not_left'] > net_snr] = net_snr
 
     def calculate_rho_p(self, psd, f_low, net_snr, interp_directions, interp_points=5,
                         approximant="IMRPhenomXP"):
@@ -464,8 +558,8 @@ class SimplePESamples(SamplesDict):
         :param interp_points: number of points to interpolate alpha_lm
         :param approximant: waveform approximant
         """
-        maxs = dict((k, self.maximum[k]) for k in interp_directions)
-        mins = dict((k, self.minimum[k]) for k in interp_directions)
+        maxs = dict((k, [self[k].max()]) for k in interp_directions)
+        mins = dict((k, [self[k].min()]) for k in interp_directions)
 
         fixed_pars = {k: v[0] for k, v in self.mean.items() if k not in interp_directions}
 
@@ -498,9 +592,13 @@ class SimplePESamples(SamplesDict):
             weights *= self['p_p']
 
         if snr_2pol is not None:
-            rv = ncx2(2, snr_2pol ** 2)
-            p = rv.pdf(self['rho_2pol'] ** 2)
-            self['p_2pol'] = p/p.max()
+            self.add_fixed('p_2pol', 0)
+            for pol, snr in snr_2pol.items():
+                rv = ncx2(2, snr ** 2)
+                self['p_' + pol] = rv.pdf(self['rho_' + pol] ** 2)
+                self['p_2pol'] = np.maximum(self['p_2pol'], self['p_' + pol])
+
+            self['p_2pol'] /= self['p_2pol'].max()
             weights *= self['p_2pol']
 
         self['weight'] = weights
@@ -528,23 +626,26 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low, grid_point
         grid_samples.add_fixed(k, i)
     grid_samples.add_fixed('f_ref', 0)
     grid_samples.add_fixed('phase', 0)
-    if "chi_p2" in grid_samples.keys() and "chi_p" in grid_samples.keys():
-        grid_samples.pop("chi_p")
+    # if "chi_p2" in grid_samples.keys() and "chi_p" in grid_samples.keys():
+    #     grid_samples.pop("chi_p")
     grid_samples.generate_prec_spin()
     # need to use set_to_bounds=True so we do not modify the grid
     grid_samples.trim_unphysical(set_to_bounds=True)
     grid_samples.generate_all_posterior_samples(disable_remnant=True)
 
+    beta = np.zeros(grid_samples.number_of_samples)
     for i in tqdm.tqdm(range(grid_samples.number_of_samples), desc="calculating opening angle on grid"):
         sample = grid_samples[i:i+1]
         param = "chi_eff" if "chi_eff" in sample.keys() else "chi_align"
         _, f_mean, _ = noise_curves.calc_reach_bandwidth(sample["mass_1"], sample["mass_2"],
                                                          sample[param],
                                                          approximant, psd, f_low, thresh=8.)
-        sample['f_ref'] = f_mean
+        beta[i] = opening_angle(
+            sample["mass_1"], sample["mass_2"], sample["phi_jl"], sample["tilt_1"], sample["tilt_2"],
+            sample["phi_12"], sample["a_1"], sample["a_2"], f_mean * np.ones_like(sample["mass_1"]),
+            sample["phase"])
 
-    grid_samples.generate_all_posterior_samples(disable_remnant=True)
-    return grid_samples['beta'].reshape(list(grid_dict.values())[0].shape), pts
+    return beta.reshape(list(grid_dict.values())[0].shape), pts
 
 
 def interpolate_sigma(param_max, param_min, fixed_pars, psd, f_low, grid_points, approximant):
@@ -561,7 +662,7 @@ def interpolate_sigma(param_max, param_min, fixed_pars, psd, f_low, grid_points,
     :return alpha: dictionary of alpha[lm] values interpolated across the grid
     :return pts: set of points used in each direction
     """
-    from simple_pe.param_est import metric
+    from simple_pe.waveforms import waveform
     dirs = param_max.keys()
     pts = [np.linspace(param_min[d][0], param_max[d][0], grid_points) for d in dirs]
     grid_dict = dict(zip(dirs, np.array(np.meshgrid(*pts, indexing='ij'))))
@@ -574,7 +675,7 @@ def interpolate_sigma(param_max, param_min, fixed_pars, psd, f_low, grid_points,
 
     for i in tqdm.tqdm(range(grid_samples.number_of_samples), desc="calculating sigma on grid"):
         sample = grid_samples[i:i+1]
-        h = metric.make_waveform(sample, psd.delta_f, f_low, len(psd), approximant)
+        h = waveform.make_waveform(sample, psd.delta_f, f_low, len(psd), approximant)
         sig[i] = sigma(h, psd, low_frequency_cutoff=f_low,
                        high_frequency_cutoff=psd.sample_frequencies[-1])
 
@@ -644,6 +745,10 @@ def calculate_interpolated_snrs(
         low frequency cut-off to use for SNR calculations
     dominant_snr: float
         SNR in the dominant 22 multipole
+    left_snr: float
+        SNR consistent with left circular polarization
+    right_snr: float
+        SNR consistent with right circular polarization
     modes: list
         list of higher order multipoles that you wish to calculate
         the SNR for
@@ -670,8 +775,13 @@ def calculate_interpolated_snrs(
     if not isinstance(samples, SimplePESamples):
         samples = SimplePESamples(samples)
     # generate required parameters if necessary
-    if "theta_jn" not in samples.keys():
-        samples.generate_theta_jn('left_circ')
+    if "theta_jn" not in samples.keys() and kwargs.get("left_snr", None) is not None:
+        samples.generate_theta_jn(
+            'left_right', snr_left=kwargs.pop("left_snr"),
+            snr_right=kwargs.pop("right_snr")
+        )
+    elif "theta_jn" not in samples.keys():
+        samples.generate_theta_jn('uniform')
     if "distance" not in samples.keys():
         samples.generate_distance(fiducial_distance, fiducial_sigma, psd, f_low,
                                   dist_interp_dirs, interp_points, approximant)
@@ -682,6 +792,8 @@ def calculate_interpolated_snrs(
         psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points, approximant
     )
     samples.calculate_rho_2nd_pol(alpha_net, dominant_snr)
+    if ("chi_p" in prec_interp_dirs) and ("chi_p" not in samples.keys()):
+        samples['chi_p'] = samples['chi_p2']**0.5
     samples.calculate_rho_p(
         psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
     )
@@ -706,3 +818,14 @@ def reweight_based_on_observed_snrs(samples, **kwargs):
         samples = SimplePESamples(samples)
     samples.calculate_hm_prec_probs(**kwargs)
     return rejection_sampling(samples, samples['weight'])
+
+
+def isotropic_spin_prior_weight(samples, dx_directions):
+    from pesummary.core.reweight import rejection_sampling
+    if 'chi_p' in dx_directions:
+        weights = samples['chi_p'] * (1 - samples['chi_p'])
+    elif 'chi_p2' in dx_directions:
+        weights = 1 - samples['chi_p2']**0.5
+    else:
+        weights = np.ones_like(samples['chirp_mass'])
+    return rejection_sampling(samples, weights)

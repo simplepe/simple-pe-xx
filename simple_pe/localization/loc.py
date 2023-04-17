@@ -1,11 +1,9 @@
 import numpy as np
 from simple_pe.fstat import fstat
 from scipy import special
+from pesummary.core.reweight import rejection_sampling
 
 
-##################################################################
-# Helper functions
-##################################################################
 def evec_sigma(M):
     """
     Calculate the eigenvalues and vectors of M.
@@ -22,15 +20,62 @@ def evec_sigma(M):
     return evec, sigma
 
 
-##################################################################
-# Class to store localization information
-##################################################################
+def project_to_sky(x, y, event_xyz, gmst, evec, ellipse=False, sky_weight=False):
+    """
+     Project a set of points onto the sky.
+
+     :param x: x coordinates of points (relative to sky location)
+     :param y: y coordinate of points (relative to sky location)
+     :param event_xyz: xyz location of event
+     :param gmst: gmst of event
+     :param evec: localization eigenvectors
+     :param ellipse: is this an ellipse
+     :param sky_weight: re-weight to uniform on sky
+     """
+    # check that we're not going outside the unit circle
+    # if we are, first roll this to the beginning then truncate
+    bad = x ** 2 + y ** 2 > 1
+    if ellipse and sum(bad.flatten()) > 0:
+        # ensure we have a continuous shape
+        x = np.roll(x, -bad.argmax())
+        y = np.roll(y, -bad.argmax())
+        bad = np.roll(bad, -bad.argmax())
+
+    x = x[~bad]
+    y = y[~bad]
+
+    z = np.sqrt(1 - x ** 2 - y ** 2) * np.sign(np.inner(event_xyz, evec[:, 2]))
+
+    if sky_weight:
+        weights = abs(1./z)
+        weights /= weights.max()
+        x, y, z = rejection_sampling(np.array([x, y, z]).T, weights).T
+
+    # if we hit the edge then the localization region is 2 parts, above and below z=0 surface
+    if sum(bad.flatten()) > 0:
+        x = np.append(np.concatenate((x, x[::-1])), x[0])
+        y = np.append(np.concatenate((y, y[::-1])), y[0])
+        z = np.append(np.concatenate((z, -z[::-1])), z[0])
+
+    x_net = evec[:, 0]
+    y_net = evec[:, 1]
+    z_net = evec[:, 2]
+
+    r = {}
+    for i in range(3):
+        r[i] = x * x_net[i] + y * y_net[i] + z * z_net[i]
+    theta = np.arcsin(r[2] / np.sqrt(r[0] ** 2 + r[1] ** 2 + r[2] ** 2))
+    phi = (np.arctan2(r[1], r[0]) + gmst) % (2 * np.pi)
+
+    return phi, theta
+
+
 class Localization(object):
     """
     class to hold the details and results of localization based on a given method
     """
 
-    def __init__(self, method, event, mirror=False, p=0.9, Dmax=1000, area=0):
+    def __init__(self, method, event, mirror=False, p=0.9, d_max=1000, area=0):
         """
         Initialization
 
@@ -38,7 +83,7 @@ class Localization(object):
         :param event: details of event
         :param mirror: are we looking in the mirror location
         :param p: probability
-        :param Dmax: maximum distance to consider
+        :param d_max: maximum distance to consider
         """
         self.method = method
         self.mirror = mirror
@@ -68,7 +113,7 @@ class Localization(object):
 
         self.like = 0.
         if method != "time" and method != "marg":
-            self.approx_like(Dmax)
+            self.approx_like(d_max)
 
     def calculate_m(self):
         """
@@ -86,7 +131,7 @@ class Localization(object):
         for i1 in range(len(self.event.ifos)):
             for i2 in range(len(self.event.ifos)):
                 M += np.outer(locations[i1] - locations[i2],
-                           locations[i1] - locations[i2]) / (3e8) ** 2 \
+                           locations[i1] - locations[i2]) / 3e8 ** 2 \
                      * CC[i1, i2]
         self.M = M
 
@@ -130,11 +175,11 @@ class Localization(object):
         snr = np.linalg.norm(z)
         return z, snr
 
-    def approx_like(self, Dmax=1000):
+    def approx_like(self, d_max=1000):
         """
         Calculate the approximate likelihood, based on equations XXX
 
-        :param Dmax: maximum distance, used for normalization
+        :param d_max: maximum distance, used for normalization
         """
         if self.snr == 0:
             self.like = 0
@@ -144,10 +189,10 @@ class Localization(object):
         if (self.method == "left") or (self.method == "right"):
             cos_fac = np.sqrt((Fp ** 2 + Fc ** 2) / (Fp * Fc))
             cosf = min(cos_fac / np.sqrt(self.snr), 0.5)
-            self.like += np.log((self.D / Dmax) ** 3 / self.snr ** 2 * cosf)
+            self.like += np.log((self.D / d_max) ** 3 / self.snr ** 2 * cosf)
         else:
-            self.like += np.log(32. * (self.D / Dmax) ** 3 * self.D ** 4 / (Fp ** 2 * Fc ** 2)
-                             / (1 - self.cosi ** 2) ** 3)
+            self.like += np.log(32. * (self.D / d_max) ** 3 * self.D ** 4 / (Fp ** 2 * Fc ** 2)
+                                / (1 - self.cosi ** 2) ** 3)
 
     def sky_project(self):
         """
@@ -174,10 +219,15 @@ class Localization(object):
         # use the minimum (that's not nan)
         self.area = np.nanmin((ellipse, band))
 
-    def make_ellipse(self):
+    def make_ellipse(self, npts=101, scale=1.0):
         """
         Calculate the localization ellipse
+
+        :param npts: number of points
+        :param scale: factor by which to scale the ellipse
         """
+        scale *= np.sqrt(- 2 * np.log(1 - self.p))
+
         # check if the event is localized (in xyz), if so, use the projected matrix
         # if not, don't project
         evec, sigma = evec_sigma(self.M)
@@ -185,13 +235,8 @@ class Localization(object):
             evec = self.evec
             sigma = self.sigma
 
-        x_net = evec[:, 0]
-        y_net = evec[:, 1]
-        z_net = evec[:, 2]
-
         # set up co-ordinates
-        r = {}
-        ang = np.linspace(0, 2 * np.pi, 101)
+        ang = np.linspace(0, 2 * np.pi, npts)
 
         # normalization to get area for given p-value:
         if self.mirror:
@@ -199,33 +244,78 @@ class Localization(object):
         else:
             xyz = self.event.xyz
 
-        x = np.inner(xyz, x_net) + \
-            np.sqrt(- 2 * np.log(1 - self.p)) * sigma[0] * np.cos(ang)
-        y = np.inner(xyz, y_net) + \
-            np.sqrt(- 2 * np.log(1 - self.p)) * sigma[1] * np.sin(ang)
+        x = np.inner(xyz, evec[:, 0]) + scale * sigma[0] * np.cos(ang)
+        y = np.inner(xyz, evec[:, 1]) + scale * sigma[1] * np.sin(ang)
 
-        # check that we're not going outside of unit circle
-        # if we are, first roll this to the beginning then truncate
-        bad = x ** 2 + y ** 2 > 1
-        if sum(bad) > 0:
-            x = np.roll(x, -bad.argmax())
-            y = np.roll(y, -bad.argmax())
-            bad = np.roll(bad, -bad.argmax())
+        return project_to_sky(x, y, xyz, self.event.gmst, evec, ellipse=True)
 
-            x = x[~bad]
-            y = y[~bad]
+    def generate_loc_grid(self, npts=10, scale=1.):
+        """
+        Generate a grid of points with extent governed by the localization
 
-        z = np.sqrt(1 - x ** 2 - y ** 2) * np.sign(np.inner(xyz, z_net))
+        :param npts: number of points in each dimension of the grid
+        :param scale: factor by which to scale grid
+        :return grid_dict: SimplePESamples with grid of points and match at each point
+        """
+        scale *= np.sqrt(- 2 * np.log(1 - self.p))
 
-        # if we hit the edge then the localization region is 2 parts, above and below z=0 surface
-        if sum(bad) > 0:
-            x = np.append(np.concatenate((x, x[::-1])), x[0])
-            y = np.append(np.concatenate((y, y[::-1])), y[0])
-            z = np.append(np.concatenate((z, -z[::-1])), z[0])
+        evec, sigma = evec_sigma(self.M)
+        if sigma[2] < 1:
+            evec = self.evec
+            sigma = self.sigma
 
-        for i in range(3):
-            r[i] = x * x_net[i] + y * y_net[i] + z * z_net[i]
-        theta = np.arcsin(r[2] / np.sqrt(r[0] ** 2 + r[1] ** 2 + r[2] ** 2))
-        phi = np.arctan2(r[1], r[0])
+        # set up co-ordinates
+        grid = np.mgrid[-scale:scale:npts * 1j, -scale:scale:npts * 1j]
+
+        # normalization to get area for given p-value:
+        if self.mirror:
+            xyz = self.event.mirror_xyz
+        else:
+            xyz = self.event.xyz
+
+        x = np.inner(xyz, evec[:, 0]) + scale * sigma[0] * grid[0]
+        y = np.inner(xyz, evec[:, 1]) + scale * sigma[1] * grid[1]
+
+        return project_to_sky(x, y, xyz, self.event.gmst,evec)
+
+    def generate_samples(self, npts=int(1e5), sky_weight=True):
+        """
+        Generate a set of samples based on Gaussian distribution in localization eigendirections
+
+        :param npts: number of points to generate
+        :param sky_weight: weight points to be uniform on the sky
+        :return samples: phi, theta samples
+        """
+        if sky_weight:
+            safety_fac = 10
+        else:
+            safety_fac = 2
+
+        pts = np.random.normal(0, 1, [int(safety_fac * npts), 2])
+
+        evec, sigma = evec_sigma(self.M)
+        if sigma[2] < 1:
+            evec = self.evec
+            sigma = self.sigma
+
+        # normalization to get area for given p-value:
+        if self.mirror:
+            xyz = self.event.mirror_xyz
+        else:
+            xyz = self.event.xyz
+
+        x = np.inner(xyz, evec[:, 0]) + sigma[0] * pts[:, 0]
+        y = np.inner(xyz, evec[:, 1]) + sigma[1] * pts[:, 1]
+
+        phi, theta = project_to_sky(x, y, xyz, self.event.gmst, evec, sky_weight)
+
+        if len(theta) > npts:
+            keep = np.random.choice(len(theta), npts)
+            theta = theta[keep]
+            phi = phi[keep]
+
+        else:
+            print("Re-weighting resulted in fewer than requested trials")
 
         return phi, theta
+
