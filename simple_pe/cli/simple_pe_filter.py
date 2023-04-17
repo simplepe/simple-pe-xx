@@ -265,7 +265,7 @@ def _load_psd_from_file(
         )
         psd[ifo] = copy.deepcopy(psa)
         psd[ifo][0:len(p)] = p[:]
-    hm_psd = 3. / sum([1. / item for item in psd.values()])
+    hm_psd = len(psd) / sum([1. / item for item in psd.values()])
     psd["hm"] = hm_psd
     return psd
 

@@ -362,7 +362,7 @@ class FilterNode(Node):
                 prepend = int(512 / ht.delta_t)
                 ht.append_zeros(prepend)
                 ht.prepend_zeros(prepend)
-                strain = TimeSeries(ht, t0=ht.sample_times[0], dt=ht.delta_t)
+                strain = TimeSeries.from_pycbc(ht)
                 strain = strain.crop(injection_params["time"] - 512, injection_params["time"] + 512)
                 strain.name = f"{ifo}:HWINJ_INJECTED"
                 strain.channel = f"{ifo}:HWINJ_INJECTED"
