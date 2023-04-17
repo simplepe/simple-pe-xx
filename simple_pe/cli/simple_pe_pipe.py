@@ -344,6 +344,13 @@ class FilterNode(Node):
                 import json
                 with open(value, "r") as f:
                     injection_params = json.load(f)
+                # convert to pycbc convention
+                params_to_convert = [
+                    "mass_1", "mass_2", "spin_1x", "spin_1y", "spin_1z",
+                    "spin_2x", "spin_2y", "spin_2z"
+                ]
+                for param in params_to_convert:
+                    injection_params[param.replace("_", "")] = injection_params.pop(param)
                 hp, hc = get_td_waveform(**injection_params)
                 hp.start_time += injection_params["time"]
                 hc.start_time += injection_params["time"]
@@ -356,6 +363,7 @@ class FilterNode(Node):
                 ht.append_zeros(prepend)
                 ht.prepend_zeros(prepend)
                 strain = TimeSeries(ht, t0=ht.sample_times[0], dt=ht.delta_t)
+                strain = strain.crop(injection_params["time"] - 512, injection_params["time"] + 512)
                 strain.name = f"{ifo}:HWINJ_INJECTED"
                 strain.channel = f"{ifo}:HWINJ_INJECTED"
                 os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)

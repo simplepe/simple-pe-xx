@@ -85,42 +85,27 @@ documentation:
 .injections:
   extends: .metric
   script:
-    - "echo '{\"approximant\": \"IMRPhenomTPHM\", \"mass1\": '${mass1}', \"mass2\": '${mass2}', \"spin1x\": 0.'${spin1x}', \"spin1y\": 0.0, \"spin1z\": 0.'${spin1z}', \"spin2x\": 0.0, \"spin2y\": 0.0, \"spin_2z\": 0.'${spin2z}', \"distance\": 500, \"inclination\": 0.5, \"time\": 1126259462.2, \"ra\": 2.2, \"dec\": -1.2, \"psi\": 0.7, \"f_lower\": 15, \"delta_t\": 0.00390625}' > injection_params.json"
-    - "echo '{\"mass_1\": '${mass1}', \"mass_2\": '${mass2}', \"spin_1z\": 0.'${spin1z}', \"spin_2z\": 0.'${spin2z}', \"chi_p2\": 0.'${spin1x}', \"distance\": 1.0, \"inclination\": 0.5, \"time\": 1126259462.2, \"ra\": 2.2, \"dec\": -1.2, \"psi\": 0.7}' > trigger_parameters.json"
-    - simple_pe_pipe --truth injection_params.json --strain H1:INJ:injection_params.json L1:INJ:injection_params.json --approximant IMRPhenomXPHM --f_low 20 --f_high 2048 --accounting_group UNKNOWN --accounting_group_user albert.einstein --outdir ./outdir --trigger_parameters trigger_parameters.json --asd H1:GW150914_H1_asd.txt L1:GW150914_L1_asd.txt --metric_directions chirp_mass symmetric_mass_ratio chi_align chi_p2
-    - bash ./outdir/submit/bash_simple_pe.sh
-  retry:
-    max: 2
+    - cd examples/zero-noise
+    - bash zero-noise.sh
+    - mv ./outdir/output/peak_parameters.json ../../peak_parameters.json
+    - mv ./outdir/output/peak_snrs.json ../../peak_snrs.json
+    - mv ./outdir/output/corner.png ../../corner.png
+    - cd ../..
+  artifacts:
+    paths:
+        - peak_parameters.json
+        - peak_snrs.json
+        - corner.png
 
-GW150914:aligned_metric:
+GW150914:
   <<: *parallel_wvf
   extends: .metric
   variables:
     METRIC_DIRECTIONS: chirp_mass symmetric_mass_ratio chi_align
     PREC_DIRECTIONS: symmetric_mass_ratio chi_align chi_p
 
-GW150914:precession_metric:
-  extends: .metric
-  variables:
-    WVF: IMRPhenomXPHM # precession metric code doesn't work for TD approximants
-    METRIC_DIRECTIONS: chirp_mass symmetric_mass_ratio chi_align chi_p2
-    PREC_DIRECTIONS: symmetric_mass_ratio chi_align chi_p2
-
-
-.parallel_chip: &parallel_chip
-  parallel:
-    matrix:
-      - CHIP: [2, 6]
-
 injections:zero-noise:
-  <<: *parallel_chip
   extends: .injections
-  variables:
-    mass1: 40
-    mass2: 20
-    spin1x: ${CHIP} # multiplied by 10
-    spin1z: 3 # multiplied by 10
-    spin2z: 3 # multiplied by 10
 
 pages:
   stage: deploy
