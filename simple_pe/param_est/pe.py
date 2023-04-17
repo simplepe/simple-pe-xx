@@ -440,12 +440,12 @@ class SimplePESamples(SamplesDict):
                     return
 
         self['a_1'] = np.sqrt(self["chi_p"] ** 2 + s1z ** 2)
-        # # limit a_1 < 1
-        self['a_1'][self['a_1'] > 1.] = 1
+        # limit a_1 < 1
+        #self['a_1'][self['a_1'] > 1.] = 1
         self['tilt_1'] = np.arctan2(self["chi_p"], s1z)
         self['a_2'] = np.abs(s2z)
-        # # limit a_2 < 1
-        self['a_2'][self['a_2'] > 1.] = 1.
+        # limit a_2 < 1
+        #self['a_2'][self['a_2'] > 1.] = 1.
         self['tilt_2'] = np.arccos(np.sign(s2z))
         self.add_fixed('phi_12', 0.)
         self.add_fixed('phi_jl', 0.)
@@ -479,6 +479,8 @@ class SimplePESamples(SamplesDict):
                     self[d][v >= maxs[d]] = maxs[d]
                 if d in mins:
                     self[d][v <= mins[d]] = mins[d]
+                ind = self.parameters.index(d)
+                self.samples[ind] = self[d]
 
     def calculate_rho_lm(self, psd, f_low, net_snr, modes, interp_directions, interp_points=5,
                          approximant="IMRPhenomXPHM"):
