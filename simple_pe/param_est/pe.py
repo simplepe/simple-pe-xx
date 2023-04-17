@@ -113,6 +113,14 @@ def _add_chi_align(data):
 
 def convert(*args, **kwargs):
     from pesummary.gw.conversions import convert as _convert
+    if isinstance(args[0], dict):
+        _dict = args[0]
+        for key, value in _dict.items():
+            if not isinstance(value, (np.ndarray, list)):
+                _dict[key] = np.array([value])
+            elif isinstance(value[0], (np.ndarray, list)):
+                _dict[key] = Array(np.array(value).flatten())
+        args = (_dict,)
     data = _convert(*args, **kwargs)
     return _add_chi_align(data)
 
@@ -131,6 +139,8 @@ class SimplePESamples(SamplesDict):
             for key, item in args[0].items():
                 if isinstance(item, (float, int, np.number)):
                     _args[key] = [item]
+                elif isinstance(item[0], (np.ndarray, list)):
+                    _args[key] = Array(np.array(item).flatten())
                 else:
                     _args[key] = item
             args = (_args,)
