@@ -105,6 +105,7 @@ GW150914:
     PREC_DIRECTIONS: symmetric_mass_ratio chi_align chi_p
 
 injections:zero-noise:
+  <<: *parallel_wvf
   extends: .injections
 
 pages:
