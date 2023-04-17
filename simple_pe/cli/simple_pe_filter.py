@@ -106,7 +106,7 @@ def command_line():
         "--metric_directions",
         help="Directions to calculate metric",
         nargs="+",
-        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align', 'chi_p2']
+        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
     )
     return parser
 
@@ -350,12 +350,12 @@ def find_peak(
     peak_template.generate_prec_spin()
     peak_template.generate_all_posterior_samples(f_low=f_low, f_ref=f_low, delta_f=delta_f, disable_remnant=True)
     ifos = [key for key in psd.keys() if key != "hm"]
-    net_snr, ifo_snr, ifo_time = filter.matched_filter_network(
-        ifos, strain_f, psd, t_start, t_end, h, f_low
-    )
     h = metric.make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
+    )
+    net_snr, ifo_snr, ifo_time = filter.matched_filter_network(
+        ifos, strain_f, psd, t_start, t_end, h, f_low
     )
     # if necessary move away from equal mass
     if peak_template["mass_1"] == peak_template["mass_2"]:
