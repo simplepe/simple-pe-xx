@@ -357,6 +357,10 @@ class CornerNode(Node):
         self.create_pycondor_job()
 
     @property
+    def universe(self):
+        return "local"
+
+    @property
     def arguments(self):
         args = self._format_arg_lists(["truth"], [], [])
         args += [
