@@ -201,6 +201,12 @@ class SimplePESamples(SamplesDict):
         #     self["chi_p"] = np.sqrt(self["chi_p2"])
         if function is None:
             function = convert
+        if "a_1" in self.keys():
+            # limit a_1 < 1
+            self['a_1'][self['a_1'] > 1.] = 1
+        if "a_2" in self.keys():
+            # limit a_2 < 1
+            self['a_2'][self['a_2'] > 1.] = 1
         return super(SimplePESamples, self).generate_all_posterior_samples(
             function=function, **kwargs
         )
