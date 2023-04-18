@@ -86,7 +86,6 @@ executables:
     - sed -i "s/approximant=IMRPhenomXPHM/approximant=${WVF}/g" config.ini
     - simple_pe_pipe config.ini
     - bash ./outdir/submit/bash_simple_pe.sh
-    - bash zero-noise.sh
     - mv ./outdir/output/corner.png ../../${WVF}_injection_corner.png
     - cd ../..
   artifacts:
