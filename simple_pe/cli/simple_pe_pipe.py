@@ -321,21 +321,57 @@ class FilterNode(Node):
         _strain = {}
         for key, value in strain.items():
             ifo, channel = key.split(":")
-            if channel.lower() != "gwosc":
+            if channel.lower() not in ["gwosc", "inj"]:
                 _strain[key] = value
                 continue
-            gps = event_gps(value)
-            start, stop = int(gps) + 512, int(gps) - 512
-            open_data = TimeSeries.fetch_open_data(ifo, start, stop)
-            _channel = open_data.name
-            open_data.name = f"{ifo}:{_channel}"
-            open_data.channel = f"{ifo}:{_channel}"
-            os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
-            filename = (
-                f"{self.opts.outdir}/output/{ifo}-{_channel}-{int(gps)}.gwf"
-            )
-            open_data.write(filename)
-            _strain[f"{ifo}:{_channel}"] = filename
+            elif channel.lower() == "gwosc":
+                gps = event_gps(value)
+                start, stop = int(gps) + 512, int(gps) - 512
+                open_data = TimeSeries.fetch_open_data(ifo, start, stop)
+                _channel = open_data.name
+                open_data.name = f"{ifo}:{_channel}"
+                open_data.channel = f"{ifo}:{_channel}"
+                os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
+                filename = (
+                    f"{self.opts.outdir}/output/{ifo}-{_channel}-{int(gps)}.gwf"
+                )
+                open_data.write(filename)
+                _strain[f"{ifo}:{_channel}"] = filename
+            else:
+                # make waveform with independent code: pycbc.waveform.get_td_waveform
+                from pycbc.waveform import get_td_waveform, taper_timeseries
+                from pycbc.detector import Detector
+                import json
+                with open(value, "r") as f:
+                    injection_params = json.load(f)
+                # convert to pycbc convention
+                params_to_convert = [
+                    "mass_1", "mass_2", "spin_1x", "spin_1y", "spin_1z",
+                    "spin_2x", "spin_2y", "spin_2z"
+                ]
+                for param in params_to_convert:
+                    injection_params[param.replace("_", "")] = injection_params.pop(param)
+                hp, hc = get_td_waveform(**injection_params)
+                hp.start_time += injection_params["time"]
+                hc.start_time += injection_params["time"]
+                ra = injection_params["ra"]
+                dec = injection_params["dec"]
+                psi = injection_params["psi"]
+                ht = Detector(ifo).project_wave(hp, hc, ra, dec, psi)
+                ht = taper_timeseries(ht, tapermethod="TAPER_STARTEND")
+                prepend = int(512 / ht.delta_t)
+                ht.append_zeros(prepend)
+                ht.prepend_zeros(prepend)
+                strain = TimeSeries.from_pycbc(ht)
+                strain = strain.crop(injection_params["time"] - 512, injection_params["time"] + 512)
+                strain.name = f"{ifo}:HWINJ_INJECTED"
+                strain.channel = f"{ifo}:HWINJ_INJECTED"
+                os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
+                filename = (
+                    f"{self.opts.outdir}/output/{ifo}-INJECTION.gwf"
+                )
+                strain.write(filename)
+                _strain[f"{ifo}:HWINJ_INJECTED"] = filename
         return _strain
 
 

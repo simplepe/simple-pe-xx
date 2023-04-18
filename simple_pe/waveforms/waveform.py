@@ -56,16 +56,23 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
             harmonics = [0, 1]
         else:
             harmonics = [0]
-
-        h_plus = conversions.snr._calculate_precessing_harmonics(x["mass_1"][0], x["mass_2"][0],
-                                                                 x["a_1"][0], x["a_2"][0],
-                                                                 x["tilt_1"][0], x["tilt_2"][0],
-                                                                 x["phi_12"][0],
-                                                                 x["beta"][0], x["distance"][0],
-                                                                 harmonics=harmonics, approx=approximant,
-                                                                 mode_array=modes,
-                                                                 df=df, f_low=f_low,
-                                                                 f_ref=x["f_ref"][0])
+        # only works for FD approximants
+        try:
+            h_plus = conversions.snr._calculate_precessing_harmonics(
+                x["mass_1"][0], x["mass_2"][0], x["a_1"][0], x["a_2"][0],
+                x["tilt_1"][0], x["tilt_2"][0], x["phi_12"][0],
+                x["beta"][0], x["distance"][0], harmonics=harmonics,
+                approx=approximant, mode_array=modes, df=df, f_low=f_low,
+                f_ref=x["f_ref"][0]
+            )
+        except Exception:
+            h_plus = conversions.snr._calculate_precessing_harmonics(
+                x["mass_1"][0], x["mass_2"][0], x["a_1"][0], x["a_2"][0],
+                x["tilt_1"][0], x["tilt_2"][0], x["phi_12"][0],
+                x["beta"][0], x["distance"][0], harmonics=harmonics,
+                approx="IMRPhenomPv2", mode_array=modes, df=df, f_low=f_low,
+                f_ref=x["f_ref"][0]
+            )
         if return_hc:
             print('return_hc not available for precessing system')
         for k, h in h_plus.items():
