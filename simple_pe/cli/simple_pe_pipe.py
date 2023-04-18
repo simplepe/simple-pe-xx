@@ -1,12 +1,23 @@
 #! /usr/bin/env python
 
 from argparse import ArgumentParser
+from pesummary.core.command_line import ConfigAction as _ConfigAction
 import pycondor
 import os
 
 __authors__ = [
     "Charlie Hoy <charlie.hoy@ligo.org>",
 ]
+
+
+class ConfigAction(_ConfigAction):
+    @staticmethod
+    def dict_from_str(string, delimiter=":"):
+        mydict = _ConfigAction.dict_from_str(string, delimiter=delimiter)
+        for key, item in mydict.items():
+            if isinstance(item, list):
+                mydict[key] = item[0]
+        return mydict
 
 
 def command_line():
@@ -20,10 +31,14 @@ def command_line():
     )
     remove = ["--peak_parameters", "--peak_snrs"]
     for action in parser._actions[::-1]:
-        if action.option_strings[0] in remove:
+        if len(action.option_strings) and action.option_strings[0] in remove:
             parser._handle_conflict_resolve(
                 None, [(action.option_strings[0], action)]
             )
+    parser.add_argument(
+        "config_file", nargs="?", action=ConfigAction,
+        help="Configuration file containing command line arguments"
+    )
     parser.add_argument(
         "--truth",
         help="File containing the injected values. Used only for plotting",
@@ -33,12 +48,10 @@ def command_line():
     parser.add_argument(
         "--accounting_group_user",
         help="Accounting group user to use for this workflow",
-        required=True
     )
     parser.add_argument(
         "--accounting_group",
         help="Accounting group to use for this workflow",
-        required=True
     )
     return parser
 
@@ -319,13 +332,13 @@ class FilterNode(Node):
         from gwpy.timeseries import TimeSeries
         from gwosc.datasets import event_gps
         _strain = {}
-        for key, value in strain.items():
-            ifo, channel = key.split(":")
-            if channel.lower() not in ["gwosc", "inj"]:
-                _strain[key] = value
+        for ifo, value in strain.items():
+            if not any(_ in value.lower() for _ in ["gwosc", "inj"]):
+                _strain[ifo] = value
                 continue
-            elif channel.lower() == "gwosc":
-                gps = event_gps(value)
+            elif "gwosc" in value.lower():
+                _value = value.split("-")[1]
+                gps = event_gps(_value)
                 start, stop = int(gps) + 512, int(gps) - 512
                 open_data = TimeSeries.fetch_open_data(ifo, start, stop)
                 _channel = open_data.name
@@ -342,7 +355,8 @@ class FilterNode(Node):
                 from pycbc.waveform import get_td_waveform, taper_timeseries
                 from pycbc.detector import Detector
                 import json
-                with open(value, "r") as f:
+                _value = value.split("-")[1]
+                with open(_value, "r") as f:
                     injection_params = json.load(f)
                 # convert to pycbc convention
                 params_to_convert = [
@@ -411,6 +425,7 @@ def main(args=None):
     """
     parser = command_line()
     opts, _ = parser.parse_known_args(args=args)
+    print(opts)
     MainDag = Dag(opts)
     FilterJob = FilterNode(opts, MainDag)
     CornerJob = CornerNode(opts, MainDag)
