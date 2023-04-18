@@ -9,7 +9,7 @@ Below we analyse GW150914 (`Phys.Rev.Lett. 116 (2016) 6,061102 <https://doi.org/
 
 .. note::
 
-    The auxillary data can be downloaded from [here](https://git.ligo.org/stephen-fairhurst/simple-pe/-/tree/main/examples/GW150914).
+    The auxillary data can be downloaded from `here <https://git.ligo.org/stephen-fairhurst/simple-pe/-/tree/main/examples/GW150914>`_.
 
 Below is a corner plot showing the obtained posterior distribution when using the :code:`IMRPhenomXPHM` waveform model (`Phys.Rev.D 103 (2021) 10,104056 <https://doi.org/10.1103/PhysRevD.103.104056>`_):
 
