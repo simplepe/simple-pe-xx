@@ -71,7 +71,9 @@ documentation:
     - python -m pip install simple-pe*.tar.*
   script:
     - cd examples/GW150914
-    - bash GW150914.sh
+    - sed -i "s/approximant=IMRPhenomXPHM/approximant=${WVF}/g" config.ini
+    - simple_pe_pipe config.ini
+    - bash ./outdir/submit/bash_simple_pe.sh
     - mv ./outdir/output/peak_parameters.json ../../peak_parameters.json
     - mv ./outdir/output/peak_snrs.json ../../peak_snrs.json
     - mv ./outdir/output/corner.png ../../corner.png
@@ -86,6 +88,9 @@ documentation:
   extends: .metric
   script:
     - cd examples/zero-noise
+    - sed -i "s/approximant=IMRPhenomXPHM/approximant=${WVF}/g" config.ini
+    - simple_pe_pipe config.ini
+    - bash ./outdir/submit/bash_simple_pe.sh
     - bash zero-noise.sh
     - mv ./outdir/output/peak_parameters.json ../../peak_parameters.json
     - mv ./outdir/output/peak_snrs.json ../../peak_snrs.json
@@ -100,9 +105,6 @@ documentation:
 GW150914:
   <<: *parallel_wvf
   extends: .metric
-  variables:
-    METRIC_DIRECTIONS: chirp_mass symmetric_mass_ratio chi_align
-    PREC_DIRECTIONS: symmetric_mass_ratio chi_align chi_p
 
 injections:zero-noise:
   <<: *parallel_wvf

@@ -26,7 +26,6 @@ def command_line():
             "JSON file containing peak parameters generated with "
             "the `simple_pe_analysis` executable"
         ),
-        required=True
     )
     parser.add_argument(
         "--peak_snrs",
@@ -34,7 +33,6 @@ def command_line():
             "JSON file containing peak SNRs generated with the "
             "`simple_pe_analysis` executable"
         ),
-        required=True
     )
     parser.add_argument(
         "--asd",
