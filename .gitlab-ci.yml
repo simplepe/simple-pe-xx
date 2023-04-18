@@ -8,6 +8,7 @@ stages:
   - build
   - basic
   - pipeline
+  - docs
   - deploy
 
 .parallel_wvf: &parallel_wvf
@@ -34,6 +35,18 @@ conda:
     - conda install --file environment.txt
     - python -m pip install .
 
+style:
+  extends:
+    # https://computing.docs.ligo.org/gitlab-ci-templates/python/#.python:flake8
+    - .python:flake8
+  stage: basic
+  needs: []
+  variables:
+    # don't fail the pipeline because of linting issues,
+    # these are presented in the code-quality box in the
+    # merge_request UI
+    FLAKE8_OPTIONS: "--exit-zero"
+
 executables:
   stage: basic
   image: python:3.8
@@ -46,20 +59,6 @@ executables:
     - simple_pe_corner --help
     - simple_pe_filter --help
     - simple_pe_pipe --help
-
-documentation:
-  stage: basic
-  image: python:3.7
-  needs:
-    - tarball
-  before_script:
-    - python -m pip install .[docs]
-    - python -m pip install simple-pe*.tar.*
-  script:
-    - cd docs && make html
-  artifacts:
-    paths:
-      - docs/build/html/
 
 .metric:
   stage: pipeline
@@ -74,15 +73,11 @@ documentation:
     - sed -i "s/approximant=IMRPhenomXPHM/approximant=${WVF}/g" config.ini
     - simple_pe_pipe config.ini
     - bash ./outdir/submit/bash_simple_pe.sh
-    - mv ./outdir/output/peak_parameters.json ../../peak_parameters.json
-    - mv ./outdir/output/peak_snrs.json ../../peak_snrs.json
-    - mv ./outdir/output/corner.png ../../corner.png
+    - mv ./outdir/output/corner.png ../../${WVF}_GW150914_corner.png
     - cd ../..
   artifacts:
     paths:
-        - peak_parameters.json
-        - peak_snrs.json
-        - corner.png
+        - ${WVF}_GW150914_corner.png
 
 .injections:
   extends: .metric
@@ -92,15 +87,11 @@ documentation:
     - simple_pe_pipe config.ini
     - bash ./outdir/submit/bash_simple_pe.sh
     - bash zero-noise.sh
-    - mv ./outdir/output/peak_parameters.json ../../peak_parameters.json
-    - mv ./outdir/output/peak_snrs.json ../../peak_snrs.json
-    - mv ./outdir/output/corner.png ../../corner.png
+    - mv ./outdir/output/corner.png ../../${WVF}_injection_corner.png
     - cd ../..
   artifacts:
     paths:
-        - peak_parameters.json
-        - peak_snrs.json
-        - corner.png
+        - ${WVF}_injection_corner.png
 
 GW150914:
   <<: *parallel_wvf
@@ -109,6 +100,27 @@ GW150914:
 injections:zero-noise:
   <<: *parallel_wvf
   extends: .injections
+
+documentation:
+  stage: docs
+  image: python:3.7
+  needs:
+    - tarball
+    - GW150914
+    - injections:zero-noise
+  before_script:
+    - python -m pip install .[docs]
+    - python -m pip install simple-pe*.tar.*
+  script:
+    - mkdir -p docs/source/images
+    - mv IMRPhenomXPHM_GW150914_corner.png docs/source/images
+    - mv IMRPhenomTPHM_GW150914_corner.png docs/source/images
+    - mv IMRPhenomXPHM_injection_corner.png docs/source/images
+    - mv IMRPhenomTPHM_injection_corner.png docs/source/images
+    - cd docs && make html
+  artifacts:
+    paths:
+      - docs/build/html/
 
 pages:
   stage: deploy
