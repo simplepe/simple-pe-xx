@@ -110,6 +110,7 @@ documentation:
     - python -m pip install .[docs]
     - python -m pip install simple-pe*.tar.*
   script:
+    - mkdir -p docs/source/images
     - mv IMRPhenomXPHM_GW150914_corner.png docs/source/images
     - mv IMRPhenomTPHM_GW150914_corner.png docs/source/images
     - mv IMRPhenomXPHM_injection_corner.png docs/source/images
