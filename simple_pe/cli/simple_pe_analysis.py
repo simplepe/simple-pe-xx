@@ -26,7 +26,6 @@ def command_line():
             "JSON file containing peak parameters generated with "
             "the `simple_pe_analysis` executable"
         ),
-        required=True
     )
     parser.add_argument(
         "--peak_snrs",
@@ -34,7 +33,6 @@ def command_line():
             "JSON file containing peak SNRs generated with the "
             "`simple_pe_analysis` executable"
         ),
-        required=True
     )
     parser.add_argument(
         "--asd",
@@ -97,13 +95,13 @@ def command_line():
         "--metric_directions",
         help="Directions to calculate metric",
         nargs="+",
-        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align', 'chi_p2']
+        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align', 'chi_p']
     )
     parser.add_argument(
         "--precession_directions",
         help="Directions for precession",
         nargs="+",
-        default=['symmetric_mass_ratio', 'chi_align', 'chi_p2']
+        default=['symmetric_mass_ratio', 'chi_align', 'chi_p']
     )
     parser.add_argument(
         "--multipole_directions",

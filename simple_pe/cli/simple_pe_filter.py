@@ -37,7 +37,6 @@ def command_line():
         "--trigger_parameters",
         help="json file containing the trigger parameters",
         action=CheckFilesExistAction,
-        required=True,
     )
     parser.add_argument(
         "--strain",
@@ -49,7 +48,6 @@ def command_line():
         nargs="+",
         default={},
         action=DictionaryAction,
-        required=True,
     )
     parser.add_argument(
         "--asd",
