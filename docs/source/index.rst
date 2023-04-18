@@ -24,7 +24,10 @@ Welcome to simple-pe's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-
+.. toctree::
+    GW150914
+    :maxdepth: 1
+    :caption: Examples:
 
 Indices and tables
 ==================
