@@ -63,9 +63,7 @@ executables:
     - cd ../..
   artifacts:
     paths:
-        - peak_parameters.json
-        - peak_snrs.json
-        - corner.png
+        - ${WVF}_GW150914_corner.png
 
 .injections:
   extends: .metric
@@ -76,9 +74,7 @@ executables:
     - cd ../..
   artifacts:
     paths:
-        - peak_parameters.json
-        - peak_snrs.json
-        - corner.png
+        - ${WVF}_injection_corner.png
 
 GW150914:
   <<: *parallel_wvf

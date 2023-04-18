@@ -1,7 +1,7 @@
 Analysing GW150914
 ==================
 
-Below we analyse GW150914 through the :code:`simple-pe-pipe` executable. The following script can be used:
+Below we analyse GW150914 (`Phys.Rev.Lett. 116 (2016) 6,061102 <https://doi.org/10.1103/PhysRevLett.116.061102>`_, `Phys.Rev.Lett. 116 (2016) 24,241102 <https://doi.org/10.1103/PhysRevLett.116.241102>`_) through the :code:`simple-pe-pipe` executable. The following script can be used:
 
 .. literalinclude:: ../../examples/GW150914/GW150914.sh
     :language: bash
@@ -11,11 +11,11 @@ Below we analyse GW150914 through the :code:`simple-pe-pipe` executable. The fol
 
     The auxillary data can be downloaded from [here](https://git.ligo.org/stephen-fairhurst/simple-pe/-/tree/main/examples/GW150914).
 
-Below is a corner plot showing the obtained posterior distribution when using the :code:`IMRPhenomXPHM` waveform model:
+Below is a corner plot showing the obtained posterior distribution when using the :code:`IMRPhenomXPHM` waveform model (`Phys.Rev.D 103 (2021) 10,104056 <https://doi.org/10.1103/PhysRevD.103.104056>`_):
 
 .. image:: ./images/IMRPhenomXPHM_GW150914_corner.png
 
-and below is a corner plot showing the obtained posterior distribution when using the :code:`IMRPhenomTPHM` waveform model:
+and below is a corner plot showing the obtained posterior distribution when using the :code:`IMRPhenomTPHM` waveform model (`Phys.Rev.D 105 (2022) 8,084040 <https://doi.org/10.1103/PhysRevD.105.084040>`_):
 
 .. image:: ./images/IMRPhenomTPHM_GW150914_corner.png
 
