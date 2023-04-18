@@ -1,11 +1,17 @@
 Analysing GW150914
 ==================
 
-Below we analyse GW150914 (`Phys.Rev.Lett. 116 (2016) 6,061102 <https://doi.org/10.1103/PhysRevLett.116.061102>`_, `Phys.Rev.Lett. 116 (2016) 24,241102 <https://doi.org/10.1103/PhysRevLett.116.241102>`_) through the :code:`simple-pe-pipe` executable. The following script can be used:
+Below we analyse GW150914 (`Phys.Rev.Lett. 116 (2016) 6,061102 <https://doi.org/10.1103/PhysRevLett.116.061102>`_, `Phys.Rev.Lett. 116 (2016) 24,241102 <https://doi.org/10.1103/PhysRevLett.116.241102>`_) through the :code:`simple_pe_pipe` executable. The following config file can be used:
 
-.. literalinclude:: ../../examples/GW150914/GW150914.sh
-    :language: bash
+.. literalinclude:: ../../examples/GW150914/config.ini
+    :language: ini
     :linenos:
+
+and this can be launched with:
+
+.. code-block:: bash
+
+    simple_pe_pipe config.ini
 
 .. note::
 

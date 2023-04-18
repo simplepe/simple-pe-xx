@@ -1,11 +1,17 @@
 Analysing a zero-noise injection
 ================================
 
-Below we analyse a zero-noise injection through the :code:`simple-pe-pipe` executable. Rather than generating the frame files ourselves, :code:`simple-pe-pipe` can produce them if we provide an `injection_parameters.json` file. The following script can be used:
+Below we analyse a zero-noise injection through the :code:`simple-pe-pipe` executable. Rather than generating the frame files ourselves, :code:`simple_pe_pipe` can produce them if we provide an `injection_params.json` file. The following config file can be used:
 
-.. literalinclude:: ../../examples/zero-noise/zero-noise.sh
-    :language: bash
+.. literalinclude:: ../../examples/zero-noise/config.ini
+    :language: ini
     :linenos:
+
+and this can be launched with:
+
+.. code-block:: bash
+
+    simple_pe_pipe config.ini
 
 .. note::
 
