@@ -12,12 +12,15 @@ def detectors(ifos):
 
     Parameters
     ----------
-    ifos: a list of IFOs
+    ifos: list
+        a list of IFOs
 
     Returns
     -------
-    location: a dictionary of detector locations
-    response: a dictionary of the detector responses
+    location: dict
+        a dictionary of detector locations
+    response: dict
+        a dictionary of the detector responses
     """
     location = {}
     response = {}
@@ -42,13 +45,19 @@ def calc_location_response(longitude, latitude, arms):
 
     Parameters
     ----------
-    longitude: the longitude
-    latitude: the latitude
-    arms: the angle between the arms
+    longitude: float
+        the longitude
+    latitude: float
+        the latitude
+    arms: float
+        the angle between the arms
 
     Returns
     -------
-     location, response: the detector location and response
+     location: np.array
+        the detector location
+     response: np.array
+        the detector response
     """
     phi = np.radians(longitude)
     theta = np.radians(latitude)
@@ -79,8 +88,10 @@ def xyz(phi, theta):
 
     Parameters
     ----------
-    phi: azimuthal angle
-    theta: inclination angle
+    phi: float
+        azimuthal angle
+    theta: float
+        inclination angle
 
     Returns
     -------
@@ -99,12 +110,15 @@ def phitheta(loc):
 
     Parameters
     ----------
-    loc: array of (x, y, z) locations
+    loc: np.array
+        (x, y, z) locations
 
     Returns
     -------
-    phi: azimuthal angle
-    theta: inclination angle
+    phi: float
+        azimuthal angle
+    theta:
+        inclination angle
     """
     x = loc[0]
     y = loc[1]
@@ -121,11 +135,13 @@ def range_8(configuration):
 
     Parameters
     ----------
-    configuration: the name of the network configuration
+    configuration: str
+        the name of the network configuration
 
     Returns
     -------
-    range_dict: dictionary of ranges for ifos in network
+    range_dict: dict
+        dictionary of ranges for ifos in network
     """
     range_dict_all = {
         "design": {'H1': 197.5, 'L1': 197.5, 'V1': 128.3},
@@ -165,11 +181,13 @@ def bandwidth(configuration):
 
     Parameters
     ----------
-    configuration: the name of the network configuration
+    configuration: str
+        the name of the network configuration
 
     Returns
     -------
-    bandwidth_dict: dictionary of bandwidths for ifos in network
+    bandwidth_dict: dict
+        dictionary of bandwidths for ifos in network
     """
     bandwidth_dict_all = {
         "design": {'H1': 117.4, 'L1': 117.4, 'V1': 148.9},
@@ -209,11 +227,13 @@ def fmean(configuration):
 
     Parameters
     ----------
-    configuration: the name of the network configuration
+    configuration: str
+        the name of the network configuration
 
     Returns
     -------
-    fmean_dict: dictionary of mean frequencies for ifos in network
+    fmean_dict: dict
+        dictionary of mean frequencies for ifos in network
     """
     fmean_dict_all = {
         "steve": {'H1': 100.0, 'L1': 100.0, 'V1': 100.0, "I1": 100.0},
@@ -245,11 +265,13 @@ def sigma_t(configuration):
 
     Parameters
     ----------
-    configuration: the name of the network configuration
+    configuration: str
+        the name of the network configuration
 
     Returns
     -------
-    sigma_t_dict: dictionary of timing accuracies for ifos in network
+    sigma_t_dict: dict
+        dictionary of timing accuracies for ifos in network
     """
     b = bandwidth(configuration)
     r = range_8(configuration)
