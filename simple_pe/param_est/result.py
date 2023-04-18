@@ -51,6 +51,14 @@ class Result(GWSingleAnalysisRead):
     @property
     def snrs(self):
         return self._snrs
+
+    @property
+    def left_snr(self):
+        return self._snrs.get("left", None)
+
+    @property
+    def right_snr(self):
+        return self._snrs.get("right", None)
     
     @property
     def alpha_net(self):
@@ -108,6 +116,7 @@ class Result(GWSingleAnalysisRead):
         self, metric_directions, prec_interp_dirs, hm_interp_dirs,
         dist_interp_dirs, modes=['33'], alpha_net=None, interp_points=7,
         template_parameters=None, dominant_snr=None,
+        reweight_to_isotropic_spin_prior=True
     ):
         import time
         t0 = time.time()
@@ -120,12 +129,15 @@ class Result(GWSingleAnalysisRead):
         self.generate_samples_from_metric(
             metric_directions, self.template_parameters, self.snrs['22']
         )
+        if reweight_to_isotropic_spin_prior:
+            self.reweight_samples(
+                pe.isotropic_spin_prior_weight, dx_directions=self.metric.dx_directions
+            )
         self.generate_all_posterior_samples(
             function=pe.calculate_interpolated_snrs,
             psd=self.psd,
             f_low=self.f_low,
             dominant_snr=self.snrs['22'],
-            approximant=self.approximant,
             modes=modes,
             alpha_net=self.alpha_net,
             response_sigma=self.response_sigma,
@@ -134,14 +146,18 @@ class Result(GWSingleAnalysisRead):
             dist_interp_dirs=dist_interp_dirs,
             hm_interp_dirs=hm_interp_dirs,
             prec_interp_dirs=prec_interp_dirs,
-            interp_points=interp_points
+            interp_points=interp_points,
+            approximant=self.approximant,
+            left_snr=self.left_snr,
+            right_snr=self.right_snr
         )
         self.reweight_samples(
             pe.reweight_based_on_observed_snrs,
             hm_snr={'33': self.snrs['33']},
             prec_snr=self.snrs['prec'],
-            snr_2pol=self.snrs['not_right'],
-            ignore_debug_params=['p_', 'weight']
+            snr_2pol={
+                "not_right": self.snrs['not_right'], "not_left": self.snrs["not_left"]
+            }, ignore_debug_params=['p_', 'weight']
         )
         print(f"Total time taken: {time.time() - t0:.2f}s")
         return self.samples_dict
