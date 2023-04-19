@@ -21,7 +21,6 @@ simple_pe.detectors.network module
 
 simple_pe.detectors.detectors module
 ------------------------------------
-<<<<<<< HEAD
 .. automodule:: simple_pe.detectors.dets
     :members:
     :undoc-members:
@@ -35,12 +34,6 @@ simple_pe.detectors.network module
     :undoc-members:
     :show-inheritance:
 
-simple_pe.detectors.detectors module
-------------------------------------
-.. automodule:: simple_pe.detectors.detectors
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 simple_pe.detectors.noise_curves module
 ---------------------------------------

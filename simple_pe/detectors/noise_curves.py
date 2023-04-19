@@ -119,8 +119,8 @@ def calc_detector_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, waveform=
         return sig / snr
 
 
-def interpolate_horizon(min_mass, max_mass, q, spin, power_spec, fmin, snr, waveform='IMRPhenomD', 
-                        triangle=False):
+def interpolate_horizon(min_mass, max_mass, q, spin, power_spec, fmin, snr,
+                        waveform='IMRPhenomD', triangle=False):
     """
     Generate an interpolation function for the horizon [in the detector frame] for a binary
     with total mass between min_mass and max_mass, with given mass ratio
