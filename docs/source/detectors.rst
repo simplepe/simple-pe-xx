@@ -28,14 +28,6 @@ simple_pe.detectors.detectors module
     :undoc-members:
     :show-inheritance:
 
-simple_pe.detectors.psd module
-------------------------------
-
-.. automodule:: simple_pe.detectors.psd
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 simple_pe.detectors.noise_curves module
 ---------------------------------------
 
