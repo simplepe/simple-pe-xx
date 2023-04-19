@@ -15,25 +15,18 @@ class Metric:
 
     :param x: dictionary with parameter values for initial point
     :param dx_directions: a list of directions to vary
+    :param mismatch: the mismatch value to use when calculating metric
     :param f_low: low frequency cutoff
     :param psd: the power spectrum to use in calculating the match
     :param approximant: the approximant generator to use
-    :return gij: a square matrix, with size given by the length of dxs, that gives the
-    metric at x along the directions given by dxs
+    :param tolerance: tolerance for scaling vectors
+    :param prob: probability to enclose within ellipse
+    :param snr: snr of signal, used in scaling mismatch
     """
 
     def __init__(self, x, dx_directions, mismatch, f_low, psd,
                  approximant="IMRPhenomD", tolerance=1e-2, prob=None, snr=None):
         """
-        :param x: dictionary with parameter values for initial point
-        :param dx_directions: a list of directions to vary
-        :param mismatch: the mismatch value to use when calculating metric
-        :param f_low: low frequency cutoff
-        :param psd: the power spectrum to use in calculating the match
-        :param approximant: the approximant generator to use
-        :param tolerance: tolerance for scaling vectors
-        :param prob: probability to enclose within ellipse
-        :param snr: snr of signal, used in scaling mismatch
         """
         self.x = SimplePESamples(x)
         if 'distance' not in self.x:
@@ -80,6 +73,9 @@ class Metric:
         self.dxs = SimplePESamples(SamplesDict(self.dx_directions, self.dxs.samples * scale))
 
     def calculate_metric(self):
+        """
+        Calculate the metric using the existing basis vectors, stored as self.dxs.
+        """
         scaling = 1.
         gij = np.zeros([self.ndim, self.ndim])
 
@@ -109,33 +105,33 @@ class Metric:
 
     def physical_metric(self):
         """
-        A function to calculate the metric in physical coordinates
+        Calculate the metric in physical coordinates
         """
         dx_inv = np.linalg.inv(self.dxs.samples)
         self.metric = np.matmul(dx_inv.T, np.matmul(self.coordinate_metric, dx_inv))
 
     def calculate_evecs(self):
         """
-        A function to calculate the eigenvectors and eigenvalues of the metric gij
+        Calculate the eigenvectors and eigenvalues of the metric gij
         """
         self.evals, self.evec = np.linalg.eig(self.metric)
 
     def normalized_evecs(self):
         """
-        Return the evecs normalized to give the desired mismatch
+        Return the eigenvectors normalized to give the desired mismatch
         """
         if self.evec is None:
             self.calculate_evecs()
         # always force to be positive to avoid negatives in sqrt
         self.evals[self.evals < 0] = np.abs(self.evals[self.evals < 0])
-        return SimplePESamples(SamplesDict(self.dx_directions, self.evec * np.sqrt(self.mismatch / self.evals)))
+        return SimplePESamples(SamplesDict(self.dx_directions, self.evec *
+                                           np.sqrt(self.mismatch / self.evals)))
 
     def calc_metric_error(self):
         """
         We are looking for a metric and corresponding basis for which the
         basis is orthogonal and whose normalization is given by the desired mismatch
         This function checks for the largest error
-
         """
         vgv = np.matmul(self.dxs.samples.T, np.matmul(self.metric, self.dxs.samples))
         off_diag = np.max(abs(vgv[~np.eye(self.metric.shape[0], dtype=bool)]))
@@ -144,7 +140,7 @@ class Metric:
 
     def update_metric(self):
         """
-        A function to re-calculate the metric gij based on the matches obtained
+        Re-calculate the metric gij based on the matches obtained
         for the eigenvectors of the original metric
         """
         # calculate the eigendirections of the matrix
@@ -158,6 +154,8 @@ class Metric:
         """
         A method to re-calculate the metric gij based on the matches obtained
         for the eigenvectors of the original metric
+        :param max_iter: maximum number of iterations
+        :param verbose: print information messages during update
         """
         tol = self.tolerance * self.mismatch
         self.calc_metric_error()
@@ -187,7 +185,6 @@ class Metric:
     def project_metric(self, projected_directions):
         """
         Project out the unwanted directions of the metric
-
         :param projected_directions: list of parameters that we want to keep
         """
         self.projected_directions = projected_directions
@@ -217,9 +214,8 @@ class Metric:
     def generate_ellipse(self, npts=100, projected=False, scale=1.):
         """
         Generate an ellipse of points of the stored mismatch.  Scale the radius by a factor `scale'
-        If the metric is projected, and we know the snr, then scale the mismatch appropriately for the number
-        of projected dimensions.
-
+        If the metric is projected, and we know the snr, then scale the mismatch appropriately
+        for the number of projected dimensions.
         :param npts: number of points in the ellipse
         :param projected: use the projected metric if True, else use metric
         :param scale: scaling to apply to the mismatch
