@@ -279,6 +279,7 @@ class SimplePESamples(SamplesDict):
         """
         generate distance points using the existing theta_JN samples and fiducial distance.
         interpolate sensitivity over the parameter space
+
         :param fiducial_distance: distance for a fiducial set of parameters
         :param fiducial_sigma: the range for a fiducial set of parameters
         :param psd: the PSD to use
@@ -317,6 +318,7 @@ class SimplePESamples(SamplesDict):
         """
         jitter distance values based upon existing distances
         jitter due to SNR and variation of network response
+
         :param net_snr: the network SNR
         :param response_sigma: standard deviation of network response (over sky)
         """
@@ -344,7 +346,7 @@ class SimplePESamples(SamplesDict):
         """
         generate chi_p points with the desired distribution and include in the existing samples dict
 
-        :param chi_p_dist: the distribution to use for chi_p. Currently supports 'uniform'
+        :param chi_p_dist: the distribution to use for chi_p. Currently supports 'uniform' and 'isotropic_on_sky'
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
         param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
