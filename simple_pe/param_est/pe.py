@@ -1,7 +1,7 @@
 import numpy as np
 import copy
 from scipy import interpolate
-from simple_pe.waveforms import waveform_modes, waveform
+from simple_pe.waveforms import parameter_bounds, waveform_modes
 from simple_pe.detectors import noise_curves
 from simple_pe.fstat import fstat_hm
 from pesummary.utils.array import Array
@@ -397,10 +397,10 @@ class SimplePESamples(SamplesDict):
         :return physical_samples: SamplesDict with points outside the param max and min given
         """
         if mins is None:
-            mins = waveform.param_mins
+            mins = parameter_bounds.param_mins
 
         if maxs is None:
-            maxs = waveform.param_maxs
+            maxs = parameter_bounds.param_maxs
 
         if not set_to_bounds:
             keep = np.ones(self.number_of_samples, bool)
