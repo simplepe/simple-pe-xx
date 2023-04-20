@@ -156,7 +156,7 @@ class Metric:
         :param max_iter: maximum number of iterations
         :param verbose: print information messages during update
         """
-        tol = self.tolerance * self.mismatch
+        tol = float(self.tolerance * self.mismatch)
         self.calc_metric_error()
 
         op = 0
@@ -165,19 +165,19 @@ class Metric:
             base_desc = "Calculating the metric | iteration {} < {} | error {:.2g} > {:.2g}"
             pbar = tqdm(
                 np.arange(max_iter), bar_format="{desc}",
-                desc=base_desc.format(op, max_iter, self.err, tol[0])
+                desc=base_desc.format(op, max_iter, self.err, tol)
             )
         while (self.err > tol) and (op < max_iter):
             self.update_metric()
             self.calc_metric_error()
             op += 1
             if verbose:
-                pbar.set_description(base_desc.format(op, max_iter, self.err, tol[0]))
+                pbar.set_description(base_desc.format(op, max_iter, self.err, tol))
                 pbar.update(1)
 
         if self.err > tol:
             pbar.set_description(
-                f"Failed to achieve requested tolerance.  Requested: {tol[0]:.2g} "
+                f"Failed to achieve requested tolerance.  Requested: {tol:.2g} "
                 f"achieved {self.err:.2g}"
             )
 
