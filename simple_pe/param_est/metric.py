@@ -1,11 +1,10 @@
 import numpy as np
 from pycbc.filter import match
-import copy
 from scipy import optimize
 from scipy.stats import chi2
-from simple_pe.param_est.pe import SimplePESamples, param_mins, param_maxs, param_bounds
+from simple_pe.param_est.pe import SimplePESamples
 from pesummary.utils.samples_dict import SamplesDict
-from simple_pe.waveforms.waveform import make_waveform
+from simple_pe.waveforms import waveform
 
 
 class Metric:
@@ -157,7 +156,7 @@ class Metric:
         :param max_iter: maximum number of iterations
         :param verbose: print information messages during update
         """
-        tol = self.tolerance * self.mismatch
+        tol = float(self.tolerance * self.mismatch)
         self.calc_metric_error()
 
         op = 0
@@ -166,19 +165,19 @@ class Metric:
             base_desc = "Calculating the metric | iteration {} < {} | error {:.2g} > {:.2g}"
             pbar = tqdm(
                 np.arange(max_iter), bar_format="{desc}",
-                desc=base_desc.format(op, max_iter, self.err, tol[0])
+                desc=base_desc.format(op, max_iter, self.err, tol)
             )
         while (self.err > tol) and (op < max_iter):
             self.update_metric()
             self.calc_metric_error()
             op += 1
             if verbose:
-                pbar.set_description(base_desc.format(op, max_iter, self.err, tol[0]))
+                pbar.set_description(base_desc.format(op, max_iter, self.err, tol))
                 pbar.update(1)
 
         if self.err > tol:
             pbar.set_description(
-                f"Failed to achieve requested tolerance.  Requested: {tol[0]:.2g} "
+                f"Failed to achieve requested tolerance.  Requested: {tol:.2g} "
                 f"achieved {self.err:.2g}"
             )
 
@@ -247,7 +246,7 @@ class Metric:
         # scale to be physical
         alphas = np.zeros(npts)
         for i in range(npts):
-            alphas[i] = check_physical(self.x, dx[i:i + 1], 1.)
+            alphas[i] = waveform.check_physical(self.x, dx[i:i + 1], 1.)
 
         ellipse_dict = SimplePESamples(SamplesDict(dx_dirs,
                                                    np.array([self.x[dx] for dx in dx_dirs]).reshape(
@@ -285,14 +284,14 @@ class Metric:
 
         dx = SimplePESamples(SamplesDict(dx_dirs, dx_data.reshape(len(dx_dirs), npts ** 2)))
 
-        h0 = make_waveform(self.x, self.psd.delta_f, self.f_low, len(self.psd), self.approximant)
+        h0 = waveform.make_waveform(self.x, self.psd.delta_f, self.f_low, len(self.psd), self.approximant)
 
         m = np.zeros(dx.number_of_samples)
         for i in range(dx.number_of_samples):
-            if check_physical(self.x, dx[i:i + 1], 1.) < 1:
+            if waveform.check_physical(self.x, dx[i:i + 1], 1.) < 1:
                 m[i] = 0
             else:
-                h1 = make_offset_waveform(self.x, dx[i:i + 1], 1.,
+                h1 = waveform.make_offset_waveform(self.x, dx[i:i + 1], 1.,
                                           self.psd.delta_f, self.f_low, len(self.psd), self.approximant)
                 m[i] = match(h0, h1, self.psd, self.f_low, subsample_interpolation=True)[0]
 
@@ -348,131 +347,6 @@ class Metric:
         return sample_pts
 
 
-def offset_params(x, dx, scaling):
-    """
-    Update the parameters x by moving to a value (x + scaling * dx)
-
-    :param x: dictionary with parameter values for initial point
-    :param dx: dictionary with parameter variations (can be a subset of the parameters in x)
-    :param scaling: the scaling to apply to dx
-    :return x_prime: parameter space point x + scaling * dx
-    """
-    x_prime = copy.deepcopy(x)
-
-    for k, dx_val in dx.items():
-        if k not in x_prime:
-            print("Value for %s not given at initial point" % k)
-            return -1
-
-        x_prime[k] += float(scaling * dx_val)
-
-    return x_prime
-
-
-def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenomD", harm2=False):
-    """
-    This function makes a waveform for the given parameters and
-    returns h_plus generated at value (x + scaling * dx).
-
-    :param x: dictionary with parameter values for initial point
-    :param dx: dictionary with parameter variations (can be a subset of the parameters in x)
-    :param scaling: the scaling to apply to dx
-    :param df: frequency spacing of points
-    :param f_low: low frequency cutoff
-    :param flen: length of the frequency domain array to generate
-    :param approximant: the approximant generator to use
-    :param harm2: generate the 2-harmonics
-    :return h_plus: waveform at parameter space point x + scaling * dx
-    """
-    h_plus = make_waveform(offset_params(x, dx, scaling), df, f_low, flen, approximant, harm2=harm2)
-
-    return h_plus
-
-
-def check_physical(x, dx, scaling, maxs=None, mins=None, verbose=False):
-    """
-    A function to check whether the point described by the positions x + dx is
-    physically permitted.  If not, rescale and return the scaling factor
-
-    :param x: dictionary with parameter values for initial point
-    :param dx: dictionary with parameter variations
-    :param scaling: the scaling to apply to dx
-    :param maxs: a dictionary with the maximum permitted values of the physical parameters
-    :param mins: a dictionary with the minimum physical values of the physical parameters
-    :param verbose: print logging messages
-    :return alpha: the scaling factor required to make x + scaling * dx physically permissible
-    """
-    if mins is None:
-        mins = param_mins
-
-    if maxs is None:
-        maxs = param_maxs
-
-    x0 = offset_params(x, dx, 0.)
-    if verbose:
-        print('initial point')
-        print(x0)
-    x_prime = offset_params(x, dx, scaling)
-    if verbose:
-        print('proposed point')
-        print(x_prime)
-
-    alpha = 1.
-
-    if ('chi_p' in x_prime.keys()) or ('chi_p2' in x_prime.keys()):
-        if ('chi_p2' in x_prime.keys()) and (x_prime['chi_p2'] < mins['chi_p2']):
-            alpha = min(alpha, (x0['chi_p2'] - mins['chi_p2']) / (x0['chi_p2'] - x_prime['chi_p2']))
-            x_prime['chi_p2'][0] = mins['chi_p2']
-            if verbose:
-                print("scaling to %.2f in direction %s" % (alpha, 'chi_p2'))
-        x_prime.generate_spin_z()
-        x_prime.generate_prec_spin()
-        x0.generate_spin_z()
-        x0.generate_prec_spin()
-
-    for k, dx_val in x0.items():
-        if k in mins.keys() and x_prime[k] < mins[k]:
-            alpha = min(alpha, (x0[k] - mins[k]) / (x0[k] - x_prime[k]))
-            if verbose:
-                print("scaling to %.2f in direction %s" % (alpha, k))
-        if k in maxs.keys() and x_prime[k] > maxs[k]:
-            alpha = min(alpha, (maxs[k] - x0[k]) / (x_prime[k] - x0[k]))
-            if verbose:
-                print("scaling to %.2f in direction %s" % (alpha, k))
-
-    # if varying 'chi_p2' need to double-check we don't go over limits
-    if 'chi_p2' in dx.keys() and (scaling * dx['chi_p2']):
-        chia = "chi_eff" if "chi_eff" in x0.keys() else "chi_align"
-        # need find alpha s.t. (chi + alpha dchi)^2 + chi_p2 + alpha dchi_p2 = max_spin^2
-        c = x0[chia] ** 2 + x0['chi_p2'] - maxs['a_1']**2
-        dcp2 = scaling * dx['chi_p2']
-        if chia in dx.keys() and dx[chia]:
-            dchi = scaling * dx[chia]
-            a = dchi ** 2
-            b = 2 * x0[chia] * dchi + dcp2
-            alpha_prec = (-b + np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
-        else:
-            # not changing aligned spin, so easier
-            # chi^2 + chi_p2 + alpha dchi_p2 = max_spin^2
-            # if dchi_p2 < 0 then bound is positivity of chi_p2, else alpha = -c/dcp2
-            if dcp2 < 0:
-                # chi_p2 + alpha dchi_p2 = mins['chi_p2']
-                alpha_prec = (mins['chi_p2'] - x0['chi_p2']) /dcp2
-            else:
-                alpha_prec = -c / dcp2
-        if verbose:
-            print("scaling to %.2f for precession" % alpha_prec)
-
-        alpha = min(alpha, alpha_prec)
-
-        if verbose:
-            x_prime = offset_params(x, dx, alpha * scaling)
-            print('new point')
-            print(x_prime)
-
-    return alpha
-
-
 def scale_match(m_alpha, alpha):
     """
     A function to scale the match calculated at an offset alpha to the
@@ -505,11 +379,11 @@ def average_mismatch(x, dx, scaling, f_low, psd,
     """
     a = {}
     m = {}
-    h0 = make_waveform(x, psd.delta_f, f_low, len(psd), approximant)
+    h0 = waveform.make_waveform(x, psd.delta_f, f_low, len(psd), approximant)
     for s in [1., -1.]:
-        a[s] = check_physical(x, dx, s * scaling)
+        a[s] = waveform.check_physical(x, dx, s * scaling)
         try:
-            h = make_offset_waveform(x, dx, s * a[s] * scaling, psd.delta_f, f_low, len(psd), approximant)
+            h = waveform.make_offset_waveform(x, dx, s * a[s] * scaling, psd.delta_f, f_low, len(psd), approximant)
             m[s] = match(h0, h, psd, low_frequency_cutoff=f_low, subsample_interpolation=True)[0]
         except RuntimeError:
             m[s] = 1e-5
@@ -571,143 +445,3 @@ def find_metric_and_eigendirections(x, dx_directions, snr, f_low, psd, approxima
                prob=0.9, snr=snr)
     g.iteratively_update_metric(max_iter)
     return g
-
-
-def _neg_wf_match(x, x_directions, data, f_low, psd, approximant, fixed_pars=None):
-    """
-    Calculate the negative waveform match, taking x as the values and
-    dx as the parameters.  This is in a format that's appropriate
-    for scipy.optimize
-
-    :param x: list of values
-    :param x_directions: list of parameters for which to calculate waveform variations
-    :param data: the data containing the waveform of interest
-    :param f_low: low frequency cutoff
-    :param psd: the power spectrum to use in calculating the match
-    :param approximant: the approximant to use
-    :param fixed_pars: a dictionary of fixed parameters and values
-    :return -m: the negative of the match at this point
-    """
-    s = dict(zip(x_directions, x))
-    if fixed_pars is not None:
-        s.update(fixed_pars)
-
-    h = make_waveform(s, psd.delta_f, f_low, len(psd), approximant)
-
-    m = match(data, h, psd, low_frequency_cutoff=f_low, subsample_interpolation=True)[0]
-
-    return -m
-
-
-def _log_wf_mismatch(x, x_directions, data, f_low, psd, approximant, fixed_pars=None):
-    """
-    Calculate the negative waveform match, taking x as the values and
-    dx as the parameters.  This is in a format that's appropriate
-    for scipy.optimize
-
-    :param x: list of values
-    :param x_directions: list of parameters for which to calculate waveform variations
-    :param data: the data containing the waveform of interest
-    :param f_low: low frequency cutoff
-    :param psd: the power spectrum to use in calculating the match
-    :param approximant: the approximant to use
-    :param fixed_pars: a dictionary of fixed parameters and values
-    :return -m: the negative of the match at this point
-    """
-    s = dict(zip(x_directions, x))
-    if fixed_pars is not None:
-        s.update(fixed_pars)
-
-    h = make_waveform(s, psd.delta_f, f_low, len(psd), approximant)
-
-    m = match(data, h, psd, low_frequency_cutoff=f_low, subsample_interpolation=True)[0]
-
-    return np.log10(1 - m)
-
-
-def find_best_match(data, x, dx_directions, f_low, psd, approximant="IMRPhenomD",
-                    method="metric", mismatch=0.03, tolerance=0.01):
-    """
-    A function to find the maximum match.
-    This is done in two steps, first by finding the point in the grid defined
-    by the metric gij (and given desired_mismatch) that gives the highest match.
-    Second, we approximate the match as quadratic and find the maximum.
-
-    :param data: the data containing the waveform of interest
-    :param x: dictionary with parameter values for initial point
-    :param dx_directions: list of parameters for which to calculate waveform variations
-    :param f_low: low frequency cutoff
-    :param psd: the power spectrum to use in calculating the match
-    :param approximant: the approximant to use
-    :param method: how to find the maximum
-    :param mismatch: the mismatch for calculating the metric
-    :param tolerance: the allowed error in the metric is (tolerance * mismatch)
-    :return x_prime: the point in the grid with the highest match
-    :return m_0: the match at this point
-    """
-    if (method != 'metric') and (method != 'scipy'):
-        print('Have only implemented metric and scipy optimize based methods')
-        m_peak = -1
-
-    elif method == 'scipy':
-        bounds = param_bounds(x, dx_directions, harm2=False)
-        x0 = np.array([x[k] for k in dx_directions])
-        fixed_pars = {k: v for k, v in x.items() if k not in dx_directions}
-
-        # out = optimize.minimize(_neg_wf_match, x0,
-        #                         args=(dx_directions, data, f_low, psd, approximant, fixed_pars),
-        #                         bounds=bounds)
-        #
-        # x = dict(zip(dx_directions, out.x))
-        # m_peak = -out.fun
-
-        out = optimize.minimize(_log_wf_mismatch, x0,
-                                args=(dx_directions, data, f_low, psd, approximant, fixed_pars),
-                                bounds=bounds)
-
-        x = dict(zip(dx_directions, out.x))
-        m_peak = 1 - 10 ** out.fun
-
-    elif method == 'metric':
-        g = Metric(x, dx_directions, mismatch, f_low, psd, approximant, tolerance)
-        g.iteratively_update_metric()
-
-        while True:
-            h = make_waveform(x, g.psd.delta_f, g.f_low, len(g.psd), g.approximant)
-
-            m_0, _ = match(data, h, g.psd, low_frequency_cutoff=g.f_low, subsample_interpolation=True)
-            matches = np.zeros([g.ndim, 2])
-            alphas = np.zeros([g.ndim, 2])
-
-            for i in range(g.ndim):
-                for j in range(2):
-                    alphas[i, j] = check_physical(x, g.normalized_evecs()[i:i + 1], (-1) ** j)
-                    h = make_offset_waveform(x, g.normalized_evecs()[i:i + 1], alphas[i, j] * (-1) ** j,
-                                             g.psd.delta_f, g.f_low, len(g.psd),
-                                             g.approximant)
-                    matches[i, j] = match(data, h, g.psd, low_frequency_cutoff=g.f_low,
-                                          subsample_interpolation=True)[0]
-
-            if matches.max() > m_0:
-                # maximum isn't at the centre so update location
-                i, j = np.unravel_index(np.argmax(matches), matches.shape)
-                for k, dx_val in g.normalized_evecs()[i:i + 1].items():
-                    x[k] += float(alphas[i, j] * (-1) ** j * dx_val)
-
-            else:
-                # maximum is at the centre
-                break
-
-        s = (matches[:, 0] - matches[:, 1]) * 0.25 / \
-            (m_0 - 0.5 * (matches[:, 0] + matches[:, 1]))
-        delta_x = SimplePESamples(SamplesDict(dx_directions, np.matmul(g.normalized_evecs().samples, s)))
-        alpha = check_physical(x, delta_x, 1)
-
-        h = make_offset_waveform(x, delta_x, alpha, psd.delta_f, f_low, len(psd), approximant)
-        m_peak = match(data, h, psd, low_frequency_cutoff=f_low,
-                       subsample_interpolation=True)[0]
-
-        for k, dx_val in delta_x.items():
-            x[k] += float(alpha * dx_val)
-
-    return x, m_peak
