@@ -10,9 +10,17 @@ def detectors(ifos):
     """
     Set up a dictionary of detector locations and responses.
 
-    :param ifos: a list of IFOs
-    :returns: location: a dictionary of detector locations
-    :return: response: a dictionary of the detector responses
+    Parameters
+    ----------
+    ifos: list
+        a list of IFOs
+
+    Returns
+    -------
+    location: dict
+        a dictionary of detector locations
+    response: dict
+        a dictionary of the detector responses
     """
     location = {}
     response = {}
@@ -35,10 +43,21 @@ def calc_location_response(longitude, latitude, arms):
     Calculate the location and response for a detector with longitude, latitude in degrees
     The angle gives the orientation of the arms and is in degrees from North to East
 
-    :param longitude: the longitude
-    :param latitude: the latitude
-    :param arms: the angle between the arms
-    :returns: location, response: the detector location and response
+    Parameters
+    ----------
+    longitude: float
+        the longitude
+    latitude: float
+        the latitude
+    arms: float
+        the angle between the arms
+
+    Returns
+    -------
+     location: np.array
+        the detector location
+     response: np.array
+        the detector response
     """
     phi = np.radians(longitude)
     theta = np.radians(latitude)
@@ -67,9 +86,16 @@ def xyz(phi, theta):
     """
     return cartesian co-ordinates on the unit sphere for a given theta and phi
 
-    :param phi: azimuthal angle
-    :param theta: inclination angle 
-    :return loc: array of (x, y, z) locations
+    Parameters
+    ----------
+    phi: float
+        azimuthal angle
+    theta: float
+        inclination angle
+
+    Returns
+    -------
+    loc: array of (x, y, z) locations
     """
     x = np.cos(theta) * np.cos(phi)
     y = np.cos(theta) * np.sin(phi)
@@ -82,9 +108,17 @@ def phitheta(loc):
     """
     return spherical co-ordinates for a given set of cartesian coordinates
 
-    :param loc: array of (x, y, z) locations
-    :return phi: azimuthal angle
-    :return theta: inclination angle
+    Parameters
+    ----------
+    loc: np.array
+        (x, y, z) locations
+
+    Returns
+    -------
+    phi: float
+        azimuthal angle
+    theta:
+        inclination angle
     """
     x = loc[0]
     y = loc[1]
@@ -92,15 +126,22 @@ def phitheta(loc):
     r = np.sqrt(x ** 2 + y ** 2 + z ** 2)
     theta = np.arcsin(z / r)
     phi = np.arctan2(y, x)
-    return (phi, theta)
+    return phi, theta
 
 
 def range_8(configuration):
     """
     Provide the range for a set of detectors based upon the given configuration
 
-    :param configuration: the name of the network configuration
-    :return range_dict: dictionary of ranges for ifos in network
+    Parameters
+    ----------
+    configuration: str
+        the name of the network configuration
+
+    Returns
+    -------
+    range_dict: dict
+        dictionary of ranges for ifos in network
     """
     range_dict_all = {
         "design": {'H1': 197.5, 'L1': 197.5, 'V1': 128.3},
@@ -138,8 +179,15 @@ def bandwidth(configuration):
     """
     Provide the bandwidth for a set of detectors based upon the given configuration
 
-    :param configuration: the name of the network configuration
-    :return bandwidth_dict: dictionary of bandwidths for ifos in network
+    Parameters
+    ----------
+    configuration: str
+        the name of the network configuration
+
+    Returns
+    -------
+    bandwidth_dict: dict
+        dictionary of bandwidths for ifos in network
     """
     bandwidth_dict_all = {
         "design": {'H1': 117.4, 'L1': 117.4, 'V1': 148.9},
@@ -177,8 +225,15 @@ def fmean(configuration):
     """
     Provide the mean frequency for a set of detectors based upon the given configuration
 
-    :param configuration: the name of the network configuration
-    :returns: fmean_dict: dictionary of mean frequencies for ifos in network
+    Parameters
+    ----------
+    configuration: str
+        the name of the network configuration
+
+    Returns
+    -------
+    fmean_dict: dict
+        dictionary of mean frequencies for ifos in network
     """
     fmean_dict_all = {
         "steve": {'H1': 100.0, 'L1': 100.0, 'V1': 100.0, "I1": 100.0},
@@ -208,8 +263,15 @@ def sigma_t(configuration):
     It's just 1/(20 pi sigma_f for LIGO.
     But 1/(20 pi sigma_f)(r_ligo/r_virgo) for others ;
 
-    :param configuration: the name of the network configuration
-    :return sigma_t_dict: dictionary of timing accuracies for ifos in network
+    Parameters
+    ----------
+    configuration: str
+        the name of the network configuration
+
+    Returns
+    -------
+    sigma_t_dict: dict
+        dictionary of timing accuracies for ifos in network
     """
     b = bandwidth(configuration)
     r = range_8(configuration)

@@ -10,16 +10,31 @@ def calc_reach_bandwidth(mass1, mass2, spin, approx, power_spec, fmin, thresh=8.
     """
     Calculate the horizon, mean frequency and bandwidth for a given PSD in the detector frame
 
-    :param mass1: the mass of the first component
-    :param mass2: the mass of the second component
-    :param spin: the aligned spin for both compoenents
-    :param approx: the waveform used to calculate the horizon
-    :param power_spec: the power spectrum to use
-    :param fmin: the minimum frequency
-    :param thresh: the SNR at which to calculate the horizon
-    :return max_dist: the horizon for the signal
-    :return meanf: the mean frequency
-    :return sigf: the frequency bandwidth
+    Parameters
+    ----------
+    mass1: float
+        the mass of the first component
+    mass2: float
+        the mass of the second component
+    spin: float
+        the aligned spin for both compoenents
+    approx: str
+        the waveform used to calculate the horizon
+    power_spec: pycbc.psd
+        the power spectrum to use
+    fmin: float
+        the minimum frequency
+    thresh: float
+        the SNR at which to calculate the horizon
+
+    Returns
+    -------
+    max_dist: float
+        the horizon for the signal
+    meanf: float
+        the mean frequency
+    sigf: float
+        the frequency bandwidth
     """
     from simple_pe.param_est.metric import make_waveform
     fmax = power_spec.sample_frequencies[-1]
@@ -49,19 +64,34 @@ def calc_reach_bandwidth(mass1, mass2, spin, approx, power_spec, fmin, thresh=8.
     return max_dist, meanf, sigf
 
 
-def calc_detector_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, waveform='IMRPhenomD', triangle=False):
+def calc_detector_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, waveform='IMRPhenomD',
+                          triangle=False):
     """
     Calculate the horizon for a given PSD [in the detector frame]
 
-    :param mass1: the mass of the first component
-    :param mass2: the mass ratio of second component
-    :param spin: the z-component of spin for both components
-    :param power_spec: the power spectrum to use
-    :param fmin: the minimum frequency
-    :param snr: the SNR at which to calculate the horizon
-    :param waveform: the waveform used to calculate the horizon
-    :param triangle: scale horizon for a triangular detector (True/False)
-    :return horizon: the horizon distance for the given system
+    Parameters
+    ----------
+    mass1: float
+        the mass of the first component
+    mass2: float
+        the mass of second component
+    spin: float
+        the z-component of spin for both components
+    power_spec: pycbc.psd
+        the power spectrum to use
+    fmin: float
+        the minimum frequency
+    snr: float
+        the SNR at which to calculate the horizon
+    waveform: str
+        the waveform used to calculate the horizon
+    triangle: bool
+        scale horizon for a triangular detector (True/False)
+    
+    Returns
+    -------
+    horizon: float
+        the horizon distance for the given system
     """
     fmax = power_spec.sample_frequencies[-1]
     df = power_spec.delta_f
@@ -88,21 +118,36 @@ def calc_detector_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, waveform=
         return sig / snr
 
 
-def interpolate_horizon(min_mass, max_mass, q, spin, power_spec, fmin, snr, waveform='IMRPhenomD', triangle=False):
+def interpolate_horizon(min_mass, max_mass, q, spin, power_spec, fmin, snr,
+                        waveform='IMRPhenomD', triangle=False):
     """
     Generate an interpolation function for the horizon [in the detector frame] for a binary
     with total mass between min_mass and max_mass, with given mass ratio
     and spin from a frequency fmin in a detector with given power_spec
 
-    :param min_mass: the minimum total mass
-    :param max_mass: the maximum total mass
-    :param q: the mass ratio
-    :param spin: the z-component of spin for both components
-    :param fmin: the minimum frequency
-    :param snr: the SNR at which to calculate the horizon
-    :param waveform: the waveform used to calculate the horizon
-    :param triangle: scale horizon for a triangular detector (True/False)
-    :return horizon_interp: horizon interpolation function
+    Parameters
+    ----------
+    min_mass: float
+        the minimum total mass
+    max_mass: float
+        the maximum total mass
+    q: float
+        the mass ratio
+    spin: float
+        the z-component of spin for both components
+    fmin: float
+        the minimum frequency
+    snr: float
+        the SNR at which to calculate the horizon
+    waveform: str
+        the waveform used to calculate the horizon
+    triangle: bool
+        scale horizon for a triangular detector (True/False)
+    
+    Returns
+    -------
+    horizon_interp:
+        horizon interpolation function
     """
     # add a safety margin so interpolation definetely covers range
     masses = np.logspace(np.log10(0.5 * min_mass), np.log10(1.5 * max_mass), 100)
@@ -113,20 +158,35 @@ def interpolate_horizon(min_mass, max_mass, q, spin, power_spec, fmin, snr, wave
     return horizon_interp
 
 
-def calc_hm_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, mode='22', waveform='IMRPhenomXHM', triangle=False):
+def calc_hm_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, mode='22',
+                    waveform='IMRPhenomXHM', triangle=False):
     """
     Calculate the horizon for a given PSD [in the detector frame]
 
-    :param mass1: the mass of the first component
-    :param mass2: the mass ratio of second component
-    :param spin: the z-component of spin for both components
-    :param power_spec: the power spectrum to use
-    :param fmin: the minimum frequency
-    :param snr: the SNR at which to calculate the horizon
-    :param mode: the mode for which to calculate horizon
-    :param waveform: the waveform used to calculate the horizon
-    :param triangle: scale horizon for a triangular detector (True/False)
-    :return horizon: the higher mode horizon in detector frame for given masses and spin
+    Parameters
+    ----------
+    mass1: float
+        the mass of the first component
+    mass2: float
+        the mass ratio of second component
+    spin: float
+        the z-component of spin for both components
+    power_spec: pycbc.psd
+        the power spectrum to use
+    fmin: float
+        the minimum frequency
+    snr: float
+        the SNR at which to calculate the horizon
+    mode: str
+        the mode for which to calculate horizon
+    waveform: str
+        the waveform used to calculate the horizon
+    triangle: bool
+        scale horizon for a triangular detector (True/False)
+
+    Returns
+    -------
+    horizon: the higher mode horizon in detector frame for given masses and spin
     """
     fmax = power_spec.sample_frequencies[-1]
     df = power_spec.delta_f
@@ -160,6 +220,7 @@ def calc_hm_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, mode='22', wave
             sig *= 2
     except:
         sig = 0.
+
     if triangle:
         return 1.5 * sig / snr
     else:
@@ -173,16 +234,31 @@ def interpolate_hm_horizon(min_mass, max_mass, q, spin, power_spec, fmin, snr=8,
     with total mass between min_mass and max_mass, with given mass ratio
     and spin from a frequency fmin in a detector with given power_spec
 
-    :param min_mass: the minimum total mass
-    :param max_mass: the maximum total mass
-    :param q: the mass ratio
-    :param spin: the z-component of spin for both components
-    :param fmin: the minimum frequency
-    :param snr: the SNR at which to calculate the horizon
-    :param mode: the mode to calculate the horizon for
-    :param waveform: the waveform used to calculate the horizon
-    :param triangle: scale horizon for a triangular detector (True/False)
-    :return horizon_interp: horizon interpolation in detector frame for higher modes
+    Parameters
+    ----------
+    min_mass: float
+        the minimum total mass
+    max_mass: float
+        the maximum total mass
+    q: float
+        the mass ratio
+    spin: float
+        the z-component of spin for both components
+    fmin: float
+        the minimum frequency
+    snr: float
+        the SNR at which to calculate the horizon
+    mode: str
+        the mode to calculate the horizon for
+    waveform: str
+        the waveform used to calculate the horizon
+    triangle: bool
+        scale horizon for a triangular detector (True/False)
+
+    Returns
+    -------
+    horizon_interp:
+        horizon interpolation in detector frame for higher modes
     """
     # add a safety margin so interpolation definitely covers range
     masses = np.logspace(np.log10(0.5 * min_mass), np.log10(1.5 * max_mass), 100)
@@ -201,11 +277,21 @@ def interpolate_source_horizon(min_mass, max_mass, hor_interp, snr_factor=1.):
     in threshold between the horizon and requested contour (either through
     wanting a different SNR limit or through sky averaging)
 
-    :param min_mass: the minimum total mass
-    :param max_mass: the maximum total mass
-    :param hor_interp: detector frame interpolator
-    :param snr_factor: ratio between SNR for horizon and requested contour
-    :return h_interp: horizon interpolation in source frame
+    Parameters
+    ----------
+    min_mass: float
+        the minimum total mass
+    max_mass: float
+        the maximum total mass
+    hor_interp:
+        detector frame interpolator
+    snr_factor: float
+        ratio between SNR for horizon and requested contour
+
+    Returns
+    -------
+    h_interp:
+        horizon interpolation in source frame
     """
     # add a safety margin so interpolation definetely covers range
     masses = np.logspace(np.log10(0.5 * min_mass), np.log10(1.5 * max_mass), 1000)
