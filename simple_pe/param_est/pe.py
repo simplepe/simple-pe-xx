@@ -113,6 +113,14 @@ def _add_chi_align(data):
 
 def convert(*args, **kwargs):
     from pesummary.gw.conversions import convert as _convert
+    if isinstance(args[0], dict):
+        _dict = args[0]
+        for key, value in _dict.items():
+            if not isinstance(value, (np.ndarray, list)):
+                _dict[key] = np.array([value])
+            elif isinstance(value[0], (np.ndarray, list)):
+                _dict[key] = Array(np.array(value).flatten())
+        args = (_dict,)
     data = _convert(*args, **kwargs)
     return _add_chi_align(data)
 
@@ -131,6 +139,8 @@ class SimplePESamples(SamplesDict):
             for key, item in args[0].items():
                 if isinstance(item, (float, int, np.number)):
                     _args[key] = [item]
+                elif isinstance(item[0], (np.ndarray, list)):
+                    _args[key] = Array(np.array(item).flatten())
                 else:
                     _args[key] = item
             args = (_args,)
@@ -191,6 +201,12 @@ class SimplePESamples(SamplesDict):
         #     self["chi_p"] = np.sqrt(self["chi_p2"])
         if function is None:
             function = convert
+        if "a_1" in self.keys():
+            # limit a_1 < 1
+            self['a_1'][self['a_1'] > 1.] = 1
+        if "a_2" in self.keys():
+            # limit a_2 < 1
+            self['a_2'][self['a_2'] > 1.] = 1
         return super(SimplePESamples, self).generate_all_posterior_samples(
             function=function, **kwargs
         )
@@ -263,6 +279,7 @@ class SimplePESamples(SamplesDict):
         """
         generate distance points using the existing theta_JN samples and fiducial distance.
         interpolate sensitivity over the parameter space
+
         :param fiducial_distance: distance for a fiducial set of parameters
         :param fiducial_sigma: the range for a fiducial set of parameters
         :param psd: the PSD to use
@@ -301,6 +318,7 @@ class SimplePESamples(SamplesDict):
         """
         jitter distance values based upon existing distances
         jitter due to SNR and variation of network response
+
         :param net_snr: the network SNR
         :param response_sigma: standard deviation of network response (over sky)
         """
@@ -328,7 +346,7 @@ class SimplePESamples(SamplesDict):
         """
         generate chi_p points with the desired distribution and include in the existing samples dict
 
-        :param chi_p_dist: the distribution to use for chi_p. Currently supports 'uniform'
+        :param chi_p_dist: the distribution to use for chi_p. Currently supports 'uniform' and 'isotropic_on_sky'
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
         param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
@@ -440,13 +458,13 @@ class SimplePESamples(SamplesDict):
                     return
 
         self['a_1'] = np.sqrt(self["chi_p"] ** 2 + s1z ** 2)
+        # limit a_1 < 1
+        #self['a_1'][self['a_1'] > 1.] = 1
         self['tilt_1'] = np.arctan2(self["chi_p"], s1z)
-        # # limit a_1 < 1
-        # self['a_1'][self['a_1'] > 1.] = 1
         self['a_2'] = np.abs(s2z)
+        # limit a_2 < 1
+        #self['a_2'][self['a_2'] > 1.] = 1.
         self['tilt_2'] = np.arccos(np.sign(s2z))
-        # # limit a_2 < 1
-        # self['a_2'][self['a_2'] > 1.] = 1.
         self.add_fixed('phi_12', 0.)
         self.add_fixed('phi_jl', 0.)
 
@@ -479,6 +497,8 @@ class SimplePESamples(SamplesDict):
                     self[d][v >= maxs[d]] = maxs[d]
                 if d in mins:
                     self[d][v <= mins[d]] = mins[d]
+                ind = self.parameters.index(d)
+                self.samples[ind] = self[d]
 
     def calculate_rho_lm(self, psd, f_low, net_snr, modes, interp_directions, interp_points=5,
                          approximant="IMRPhenomXPHM"):
@@ -710,7 +730,7 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low, grid_poin
 
 
 def calculate_interpolated_snrs(
-        samples, psd, f_low, dominant_snr, left_snr, right_snr, modes, alpha_net, response_sigma,
+        samples, psd, f_low, dominant_snr, modes, alpha_net, response_sigma,
         fiducial_distance, fiducial_sigma, dist_interp_dirs,
         hm_interp_dirs, prec_interp_dirs, interp_points, approximant, **kwargs
 ):
@@ -757,8 +777,13 @@ def calculate_interpolated_snrs(
     if not isinstance(samples, SimplePESamples):
         samples = SimplePESamples(samples)
     # generate required parameters if necessary
-    if "theta_jn" not in samples.keys():
-        samples.generate_theta_jn('left_right', snr_left=left_snr, snr_right=right_snr)
+    if "theta_jn" not in samples.keys() and kwargs.get("left_snr", None) is not None:
+        samples.generate_theta_jn(
+            'left_right', snr_left=kwargs.pop("left_snr"),
+            snr_right=kwargs.pop("right_snr")
+        )
+    elif "theta_jn" not in samples.keys():
+        samples.generate_theta_jn('uniform')
     if "distance" not in samples.keys():
         samples.generate_distance(fiducial_distance, fiducial_sigma, psd, f_low,
                                   dist_interp_dirs, interp_points, approximant)
@@ -795,3 +820,14 @@ def reweight_based_on_observed_snrs(samples, **kwargs):
         samples = SimplePESamples(samples)
     samples.calculate_hm_prec_probs(**kwargs)
     return rejection_sampling(samples, samples['weight'])
+
+
+def isotropic_spin_prior_weight(samples, dx_directions):
+    from pesummary.core.reweight import rejection_sampling
+    if 'chi_p' in dx_directions:
+        weights = samples['chi_p'] * (1 - samples['chi_p'])
+    elif 'chi_p2' in dx_directions:
+        weights = 1 - samples['chi_p2']**0.5
+    else:
+        weights = np.ones_like(samples['chirp_mass'])
+    return rejection_sampling(samples, weights)
