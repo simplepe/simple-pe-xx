@@ -1,9 +1,8 @@
 import numpy as np
 from simple_pe.param_est import metric, pe
-from simple_pe.waveforms import waveform_modes, waveform
+from simple_pe.waveforms import waveform_modes, waveform, parameter_bounds
 from scipy import optimize
 from pesummary.utils.samples_dict import SamplesDict
-import copy
 
 
 def matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low, dominant_mode=0):
@@ -125,7 +124,7 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
 
         nlc = None
         if bounds is None:
-            bounds = pe.param_bounds(x, dx_directions, harm2)
+            bounds = parameter_bounds.param_bounds(x, dx_directions, harm2)
 
             # generate constraint on spins:
             chia = "chi_eff" if "chi_eff" in x.keys() else "chi_align"
