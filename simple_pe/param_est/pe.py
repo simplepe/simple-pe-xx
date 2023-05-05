@@ -568,7 +568,8 @@ class SimplePESamples(SamplesDict):
         beta_grid, pts = interpolate_opening(maxs, mins, fixed_pars, psd, f_low, interp_points, approximant)
 
         self['beta'] = interpolate.interpn(pts, beta_grid, np.array([self[k] for k in interp_directions]).T)
-        self['rho_p'] = net_snr * 4 * np.tan(self['beta'] / 2) * np.tan(self["theta_jn"] / 2)
+        t_over_2 = np.minimum(self['theta_jn'], np.pi - self['theta_jn'])/2
+        self['rho_p'] = net_snr * 4 * np.tan(self['beta'] / 2) * np.tan(t_over_2)
 
     def calculate_hm_prec_probs(self, hm_snr=None, prec_snr=None, snr_2pol=None):
         """
