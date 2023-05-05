@@ -19,7 +19,7 @@ def generate_eccentric_waveform(params, df, f_low, f_len):
     if "ecc2" in params.keys():
         ecc = params["ecc2"][0] ** 0.5
     else:
-        ecc = params["ecc"][0]
+        ecc = params["eccentricity"][0]
 
     s_rate = 2 * int(f_len * df)
     t_len = int(1 / df)
@@ -32,7 +32,7 @@ def generate_eccentric_waveform(params, df, f_low, f_len):
         'LambdaAl2': 0.,
         'LambdaBl2': 0.,
         'ecc': ecc,
-        'ecc_freq': 0,
+        'ecc_freq': 1,
         'domain': 0,
         'srate_interp': s_rate,
         'use_geometric_units': "no",
@@ -41,7 +41,7 @@ def generate_eccentric_waveform(params, df, f_low, f_len):
         'use_mode_lm': [1],
         'arg_out': "yes",
     }
-
+    
     t, hp, hc, _, _ = EOBRun_module.EOBRunPy(pars)
 
     hp_t = TimeSeries(hp, t[1] - t[0])
