@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from pesummary.core.command_line import ConfigAction as _ConfigAction
 import pycondor
 import os
+import numpy as np
 
 __authors__ = [
     "Charlie Hoy <charlie.hoy@ligo.org>",
@@ -38,6 +39,21 @@ def command_line():
     parser.add_argument(
         "config_file", nargs="?", action=ConfigAction,
         help="Configuration file containing command line arguments"
+    )
+    parser.add_argument(
+        "--sid",
+        help=(
+            "superevent ID for the event you wish to analyse. If "
+            "provided, and --trigger_parameters is not provided, the "
+            "trigger parameters are downloaded from the best matching "
+            "search template on GraceDB."
+        )
+    )
+    parser.add_argument(
+        "--use_bayestar_localization",
+        action="store_true",
+        default=False,
+        help="use the bayestar localization. --sid must also be provided"
     )
     parser.add_argument(
         "--truth",
@@ -302,6 +318,10 @@ class FilterNode(Node):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._executable = self.get_executable("simple_pe_filter")
+        self.opts.trigger_parameters = self._prepare_trigger_parameters(
+            self.opts.sid, self.opts.trigger_parameters,
+            self.opts.use_bayestar_localization
+        )
         self.opts.strain = self._prepare_strain(self.opts.strain)
         self.create_pycondor_job()
 
@@ -316,6 +336,59 @@ class FilterNode(Node):
         args = self._format_arg_lists(string_args, dict_args, list_args)
         args += [["--outdir", f"{self.opts.outdir}/output"]]
         return " ".join([item for sublist in args for item in sublist])
+
+    def _prepare_trigger_parameters(self, sid, trigger_parameters, use_bayestar_localization):
+        """
+        """
+        os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
+        if trigger_parameters is not None:
+            filename = trigger_parameters
+        if sid is not None:
+            from pesummary.gw.gracedb import get_gracedb_data
+            import json
+            gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
+            if trigger_parameters is None:
+                data = get_gracedb_data(gid)
+                template_data = data["extra_attributes"]["SingleInspiral"][0]
+                json_data = {
+                    "mass_1": template_data["mass1"], "mass_2": template_data["mass2"],
+                    "spin_1z": template_data["spin1z"], "spin_2z": template_data["spin2z"],
+                    "time": data["gpstime"]
+                }
+                filename = f"{self.opts.outdir}/output/trigger_parameters.json"
+                with open(filename, "w") as f:
+                    json.dump(json_data, f)
+        if trigger_parameters is None and sid is None:
+            raise ValueError(
+                "Please provide a file containing the trigger parameters "
+                "or a superevent ID to download the trigger parameters "
+                "from GraceDB"
+            )
+        if not use_bayestar_localization:
+            return filename
+        elif sid is None:
+            raise ValueError(
+                "Unable to use --use_bayestar_localization when --sid "
+                "is not provided"
+            )
+        from ligo.gracedb.rest import GraceDb
+        from ligo.skymap.io.fits import read_sky_map
+        from ligo.skymap.postprocess.util import posterior_max
+        out_filename = f"{self.opts.outdir}/output/{gid}_bayestar.fits"
+        client = GraceDb("https://gracedb.ligo.org/api/")
+        with open(out_filename, "wb") as f:
+            r = client.files(gid, "bayestar.fits")
+            f.write(r.read())
+        skymap, _ = read_sky_map(out_filename)
+        _max = posterior_max(skymap)
+        with open(filename, "r") as f:
+            template_parameters = json.load(f)
+        template_parameters["ra"] = np.radians(_max.ra.value)
+        template_parameters["dec"] = np.radians(_max.dec.value)
+        template_parameters["psi"] = 2.52593234 #0.7
+        with open(filename, "w") as f:
+            json.dump(template_parameters, f)
+        return filename
 
     def _prepare_strain(self, strain):
         """Prepare strain data
@@ -425,7 +498,6 @@ def main(args=None):
     """
     parser = command_line()
     opts, _ = parser.parse_known_args(args=args)
-    print(opts)
     MainDag = Dag(opts)
     FilterJob = FilterNode(opts, MainDag)
     CornerJob = CornerNode(opts, MainDag)

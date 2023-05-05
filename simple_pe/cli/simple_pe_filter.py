@@ -132,6 +132,10 @@ def _load_trigger_parameters_from_file(path):
         data["distance"] /= data["distance"]
     else:
         data["distance"] = 1.0
+    if "chi_p" not in data.keys():
+        data["chi_p"] = 0.3
+    if "tilt" not in data.keys():
+        data["tilt"] = 1e-3
     data = pe.convert(data, disable_remnant=True)
     if not all(param in data.keys() for param in required_params):
         raise ValueError(
