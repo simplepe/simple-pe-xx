@@ -50,7 +50,7 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
         # generate the leading harmonic of the precessing waveform
         x.generate_prec_spin()
 
-    if 'tilt_1' in x.keys() and x['tilt_1']:
+    if 'tilt_1' in x.keys() and np.mod(x['tilt_1'], np.pi):
         x.generate_all_posterior_samples(f_low=f_low, f_ref=x["f_ref"][0], delta_f=df, disable_remnant=True)
         if harm2:
             harmonics = [0, 1]
@@ -91,11 +91,6 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
         return h_plus
 
     else:
-        if harm2:
-            raise ValueError(
-                "Currently unable to calculate 2 harmonic decomposition when "
-                "lalsimulation.SimInspiralFD is called"
-            )
         if ('spin_1z' not in x.keys()) or ('spin_2z' not in x.keys()):
             x.generate_spin_z()
         if "inc" not in x.keys():
