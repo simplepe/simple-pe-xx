@@ -1,5 +1,6 @@
 import numpy as np
 import copy
+import math
 from scipy import interpolate
 from simple_pe.waveforms import waveform_modes
 from simple_pe.detectors import noise_curves
@@ -9,6 +10,7 @@ from pesummary.utils.samples_dict import SamplesDict
 from pesummary.gw.conversions.spins import opening_angle
 from scipy.stats import ncx2, norm
 from pycbc.filter import sigma
+import lalsimulation as ls
 import tqdm
 
 spin_max = 0.98
@@ -419,11 +421,20 @@ class SimplePESamples(SamplesDict):
 
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
-        if 'chi_p' not in self.keys() and "chi_p2" not in self.keys():
-            print("Need to specify precessing spin component, please give either 'chi_p' or 'chi_p2")
-            return
-
         param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
+        if 'chi_p' not in self.keys() and "chi_p2" not in self.keys():
+            self["spin_1z"] = self[param]
+            self["spin_2z"] = self[param]
+            self["a_1"] = np.abs(self["spin_1z"])
+            self["a_2"] = np.abs(self["spin_2z"])
+            self["tilt_1"] = np.arccos(np.sign(self["spin_1z"]))
+            self["tilt_2"] = np.arccos(np.sign(self["spin_2z"]))
+            for param in [
+                "phi_12", "phi_jl", "beta", "spin_1x", "spin_1y",
+                "spin_2x", "spin_2y"
+            ]:
+                self[param] = np.zeros_like(self["spin_1z"])
+            return
 
         if ('spin_1z' in self.keys()) and ('spin_2z' in self.keys()):
             s1z = self['spin_1z']
@@ -582,6 +593,7 @@ class SimplePESamples(SamplesDict):
         weights = np.ones(self.number_of_samples)
 
         if hm_snr is not None:
+            hm_snr = np.nan_to_num(hm_snr, 0.)
             for lm, snr in hm_snr.items():
                 rv = ncx2(2, snr ** 2)
                 p = rv.pdf(self['rho_' + lm] ** 2)
@@ -589,6 +601,7 @@ class SimplePESamples(SamplesDict):
                 weights *= self['p_' + lm]
 
         if prec_snr is not None:
+            prec_snr = np.nan_to_num(prec_snr, 0.)
             rv = ncx2(2, prec_snr ** 2)
             p = rv.pdf(self['rho_p'] ** 2)
             self['p_p'] = p / p.max()
@@ -790,16 +803,22 @@ def calculate_interpolated_snrs(
                                   dist_interp_dirs, interp_points, approximant)
         samples.jitter_distance(dominant_snr, response_sigma)
     if "chi_p" not in samples.keys() and "chi_p2" not in samples.keys():
-        samples.generate_chi_p('isotropic_on_sky')
+        if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) > 2:
+            samples.generate_chi_p('isotropic_on_sky')
+        else:
+            samples["chi_p"] = np.zeros_like(samples["theta_jn"])
     samples.calculate_rho_lm(
         psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points, approximant
     )
     samples.calculate_rho_2nd_pol(alpha_net, dominant_snr)
     if ("chi_p" in prec_interp_dirs) and ("chi_p" not in samples.keys()):
         samples['chi_p'] = samples['chi_p2']**0.5
-    samples.calculate_rho_p(
-        psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
-    )
+    if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) > 2:
+        samples.calculate_rho_p(
+            psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
+        )
+    else:
+        samples["rho_p"] = np.zeros_like(samples["theta_jn"])
     if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
         samples['chi_p'] = samples['chi_p2']**0.5
     return samples

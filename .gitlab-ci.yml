@@ -14,7 +14,7 @@ stages:
 .parallel_wvf: &parallel_wvf
   parallel:
     matrix:
-      - WVF: ["IMRPhenomXPHM", "IMRPhenomTPHM"]
+      - WVF: ["IMRPhenomXHM", "IMRPhenomXPHM", "IMRPhenomTPHM"]
 
 tarball:
   extends:
