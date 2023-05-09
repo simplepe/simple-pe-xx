@@ -92,11 +92,6 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
         return h_plus
 
     else:
-        if harm2:
-            raise ValueError(
-                "Currently unable to calculate 2 harmonic decomposition when "
-                "lalsimulation.SimInspiralFD is called"
-            )
         if ('spin_1z' not in x.keys()) or ('spin_2z' not in x.keys()):
             x.generate_spin_z()
         if "inc" not in x.keys():

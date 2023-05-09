@@ -333,7 +333,10 @@ class FilterNode(Node):
         from gwosc.datasets import event_gps
         _strain = {}
         for ifo, value in strain.items():
-            if not any(_ in value.lower() for _ in ["gwosc", "inj"]):
+            if ":" in ifo:
+                _strain[ifo] = value
+                continue
+            elif not any(_ in value.lower() for _ in ["gwosc", "inj"]):
                 _strain[ifo] = value
                 continue
             elif "gwosc" in value.lower():

@@ -1,5 +1,6 @@
 import numpy as np
 import copy
+import math
 from scipy import interpolate
 from simple_pe.waveforms import waveform_modes
 from simple_pe.detectors import noise_curves
@@ -419,11 +420,17 @@ class SimplePESamples(SamplesDict):
 
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
-        if 'chi_p' not in self.keys() and "chi_p2" not in self.keys():
-            print("Need to specify precessing spin component, please give either 'chi_p' or 'chi_p2")
-            return
-
         param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
+        if 'chi_p' not in self.keys() and "chi_p2" not in self.keys():
+            self["spin_1z"] = self[param]
+            self["spin_2z"] = self[param]
+            self["a_1"] = self["spin_1z"]
+            self["a_2"] = self["spin_2z"]
+            self["tilt_1"] = np.arccos(np.sign(self["spin_1z"]))
+            self["tilt_2"] = np.arccos(np.sign(self["spin_2z"]))
+            self["phi_12"] = np.zeros_like(self["spin_1z"])
+            self["phi_jl"] = np.zeros_like(self["spin_1z"])
+            return
 
         if ('spin_1z' in self.keys()) and ('spin_2z' in self.keys()):
             s1z = self['spin_1z']
@@ -582,6 +589,7 @@ class SimplePESamples(SamplesDict):
         weights = np.ones(self.number_of_samples)
 
         if hm_snr is not None:
+            hm_snr = np.nan_to_num(hm_snr, 0.)
             for lm, snr in hm_snr.items():
                 rv = ncx2(2, snr ** 2)
                 p = rv.pdf(self['rho_' + lm] ** 2)
@@ -589,6 +597,7 @@ class SimplePESamples(SamplesDict):
                 weights *= self['p_' + lm]
 
         if prec_snr is not None:
+            prec_snr = np.nan_to_num(prec_snr, 0.)
             rv = ncx2(2, prec_snr ** 2)
             p = rv.pdf(self['rho_p'] ** 2)
             self['p_p'] = p / p.max()

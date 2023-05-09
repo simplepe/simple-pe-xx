@@ -138,6 +138,13 @@ def _load_trigger_parameters_from_file(path):
             f"{path} does not include all required parameters: "
             f"{','.join(required_params)}"
         )
+    # always assume the precessing case unless chi_p = 0
+    _precessing = 1.
+    if "chi_p" in data.keys() and data["chi_p"] == 0:
+        _precessing = 0.
+    elif "chi_p2" in data.keys() and data["chi_p2"] == 0:
+        _precessing = 0.
+    data["_precessing"] = _precessing
     return data
 
 
@@ -303,44 +310,48 @@ def find_peak(
     """
     _psd = psd.copy()
     _psd.pop("hm", None)
+    if not trigger_parameters["_precessing"] and "chi_p" in fixed_directions:
+        fixed_directions.remove("chi_p")
     event_info = {
         k: trigger_parameters[k] for k in dx_directions + fixed_directions
     }
     # find dominant harmonic peak
     x_peak, snr_peak = filter.find_peak_snr(
         list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info, 
-        dx_directions, f_low, approximant, method=method
+        dx_directions, f_low, approximant, method=method,
+        harm2=trigger_parameters["_precessing"]
     )
     x_peak = pe.convert(x_peak, disable_remnant=True)
     print("Found dominant harmonic peak with SNR = %.4f" % snr_peak)
     for k,v in x_peak.items():
         print("%s = %.4f" % (k,v))
-    # find two-harmonic peak
-    event_info = {
-        k: x_peak[k] for k in dx_directions + fixed_directions
-    }
-    x_2h_peak, snr_2h_peak = filter.find_peak_snr(
-        list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info, 
-        dx_directions, f_low, approximant, method=method, harm2=True
-    )
-    x_2h_peak = pe.convert(x_2h_peak, disable_remnant=True)
-    peak_info = {}
-    peak_pars = ['chirp_mass', 'symmetric_mass_ratio', 'distance']
-    for p in peak_pars:
-        peak_info[p] = x_2h_peak[p]
+    if trigger_parameters["_precessing"]:
+        # find two-harmonic peak
+        event_info = {
+            k: x_peak[k] for k in dx_directions + fixed_directions
+        }
+        x_2h_peak, snr_2h_peak = filter.find_peak_snr(
+            list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info, 
+            dx_directions, f_low, approximant, method=method, harm2=True
+        )
+        x_2h_peak = pe.convert(x_2h_peak, disable_remnant=True)
+        peak_info = {}
+        peak_pars = ['chirp_mass', 'symmetric_mass_ratio', 'distance']
+        for p in peak_pars:
+            peak_info[p] = x_2h_peak[p]
 
-    peak_info['chi'] = np.sqrt(x_2h_peak['chi_align']**2 + x_2h_peak['chi_p']**2)
-    peak_info['tilt'] = np.arctan2(x_2h_peak['chi_p'], x_2h_peak['chi_align'])
-    x_peak, snr_peak = filter.find_peak_snr(
-        list(strain_f.keys()), strain_f, psd, t_start, t_end, peak_info, 
-        ["chirp_mass", "symmetric_mass_ratio", "chi", "tilt"], f_low,
-        approximant, method=method, harm2=True
-    )
-    x_peak['chi_eff'] = x_peak['chi'] * np.cos(x_peak['tilt'])
-    x_peak['chi_p'] = x_peak['chi'] * np.sin(x_peak['tilt'])
-    print("Found two harmonic peak with SNR = %.4f" % snr_peak)
-    for k,v in x_peak.items():
-        print("%s = %.4f" % (k,v))
+        peak_info['chi'] = np.sqrt(x_2h_peak['chi_align']**2 + x_2h_peak['chi_p']**2)
+        peak_info['tilt'] = np.arctan2(x_2h_peak['chi_p'], x_2h_peak['chi_align'])
+        x_peak, snr_peak = filter.find_peak_snr(
+            list(strain_f.keys()), strain_f, psd, t_start, t_end, peak_info, 
+            ["chirp_mass", "symmetric_mass_ratio", "chi", "tilt"], f_low,
+            approximant, method=method, harm2=True
+        )
+        x_peak['chi_eff'] = x_peak['chi'] * np.cos(x_peak['tilt'])
+        x_peak['chi_p'] = x_peak['chi'] * np.sin(x_peak['tilt'])
+        print("Found two harmonic peak with SNR = %.4f" % snr_peak)
+        for k,v in x_peak.items():
+            print("%s = %.4f" % (k,v))
     peak_template = pe.SimplePESamples(x_peak)
     peak_template.add_fixed('phase', 0.)
     peak_template.add_fixed('f_ref', f_low)
@@ -348,6 +359,10 @@ def find_peak(
     peak_template.generate_prec_spin()
     peak_template.generate_all_posterior_samples(f_low=f_low, f_ref=f_low, delta_f=delta_f, disable_remnant=True)
     ifos = [key for key in psd.keys() if key != "hm"]
+    if not all(_ in peak_template.keys() for _ in ["spin_1z", "spin_2z"]):
+        if "chi_align" in peak_template.keys():
+            peak_template["spin_1z"] = peak_template["chi_align"]
+            peak_template["spin_2z"] = peak_template["chi_align"]
     h = metric.make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
