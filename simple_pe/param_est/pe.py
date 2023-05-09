@@ -10,6 +10,7 @@ from pesummary.utils.samples_dict import SamplesDict
 from pesummary.gw.conversions.spins import opening_angle
 from scipy.stats import ncx2, norm
 from pycbc.filter import sigma
+import lalsimulation as ls
 import tqdm
 
 spin_max = 0.98
@@ -802,16 +803,22 @@ def calculate_interpolated_snrs(
                                   dist_interp_dirs, interp_points, approximant)
         samples.jitter_distance(dominant_snr, response_sigma)
     if "chi_p" not in samples.keys() and "chi_p2" not in samples.keys():
-        samples.generate_chi_p('isotropic_on_sky')
+        if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) > 2:
+            samples.generate_chi_p('isotropic_on_sky')
+        else:
+            samples["chi_p"] = np.zeros_like(samples["theta_jn"])
     samples.calculate_rho_lm(
         psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points, approximant
     )
     samples.calculate_rho_2nd_pol(alpha_net, dominant_snr)
     if ("chi_p" in prec_interp_dirs) and ("chi_p" not in samples.keys()):
         samples['chi_p'] = samples['chi_p2']**0.5
-    samples.calculate_rho_p(
-        psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
-    )
+    if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) > 2:
+        samples.calculate_rho_p(
+            psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
+        )
+    else:
+        samples["rho_p"] = np.zeros_like(samples["theta_jn"])
     if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
         samples['chi_p'] = samples['chi_p2']**0.5
     return samples
