@@ -424,8 +424,8 @@ class SimplePESamples(SamplesDict):
         if 'chi_p' not in self.keys() and "chi_p2" not in self.keys():
             self["spin_1z"] = self[param]
             self["spin_2z"] = self[param]
-            self["a_1"] = self["spin_1z"]
-            self["a_2"] = self["spin_2z"]
+            self["a_1"] = np.abs(self["spin_1z"])
+            self["a_2"] = np.abs(self["spin_2z"])
             self["tilt_1"] = np.arccos(np.sign(self["spin_1z"]))
             self["tilt_2"] = np.arccos(np.sign(self["spin_2z"]))
             for param in [
