@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser
 from pesummary.core.command_line import ConfigAction as _ConfigAction
+import lalsimulation as ls
 import pycondor
 import os
 
@@ -420,6 +421,17 @@ class CornerNode(Node):
             ["--outdir", f"{self.opts.outdir}/output"],
             ["--posterior", f"{self.opts.outdir}/output/posterior_samples.dat"]
         ]
+        args += [
+            [
+                "--parameters", "chirp_mass", "symmetric_mass_ratio", "chi_align",
+                "theta_jn", "luminosity_distance"
+            ]
+        ]
+        sp = ls.SimInspiralGetSpinSupportFromApproximant(
+            getattr(ls, self.opts.approximant)
+        )
+        if sp > 2:
+            args[-1] += ["chi_p"]
         return " ".join([item for sublist in args for item in sublist])
 
 
