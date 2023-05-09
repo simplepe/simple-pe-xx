@@ -428,9 +428,11 @@ class SimplePESamples(SamplesDict):
             self["a_2"] = self["spin_2z"]
             self["tilt_1"] = np.arccos(np.sign(self["spin_1z"]))
             self["tilt_2"] = np.arccos(np.sign(self["spin_2z"]))
-            self["phi_12"] = np.zeros_like(self["spin_1z"])
-            self["phi_jl"] = np.zeros_like(self["spin_1z"])
-            self["beta"] = np.zeros_like(self["spin_1z"])
+            for param in [
+                "phi_12", "phi_jl", "beta", "spin_1x", "spin_1y",
+                "spin_2x", "spin_2y"
+            ]:
+                self[param] = np.zeros_like(self["spin_1z"])
             return
 
         if ('spin_1z' in self.keys()) and ('spin_2z' in self.keys()):
