@@ -17,6 +17,7 @@ from simple_pe.localization import event
 from simple_pe.param_est import metric, filter, pe
 from simple_pe.waveforms import waveform_modes
 from simple_pe.fstat import fstat
+import lalsimulation as ls
 
 # silence PESummary logger
 import logging
@@ -109,13 +110,15 @@ def command_line():
     return parser
 
 
-def _load_trigger_parameters_from_file(path):
+def _load_trigger_parameters_from_file(path, approximant):
     """Load the trigger parameters from file
 
     Parameters
     ----------
     path: str
         path to file containing trigger parameters
+    approximant: str
+        approximant you wish to use
 
     Returns
     -------
@@ -144,6 +147,13 @@ def _load_trigger_parameters_from_file(path):
         _precessing = 0.
     elif "chi_p2" in data.keys() and data["chi_p2"] == 0:
         _precessing = 0.
+    # check to see if approximant allows for precession
+    if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) <= 2:
+        _precessing = 0.
+        if "chi_p" in data.keys():
+            data["chi_p"] = 0.
+        if "chi_p2" in data.keys():
+            data["chi_p2"] = 0.
     data["_precessing"] = _precessing
     return data
 
@@ -804,7 +814,7 @@ def main(args=None):
     if not os.path.isdir(opts.outdir):
         os.mkdir(opts.outdir)
     trigger_parameters = _load_trigger_parameters_from_file(
-        opts.trigger_parameters
+        opts.trigger_parameters, opts.approximant
     )
     strain, strain_f = _load_strain_data_from_file(
         trigger_parameters, opts.strain, opts.f_low, opts.f_high,
