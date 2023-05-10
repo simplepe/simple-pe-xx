@@ -2,7 +2,7 @@ import numpy as np
 from scipy import special
 from scipy.integrate import quad
 import pylab
-from simple_pe.fstat import fstat
+from simple_pe import fstat
 
 
 def like_equal_d_cosi(a_hat, f, d, cosi):
