@@ -1,5 +1,5 @@
 import numpy as np
-from simple_pe.fstat import fstat
+from simple_pe import fstat
 from scipy import special
 from pesummary.core.reweight import rejection_sampling
 
