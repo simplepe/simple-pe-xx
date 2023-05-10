@@ -6,7 +6,6 @@ from lalsimulation import (
 )
 from pycbc.types import FrequencySeries
 from simple_pe.waveforms import waveform_modes, eccentric
-from simple_pe.param_est.pe import SimplePESamples
 from pesummary.gw import conversions
 
 
@@ -29,6 +28,7 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
         if not hasattr(i, '__len__'):
             params[k] = [i]
 
+    from simple_pe.param_est.pe import SimplePESamples
     x = SimplePESamples(params)
     if 'phase' not in x.keys():
         x['phase'] = np.zeros_like(list(x.values())[0])
