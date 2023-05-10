@@ -5,8 +5,7 @@ from lalsimulation import (
     SimInspiralWaveformParamsInsertModeArray, GetApproximantFromString
 )
 from pycbc.types import FrequencySeries
-from simple_pe.waveforms import waveform_modes
-from simple_pe.waveforms import eccentric
+from simple_pe.waveforms import waveform_modes, eccentric
 from simple_pe.param_est.pe import SimplePESamples
 from pesummary.gw import conversions
 
