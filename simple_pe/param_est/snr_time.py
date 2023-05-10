@@ -2,8 +2,7 @@ from __future__ import division
 import numpy
 import math
 from simple_pe.detectors import psd
-from simple_pe.waveform import stationary_phase
-from scipy import integrate
+from simple_pe.waveforms import stationary_phase
 
 def calc_snr_vs_time(f, p, dt, m1,m2,toff=0):
 
