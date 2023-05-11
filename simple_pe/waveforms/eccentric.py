@@ -21,7 +21,6 @@ def generate_eccentric_waveform(params, df, f_low, f_len):
     else:
         ecc = params["eccentricity"][0]
 
-
     s_rate = 2 * int(f_len * df)
     t_len = int(1 / df)
 
