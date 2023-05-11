@@ -41,7 +41,7 @@ def generate_eccentric_waveform(params, df, f_low, f_len):
         'use_mode_lm': [1],
         'arg_out': "yes",
     }
-    
+
     t, hp, hc, _, _ = EOBRun_module.EOBRunPy(pars)
 
     hp_t = TimeSeries(hp, t[1] - t[0])

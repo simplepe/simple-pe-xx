@@ -223,7 +223,8 @@ def bandwidth(configuration):
 
 def fmean(configuration):
     """
-    Provide the mean frequency for a set of detectors based upon the given configuration
+    Provide the mean frequency for a set of detectors based upon the given
+    configuration
 
     Parameters
     ----------
@@ -258,7 +259,8 @@ def fmean(configuration):
 
 def sigma_t(configuration):
     """
-    return the timing accuracy.  We use SNR of 10 in LIGO, but scale the expected
+    return the timing accuracy.  We use SNR of 10 in LIGO, but scale
+    the expected
     SNR in other detectors based on the range.
     It's just 1/(20 pi sigma_f for LIGO.
     But 1/(20 pi sigma_f)(r_ligo/r_virgo) for others ;

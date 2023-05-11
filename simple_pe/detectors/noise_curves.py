@@ -37,7 +37,7 @@ def calc_reach_bandwidth(mass1, mass2, spin, approx, power_spec, fmin, thresh=8.
     sigf: float
         the frequency bandwidth
     """
-    from simple_pe.param_est.metric import make_waveform
+    from simple_pe.waveforms.waveform import make_waveform
     fmax = power_spec.sample_frequencies[-1]
     df = power_spec.delta_f
     params = {
