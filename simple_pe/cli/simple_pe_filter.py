@@ -12,11 +12,11 @@ from pycbc.psd.analytical import aLIGOMidHighSensitivityP1200087
 import pycbc.psd.read
 from pycbc.filter.matchedfilter import sigmasq
 from pycbc.detector import Detector
-from simple_pe.detectors import noise_curves, network
+from simple_pe.detectors import calc_reach_bandwidth, Network
 from simple_pe.localization import event
 from simple_pe.param_est import metric, filter, pe
-from simple_pe.waveforms import waveform_modes
-from simple_pe.fstat import fstat
+from simple_pe import waveforms
+from simple_pe.fstat import dominant_polarization
 import lalsimulation as ls
 
 # silence PESummary logger
@@ -421,7 +421,7 @@ def calculate_subdominant_snr(
     z_hm = {}
     z_hm_perp = {}
     ifos = [key for key in psd if key != "hm"]
-    h_hm, h_hm_perp, sigmas, zetas = waveform_modes.calculate_hm_multipoles(
+    h_hm, h_hm_perp, sigmas, zetas = waveforms.calculate_hm_multipoles(
         peak_template["mass_1"], peak_template["mass_2"],
         peak_template["spin_1z"], peak_template["spin_2z"], psd["hm"],
         f_low, approximant, multipoles, '22',
@@ -433,7 +433,7 @@ def calculate_subdominant_snr(
             strain_f[ifo], psd[ifo], t_start, t_end, f_low, multipoles,
             h_hm, h_hm_perp
         )
-    _, _, _, hm_net_snr_perp = waveform_modes.network_mode_snr(
+    _, _, _, hm_net_snr_perp = waveforms.network_mode_snr(
         z_hm, z_hm_perp, ifos, multipoles, dominant_mode='22'
     )
     _snr = {}
@@ -465,7 +465,7 @@ def calculate_subdominant_snr(
     z_prec_perp = {}
     overlap_prec = {}
     for ifo in ifos:
-        h_perp, sigma, zeta = waveform_modes.orthonormalize_modes(
+        h_perp, sigma, zeta = waveforms.orthonormalize_modes(
             hp, psd[ifo], f_low, [0, 1], dominant_mode=0
         )
         overlap_prec[ifo] = zeta[1]
@@ -473,7 +473,7 @@ def calculate_subdominant_snr(
             strain_f[ifo], psd[ifo], t_start, t_end, f_low, [0, 1], hp, h_perp,
             dominant_mode=0
         )
-    _, _, _, prec_net_snr_perp = waveform_modes.network_mode_snr(
+    _, _, _, prec_net_snr_perp = waveforms.network_mode_snr(
         z_prec, z_prec_perp, ifos, [0, 1], 0
     )
     _snr["prec"] = prec_net_snr_perp[1]
@@ -532,14 +532,14 @@ def calculate_precession_snr(
     z_prec_perp = {}
     ifos = [key for key in psd if key != "hm"]
     for ifo in ifos:
-        h_perp, sigma, zeta = waveform_modes.orthonormalize_modes(
+        h_perp, sigma, zeta = waveforms.orthonormalize_modes(
             hprec, psd[ifo], f_low, harmonics, dominant_mode='0'
         )
         z_prec[ifo], z_prec_perp[ifo] = _calculate_mode_snr(
             strain_f[ifo], psd[ifo], t_start, t_end, f_low, harmonics,
             hprec, h_perp, dominant_mode='0'
         )
-    _, _, _, prec_net_snr_perp = waveform_modes.network_mode_snr(
+    _, _, _, prec_net_snr_perp = waveforms.network_mode_snr(
         z_prec, z_prec_perp, ifos, ['0','1'], dominant_mode='0'
     )
     return {"prec": prec_net_snr_perp['1']}
@@ -586,7 +586,7 @@ def _calculate_dominant_polarisation(
         f_sig.append(sigma * np.array([_fp, _fc]))
 
     f_sig = np.array(f_sig)
-    fp, fc, _ = fstat.dominant_polarization(f_sig)
+    fp, fc, _ = dominant_polarization(f_sig)
     return fp, fc, f_cplx
 
 
@@ -663,9 +663,9 @@ def add_localisation_information(
     """
     snrs = {}
     ifos = [key for key in psd if key != "hm"]
-    net = network.Network(threshold=10.)
+    net = Network(threshold=10.)
     for ifo in ifos:
-        hor, f_mean, f_band = noise_curves.calc_reach_bandwidth(
+        hor, f_mean, f_band = calc_reach_bandwidth(
             peak_template['mass_1'], peak_template['mass_2'], peak_template["chi_align"],
             approximant, psd[ifo], f_low
         )
@@ -736,7 +736,7 @@ def add_localisation_information(
 def _calculate_mode_snr(
     strain_f, psd, t_start, t_end, f_low, harmonics, h, h_perp, **kwargs
 ):
-    """Wrapper for the waveform_modes.calculate_mode_snr function
+    """Wrapper for the waveforms.calculate_mode_snr function
 
     Parameters
     ----------
@@ -755,10 +755,10 @@ def _calculate_mode_snr(
     h_perp: pycbc.frequencyseries.FrequencySeries
         frequency domain perpendicular waveform
     """
-    aligned, _ = waveform_modes.calculate_mode_snr(
+    aligned, _ = waveforms.calculate_mode_snr(
         strain_f, psd, h, t_start, t_end, f_low, harmonics, **kwargs
     )
-    perp, _ = waveform_modes.calculate_mode_snr(
+    perp, _ = waveforms.calculate_mode_snr(
         strain_f, psd, h_perp, t_start, t_end, f_low, harmonics, **kwargs
     )
     return aligned, perp
