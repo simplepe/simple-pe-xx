@@ -568,6 +568,7 @@ def _calculate_dominant_polarisation(
     """
     f_sig = []
     f_cplx = {}
+
     h = make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
