@@ -2,7 +2,7 @@ import numpy as np
 import copy
 import math
 from scipy import interpolate
-from simple_pe.waveforms import parameter_bounds, waveform_modes
+from simple_pe.waveforms import parameter_bounds, waveform_modes, waveform
 from simple_pe.detectors import noise_curves
 from simple_pe.fstat import fstat_hm
 from pesummary.utils.array import Array
