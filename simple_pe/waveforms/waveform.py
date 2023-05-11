@@ -1,5 +1,4 @@
 import numpy as np
-import copy
 import lal
 import copy
 from lalsimulation import (
