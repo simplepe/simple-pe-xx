@@ -1,7 +1,7 @@
 import numpy as np
 import random as rnd
 import copy
-from simple_pe.detectors import detectors
+from simple_pe import detectors
 from simple_pe.localization import loc, sky_loc
 from pesummary.gw.conversions.mass import mchirp_from_m1_m2
 from astropy.time import Time

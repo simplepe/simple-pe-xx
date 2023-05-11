@@ -1,6 +1,6 @@
 import numpy as np
 import copy
-from pycbc.waveform import td_approximants, fd_approximants, get_fd_waveform, get_td_waveform
+from pycbc.waveform import td_approximants, fd_approximants, get_fd_waveform
 from pycbc.filter.matchedfilter import sigma, overlap_cplx, matched_filter
 
 mode_array_dict = {
