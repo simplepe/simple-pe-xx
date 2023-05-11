@@ -14,7 +14,8 @@ from pycbc.filter.matchedfilter import sigmasq
 from pycbc.detector import Detector
 from simple_pe.detectors import calc_reach_bandwidth, Network
 from simple_pe.localization import event
-from simple_pe.param_est import metric, filter, pe
+from simple_pe.param_est import filter, pe
+from simple_pe.waveforms import make_waveform
 from simple_pe import waveforms
 from simple_pe.fstat import dominant_polarization
 import lalsimulation as ls
@@ -373,7 +374,7 @@ def find_peak(
         if "chi_align" in peak_template.keys():
             peak_template["spin_1z"] = peak_template["chi_align"]
             peak_template["spin_2z"] = peak_template["chi_align"]
-    h = metric.make_waveform(
+    h = waveform.make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
     )
@@ -567,7 +568,7 @@ def _calculate_dominant_polarisation(
     """
     f_sig = []
     f_cplx = {}
-    h = metric.make_waveform(
+    h = make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
     )
@@ -713,7 +714,7 @@ def add_localisation_information(
         )
         ee.add_network(net)
         fp[i], fc[i] = ee.get_f()
-    h = metric.make_waveform(
+    h = make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
     )
@@ -786,7 +787,7 @@ def estimate_face_on_distance(
     f_high: float
         high frequency cutoff to use for the analysis
     """
-    h = metric.make_waveform(
+    h = make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
     )
