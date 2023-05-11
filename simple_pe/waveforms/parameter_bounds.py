@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 
+
 spin_max = 0.98
 ecc_max = 0.5
 prec_min = 1e-3
