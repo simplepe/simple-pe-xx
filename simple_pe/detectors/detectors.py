@@ -12,7 +12,6 @@ def detectors(ifos):
 
     Parameters
     ----------
-<<<<<<< HEAD
     ifos: list
         a list of IFOs
 
@@ -22,14 +21,6 @@ def detectors(ifos):
         a dictionary of detector locations
     response: dict
         a dictionary of the detector responses
-=======
-    ifos: a list of IFOs
-
-    Returns
-    -------
-    location: a dictionary of detector locations
-    response: a dictionary of the detector responses
->>>>>>> e99daf8 (fixing docs and warnings)
     """
     location = {}
     response = {}
