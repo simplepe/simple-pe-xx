@@ -8,6 +8,7 @@ Submodules
 simple_pe.waveforms.parameter_bounds module
 -------------------------------------------
 
+
 .. automodule:: simple_pe.waveforms.parameter_bounds
     :members:
     :undoc-members:
