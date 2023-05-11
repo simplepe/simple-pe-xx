@@ -374,7 +374,7 @@ def find_peak(
         if "chi_align" in peak_template.keys():
             peak_template["spin_1z"] = peak_template["chi_align"]
             peak_template["spin_2z"] = peak_template["chi_align"]
-    h = waveform.make_waveform(
+    h = make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
     )
