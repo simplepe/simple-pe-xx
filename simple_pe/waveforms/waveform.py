@@ -8,6 +8,55 @@ from lalsimulation import (
 from pycbc.types import FrequencySeries
 from simple_pe.waveforms import parameter_bounds, waveform_modes, eccentric
 from pesummary.gw import conversions
+import copy
+
+spin_max = 0.98
+ecc_max = 0.5
+prec_min = 1e-3
+
+param_mins = {'chirp_mass': 1.,
+              'total_mass': 2.,
+              'mass_1': 1.,
+              'mass_2': 1.,
+              'symmetric_mass_ratio': 0.04,
+              'chi_eff': -1 * spin_max,
+              'chi_align': -1 * spin_max,
+              'chi_p': prec_min,
+              'chi_p2': prec_min,
+              'prec': prec_min,
+              'chi': prec_min,
+              'spin_1z': -1 * spin_max,
+              'spin_2z': -1 * spin_max,
+              'a_1': 0.,
+              'a_2': 0.,
+              'tilt_1': 0.,
+              'tilt_2': 0.,
+              'tilt': prec_min,
+              'eccentricity': 0.,
+              'ecc2': 0.,
+              }
+
+param_maxs = {'chirp_mass': 1e4,
+              'total_mass': 1e4,
+              'mass_1': 1e4,
+              'mass_2': 1e4,
+              'symmetric_mass_ratio': 0.25,
+              'chi_eff': spin_max,
+              'chi_align': spin_max,
+              'chi_p': spin_max,
+              'chi_p2': spin_max**2,
+              'chi': spin_max,
+              'spin_1z': spin_max,
+              'spin_2z': spin_max,
+              'a_1': spin_max,
+              'a_2': spin_max,
+              'tilt_1': np.pi,
+              'tilt_2': np.pi,
+              'tilt': np.pi - prec_min,
+              'eccentricity': ecc_max,
+              'ecc2': ecc_max**2,
+              }
+
 
 
 def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=False, modes=None,
