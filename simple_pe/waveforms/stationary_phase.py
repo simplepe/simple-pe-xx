@@ -1,5 +1,5 @@
 import math
-from scipy.constants import G, c, pi, mega, parsec
+from scipy.constants import G, c, mega, parsec
 import pylab
 
 def amplitude(freq, m1, m2, distance = 1):

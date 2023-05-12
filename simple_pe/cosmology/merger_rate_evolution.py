@@ -3,14 +3,13 @@ from numpy import *
 import astropy.units as u
 
 import scipy.integrate as integrate
-from scipy.integrate import quad
 from scipy.interpolate import interp1d
 
 from astropy.cosmology import Planck15, z_at_value
 
-BNSrate=1500 * u.Gpc**-3 * u.yr**-1 #  From BNS discovery paper
+BNSrate=1500 * u.Gpc**-3 * u.yr**-1  # From BNS discovery paper
 
-t_D_min = 0.02 #from Regimau Mock #0.05 - from Taylor and Gair 2012
+t_D_min = 0.02  # from Regimau Mock #0.05 - from Taylor and Gair 2012
 t_D_max = 13.7
 
 '''We are using Planck15 cosmological parameters:'''
@@ -20,6 +19,7 @@ t_D_max = 13.7
 
 # Time - redshift conversions
 
+
 def redshift_at_age(t):
     '''
         t in billions of years
@@ -27,12 +27,15 @@ def redshift_at_age(t):
     z = z_at_age_interp(t)
     return z
 
+
 def age_at_redshift(z):
     '''
         t in billions of years
         '''
     return age_at_z_interp(z)
-#interpolation functions to speed up:
+
+
+# interpolation functions to speed up:
 redshifts = linspace(0.0, 20, 1000)
 redshifts = append(redshifts, linspace(20,900,100))
 
@@ -45,6 +48,7 @@ z_at_ages = array([z_at_value(Planck15.age, age*u.Gyr) for age in ages])
 ages = append(ages, age_at_redshift(0))
 z_at_ages = append(z_at_ages, 0)
 z_at_age_interp = interp1d(ages,z_at_ages)
+
 
 def z_at_formation(z,t_D):
     '''takes the redshift of a source at merger and the delay since formation,
@@ -63,10 +67,11 @@ def sfrMD(z):
         http://www.annualreviews.org/doi/pdf/10.1146/annurev-astro-081811-125615
         uses (O_M, O_de, h) = (0.3, 0.7, 0.7) params
         '''
-    sfrmd = 0.015*(1.+z)**2.7/(1.+((1.+z)/2.9)**5.6) #msun per yr per Mpc^3
-    #below convert to Plan15 cosmology (it's small)
-    #(H0 constant out the fron will be normalized away later so we ignore it)
-    return sfrmd #* sqrt((0.3075*(1+z)**3 + 0.691)/(0.3*(1+z)**3 + 0.7)) neglecting this cosmology convertion factor as it is essentially negligible
+    sfrmd = 0.015*(1.+z)**2.7/(1.+((1.+z)/2.9)**5.6) # msun per yr per Mpc^3
+    # below convert to Plan15 cosmology (it's small)
+    # (H0 constant out the fron will be normalized away later so we ignore it)
+    return sfrmd  # * sqrt((0.3075*(1+z)**3 + 0.691)/(0.3*(1+z)**3 + 0.7)) neglecting this cosmology convertion factor as it is essentially negligible
+
 
 def sfrHB(z):
     '''
@@ -74,6 +79,7 @@ def sfrHB(z):
         http://iopscience.iop.org/article/10.1086/506610/pdf
         '''
     return 0.7 * (0.017 + 0.13*z) / (1.+(z/3.3)**5.3)
+
 
 def sfr2_porciani_madau(z):
     '''
@@ -83,6 +89,7 @@ def sfr2_porciani_madau(z):
     return exp(3.4*z) / (exp(3.4*z)+22.) *Planck15.efunc(z) /((1+z)**(3/2.))
 
 # Time Delay Distribution
+
 
 def P(t_D, t_D_max = age_at_redshift(0), t_D_min = t_D_min):
     '''1/t delay time distribution'''
@@ -97,8 +104,8 @@ def P(t_D, t_D_max = age_at_redshift(0), t_D_min = t_D_min):
         elif t_D>t_D_max: return 0
         else: return norm_cnst*1/t_D
 
-# CBC merger rate density
 
+# CBC merger rate density
 def rate_density_integrand(tb, t, sfr = sfrMD):
     '''eq 37 of Nakar (2007)
         http://www.sciencedirect.com/science/article/pii/S0370157307000476?via%3Dihub
@@ -132,13 +139,15 @@ def rate_density(z, z_max = 20, sfr = sfrMD):
         '''
     t = age_at_redshift(z)
     t_min = age_at_redshift(z_max)
-    return  integrate.quad(rate_density_integrand, t_min, t,
+    return integrate.quad(rate_density_integrand, t_min, t,
                            args = (t, sfr), epsabs = 0)[0]
+
+
 def integrand(z, R0 = BNSrate, z_max = 20, sfr = sfrMD):
     '''
         
     '''
     norm = R0/rate_density(0, z_max, sfr)
     R_local = norm * rate_density(z, z_max = z_max, sfr = sfr)
-    dv_dz=Planck15.differential_comoving_volume(z).to(u.Gpc**3 / u.sr) #dv_dz_interp(z)
-    return 4*np.pi *u.sr * dv_dz * R_local * u.yr * 1/(1+z) # 4*pi factor: dv/dz is given in per steridians and so we multiply by the whole sky
+    dv_dz=Planck15.differential_comoving_volume(z).to(u.Gpc**3 / u.sr)  # dv_dz_interp(z)
+    return 4*np.pi *u.sr * dv_dz * R_local * u.yr * 1/(1+z)  # 4*pi factor: dv/dz is given in per steridians and so we multiply by the whole sky
