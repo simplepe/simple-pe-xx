@@ -444,7 +444,7 @@ class Event(object):
                 self.localize(method, mirror=True, p=p)
 
         if marg:
-            methods.append(marg)
+            methods.append('marg')
             self.marg_loc(p=p)
             if self.mirror:
                 self.marg_loc(mirror=True, p=p)
