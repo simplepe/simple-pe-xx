@@ -435,6 +435,8 @@ class Event(object):
         if 'marg' in methods:
             marg = True
             methods.remove('marg')
+        else:
+            marg = False
 
         self.calculate_mirror()
         self.calculate_sensitivity()
