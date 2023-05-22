@@ -5,7 +5,6 @@ from pycbc.filter import sigma, sigmasq
 from pycbc.waveform import get_fd_waveform
 from simple_pe.cosmology import redshift_at_lum_dist
 from pycbc.detector import Detector
-from pycbc.conversions import mass1_from_mtotal_q, mass2_from_mtotal_q
 from simple_pe.fstat import fstat, fstat_hm
 from simple_pe.waveforms.waveform_modes import mode_array_dict
 
@@ -205,7 +204,6 @@ def calc_mode_horizon(mass1, mass2, spin, psd, fmin, snr=8, mode='22',
         return sig / snr
 
 
-
 def interpolate_mode_horizon(min_mass, max_mass, q, spin, psd, fmin, snr=8,
                            mode='22', waveform='IMRPhenomXHM', triangle=False):
     """
@@ -246,7 +244,7 @@ def interpolate_mode_horizon(min_mass, max_mass, q, spin, psd, fmin, snr=8,
     masses = np.logspace(np.log10(0.5 * min_mass),
                          np.log10(1.5 * max_mass),
                          100)
-    horizon = np.array([calc_hm_horizon(mass * q / (1. + q),
+    horizon = np.array([calc_mode_horizon(mass * q / (1. + q),
                                         mass * 1 / (1. + q),
                                         spin,
                                         psd, fmin, snr, mode,
