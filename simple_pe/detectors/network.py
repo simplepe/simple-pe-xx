@@ -87,7 +87,7 @@ class Network(object):
             horizon, f_mean, f_band = \
                 detectors.calc_reach_bandwidth(mass1=1.4, mass2=1.4, spin=0,
                                                approx=approximant,
-                                               power_spec=psds[ifo],
+                                               psd=psds[ifo],
                                                fmin=f_lows[ifo],
                                                thresh=8)
             self.add_ifo(ifo, horizon, f_mean, f_band,
