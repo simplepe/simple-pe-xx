@@ -19,11 +19,13 @@ class Det(detector.Detector):
     found_thresh: threshold for declaring an event found
     loc_thresh: threshold for declaring an event localized
     duty_cycle: fraction of time the detector is operational
-    bns_range: is the given range for BNS (if yes, then rescale SNR with mchirp^5/6)
+    bns_range: is the given range for BNS (if yes, then rescale SNR with
+            mchirp^5/6)
     """
 
     def __init__(self, detector_name, det_range, f_mean, f_band,
-                 found_thresh=5.0, loc_thresh=4.0, duty_cycle=1.0, bns_range=True):
+                 found_thresh=5.0, loc_thresh=4.0, duty_cycle=1.0,
+                 bns_range=True):
 
         super().__init__(detector_name)
         self.det_range = det_range
@@ -49,20 +51,21 @@ class Det(detector.Detector):
         ----------
         event: object, containing ra, dec, psi, gmst
         """
-        self.f_plus, self.f_cross = self.antenna_pattern(event.ra, event.dec, event.psi,
-                                                         event.gps)
+        self.f_plus, self.f_cross = self.antenna_pattern(event.ra, event.dec,
+                                                         event.psi, event.gps)
 
     def calculate_mirror_sensitivity(self, event):
         """
-        Calculate the sensitivity of the detector to an event, in its mirror sky location
+        Calculate the sensitivity of the detector to an event,
+        in its mirror sky location
 
         Parameters
         ----------
         event: object, containing mirror_ra, mirror_dec, psi, gmst
         """
-        self.mirror_f_plus, self.mirror_f_cross = self.antenna_pattern(event.mirror_ra,
-                                                                       event.mirror_dec,
-                                                                       event.psi, event.gps)
+        self.mirror_f_plus, self.mirror_f_cross = \
+            self.antenna_pattern(event.mirror_ra, event.mirror_dec,
+                                 event.psi, event.gps)
 
     def calculate_snr(self, event):
         """
@@ -81,8 +84,10 @@ class Det(detector.Detector):
             mass_scale = (event.mchirp / mchirp_from_m1_m2(1.4, 1.4)) ** (5. / 6)
         else:
             mass_scale = 1.
-        self.snr = mass_scale * self.sigma / event.D * complex(np.cos(2 * event.phi), -np.sin(2 * event.phi)) * \
-                   complex(self.f_plus * (1 + event.cosi ** 2) / 2, self.f_cross * event.cosi)
+        self.snr = mass_scale * self.sigma / event.D * \
+                   complex(np.cos(2 * event.phi), - np.sin(2 * event.phi)) * \
+                   complex(self.f_plus * (1 + event.cosi ** 2) / 2,
+                           self.f_cross * event.cosi)
 
     def get_fsig(self, mirror=False):
         """
@@ -97,6 +102,7 @@ class Det(detector.Detector):
         :returns: length 2 array: sigma * (F_plus, F_cross)
         """
         if mirror:
-            return self.sigma * np.array([self.mirror_f_plus, self.mirror_f_cross])
+            return self.sigma * np.array([self.mirror_f_plus,
+                                          self.mirror_f_cross])
         else:
             return self.sigma * np.array([self.f_plus, self.f_cross])
