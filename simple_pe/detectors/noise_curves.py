@@ -5,13 +5,11 @@ from pycbc.filter import sigma, sigmasq
 from pycbc.waveform import get_fd_waveform
 from simple_pe.cosmology import redshift_at_lum_dist
 from pycbc.detector import Detector
-from pycbc.conversions import mass1_from_mtotal_q, mass2_from_mtotal_q
 from simple_pe.fstat import fstat, fstat_hm
 from simple_pe.waveforms.waveform_modes import mode_array_dict
 
 
-def calc_reach_bandwidth(mass1, mass2, spin, approx, power_spec, fmin,
-                         thresh=8.):
+def calc_reach_bandwidth(mass1, mass2, spin, approx, psd, fmin, thresh=8.):
     """
     Calculate the horizon, mean frequency and bandwidth for a given PSD in
     the detector frame
@@ -26,7 +24,7 @@ def calc_reach_bandwidth(mass1, mass2, spin, approx, power_spec, fmin,
         the aligned spin for both components
     approx: str
         the waveform used to calculate the horizon
-    power_spec: pycbc.psd
+    psd: pycbc.psd
         the power spectrum to use
     fmin: float
         the minimum frequency
@@ -43,8 +41,8 @@ def calc_reach_bandwidth(mass1, mass2, spin, approx, power_spec, fmin,
         the frequency bandwidth
     """
     from simple_pe.waveforms.waveform import make_waveform
-    fmax = power_spec.sample_frequencies[-1]
-    df = power_spec.delta_f
+    fmax = psd.sample_frequencies[-1]
+    df = psd.delta_f
     params = {
         "mass_1": mass1, "mass_2": mass2, "spin_1z": spin,
         "spin_2z": spin, "distance": 1.
@@ -53,15 +51,15 @@ def calc_reach_bandwidth(mass1, mass2, spin, approx, power_spec, fmin,
         params, df, fmin, int(fmax / df) + 1, approximant=approx,
         return_hc=True
     )
-    ss = float(sigmasq(hpf, power_spec,
+    ss = float(sigmasq(hpf, psd,
                        low_frequency_cutoff=fmin,
                        high_frequency_cutoff=hpf.sample_frequencies[-1]))
     hpf *= hpf.sample_frequencies ** 0.5
-    ssf = float(sigmasq(hpf, power_spec,
+    ssf = float(sigmasq(hpf, psd,
                         low_frequency_cutoff=fmin,
                         high_frequency_cutoff=hpf.sample_frequencies[-1]))
     hpf *= hpf.sample_frequencies ** 0.5
-    ssf2 = float(sigmasq(hpf, power_spec,
+    ssf2 = float(sigmasq(hpf, psd,
                          low_frequency_cutoff=fmin,
                          high_frequency_cutoff=hpf.sample_frequencies[-1]))
     max_dist = np.sqrt(ss) / thresh
@@ -70,7 +68,7 @@ def calc_reach_bandwidth(mass1, mass2, spin, approx, power_spec, fmin,
     return max_dist, meanf, sigf
 
 
-def calc_detector_horizon(mass1, mass2, spin, power_spec, fmin, snr=8,
+def calc_detector_horizon(mass1, mass2, spin, psd, fmin, snr=8,
                           waveform='IMRPhenomD', triangle=False):
     """
     Calculate the horizon for a given PSD [in the detector frame]
@@ -83,7 +81,7 @@ def calc_detector_horizon(mass1, mass2, spin, power_spec, fmin, snr=8,
         the mass of second component
     spin: float
         the z-component of spin for both components
-    power_spec: pycbc.psd
+    psd: pycbc.psd
         the power spectrum to use
     fmin: float
         the minimum frequency
@@ -99,16 +97,18 @@ def calc_detector_horizon(mass1, mass2, spin, power_spec, fmin, snr=8,
     horizon: float
         the horizon distance for the given system
     """
-    return calc_mode_horizon(mass1, mass2, spin, power_spec, fmin, snr,
+    return calc_mode_horizon(mass1, mass2, spin, psd, fmin, snr,
                              '22', waveform, triangle)
 
 
-def interpolate_horizon(min_mass, max_mass, q, spin, power_spec, fmin, snr,
+
+def interpolate_horizon(min_mass, max_mass, q, spin, psd, fmin, snr=8,
                         waveform='IMRPhenomD', triangle=False):
     """
-    Generate an interpolation function for the horizon [in the detector frame]
-    for a binary with total mass between min_mass and max_mass, with given
-    mass rati and spin from a frequency fmin in a detector with given power_spec
+    Generate an interpolation function for the horizon [in the detector frame] f
+    or a binary with total mass between min_mass and max_mass,
+    with given mass ratio and spin from a frequency fmin in a detector with
+    given psd
 
     Parameters
     ----------
@@ -120,8 +120,8 @@ def interpolate_horizon(min_mass, max_mass, q, spin, power_spec, fmin, snr,
         the mass ratio
     spin: float
         the z-component of spin for both components
-    power_spec: pycbc.psd
-        the power spectrum to use
+    psd: pycbc.psd
+        the PSD used to calculate the horizon
     fmin: float
         the minimum frequency
     snr: float
@@ -136,12 +136,12 @@ def interpolate_horizon(min_mass, max_mass, q, spin, power_spec, fmin, snr,
     horizon_interp:
         horizon interpolation function
     """
-    return interpolate_mode_horizon(min_mass, max_mass, q, spin, power_spec,
+    return interpolate_mode_horizon(min_mass, max_mass, q, spin, psd,
                                     fmin, snr, '22', waveform, triangle)
 
 
-def calc_mode_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, mode='22',
-                      waveform='IMRPhenomXHM', triangle=False):
+def calc_mode_horizon(mass1, mass2, spin, psd, fmin, snr=8, mode='22',
+                    waveform='IMRPhenomXHM', triangle=False):
     """
     Calculate the horizon for a given PSD [in the detector frame]
 
@@ -153,7 +153,7 @@ def calc_mode_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, mode='22',
         the mass ratio of second component
     spin: float
         the z-component of spin for both components
-    power_spec: pycbc.psd
+    psd: pycbc.psd
         the power spectrum to use
     fmin: float
         the minimum frequency
@@ -170,8 +170,8 @@ def calc_mode_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, mode='22',
     -------
     horizon: the higher mode horizon in detector frame for given masses and spin
     """
-    fmax = power_spec.sample_frequencies[-1]
-    df = power_spec.delta_f
+    fmax = psd.sample_frequencies[-1]
+    df = psd.delta_f
 
     if mode not in mode_array_dict.keys():
         print("Not implemented for this mode")
@@ -190,7 +190,7 @@ def calc_mode_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, mode='22',
                                 delta_f=df,
                                 inclination=np.pi / 2)
         sig = sigma(hp,
-                    power_spec,
+                    psd,
                     low_frequency_cutoff=fmin,
                     high_frequency_cutoff=hp.sample_frequencies[-1])
         if mode == '22':
@@ -204,13 +204,13 @@ def calc_mode_horizon(mass1, mass2, spin, power_spec, fmin, snr=8, mode='22',
         return sig / snr
 
 
-def interpolate_mode_horizon(min_mass, max_mass, q, spin, power_spec, fmin,
-                             snr=8, mode='22', waveform='IMRPhenomXHM',
-                             triangle=False):
+def interpolate_mode_horizon(min_mass, max_mass, q, spin, psd, fmin, snr=8,
+                           mode='22', waveform='IMRPhenomXHM', triangle=False):
     """
     Generate an interpolation function for the horizon [in the detector frame]
-    for a binary with total mass between min_mass and max_mass, with given mass
-    ratio and spin from a frequency fmin in a detector with given power_spec
+    for a binary with total mass between min_mass and max_mass,
+    with given mass ratio and spin from a frequency fmin in a detector
+    with given psd
 
     Parameters
     ----------
@@ -222,7 +222,7 @@ def interpolate_mode_horizon(min_mass, max_mass, q, spin, power_spec, fmin,
         the mass ratio
     spin: float
         the z-component of spin for both components
-    power_spec: pycbc.psd
+    psd: pycbc.psd
         the power spectrum to use
     fmin: float
         the minimum frequency
@@ -241,12 +241,14 @@ def interpolate_mode_horizon(min_mass, max_mass, q, spin, power_spec, fmin,
         horizon interpolation in detector frame for higher modes
     """
     # add a safety margin so interpolation definitely covers range
-    masses = np.logspace(np.log10(0.5 * min_mass), np.log10(1.5 * max_mass),
+    masses = np.logspace(np.log10(0.5 * min_mass),
+                         np.log10(1.5 * max_mass),
                          100)
-    horizon = np.array([calc_mode_horizon(mass1_from_mtotal_q(mass, q),
-                                          mass2_from_mtotal_q(mass, q),
-                                          spin, power_spec, fmin, snr, mode,
-                                          waveform, triangle)
+    horizon = np.array([calc_mode_horizon(mass * q / (1. + q),
+                                        mass * 1 / (1. + q),
+                                        spin,
+                                        psd, fmin, snr, mode,
+                                        waveform, triangle)
                         for mass in masses])
     horizon_interp = interpolate.interp1d(masses, horizon)
     return horizon_interp
@@ -277,7 +279,8 @@ def interpolate_source_horizon(min_mass, max_mass, hor_interp, snr_factor=1.):
         horizon interpolation in source frame
     """
     # add a safety margin so interpolation definitely covers range
-    masses = np.logspace(np.log10(0.5 * min_mass), np.log10(1.5 * max_mass),
+    masses = np.logspace(np.log10(0.5 * min_mass),
+                         np.log10(1.5 * max_mass),
                          1000)
     d_horizon = hor_interp(masses) * snr_factor
     z_horizon = redshift_at_lum_dist(d_horizon)
