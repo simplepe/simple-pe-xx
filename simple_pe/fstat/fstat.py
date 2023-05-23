@@ -1,6 +1,7 @@
 import numpy as np
 
-# The following functions all convert between physical parameters and f-stat values
+# The following functions all convert between physical parameters and f-stat
+# values
 # In particular, they do not need anything about a detector or network.
 
 
