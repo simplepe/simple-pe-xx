@@ -12,11 +12,13 @@ from pycbc.psd.analytical import aLIGOMidHighSensitivityP1200087
 import pycbc.psd.read
 from pycbc.filter.matchedfilter import sigmasq
 from pycbc.detector import Detector
-from simple_pe.detectors import noise_curves, network
+from simple_pe.detectors import calc_reach_bandwidth, Network
 from simple_pe.localization import event
-from simple_pe.param_est import metric, filter, pe
-from simple_pe.waveforms import waveform_modes
-from simple_pe.fstat import fstat
+from simple_pe.param_est import filter, pe
+from simple_pe.waveforms import make_waveform
+from simple_pe import waveforms
+from simple_pe.fstat import dominant_polarization
+import lalsimulation as ls
 
 # silence PESummary logger
 import logging
@@ -109,13 +111,15 @@ def command_line():
     return parser
 
 
-def _load_trigger_parameters_from_file(path):
+def _load_trigger_parameters_from_file(path, approximant):
     """Load the trigger parameters from file
 
     Parameters
     ----------
     path: str
         path to file containing trigger parameters
+    approximant: str
+        approximant you wish to use
 
     Returns
     -------
@@ -142,6 +146,20 @@ def _load_trigger_parameters_from_file(path):
             f"{path} does not include all required parameters: "
             f"{','.join(required_params)}"
         )
+    # always assume the precessing case unless chi_p = 0
+    _precessing = 1.
+    if "chi_p" in data.keys() and data["chi_p"] == 0:
+        _precessing = 0.
+    elif "chi_p2" in data.keys() and data["chi_p2"] == 0:
+        _precessing = 0.
+    # check to see if approximant allows for precession
+    if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) <= 2:
+        _precessing = 0.
+        if "chi_p" in data.keys():
+            data["chi_p"] = 0.
+        if "chi_p2" in data.keys():
+            data["chi_p2"] = 0.
+    data["_precessing"] = _precessing
     return data
 
 
@@ -307,44 +325,48 @@ def find_peak(
     """
     _psd = psd.copy()
     _psd.pop("hm", None)
+    if not trigger_parameters["_precessing"] and "chi_p" in fixed_directions:
+        fixed_directions.remove("chi_p")
     event_info = {
         k: trigger_parameters[k] for k in dx_directions + fixed_directions
     }
     # find dominant harmonic peak
     x_peak, snr_peak = filter.find_peak_snr(
         list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info, 
-        dx_directions, f_low, approximant, method=method
+        dx_directions, f_low, approximant, method=method,
+        harm2=trigger_parameters["_precessing"]
     )
     x_peak = pe.convert(x_peak, disable_remnant=True)
     print("Found dominant harmonic peak with SNR = %.4f" % snr_peak)
     for k,v in x_peak.items():
         print("%s = %.4f" % (k,v))
-    # find two-harmonic peak
-    event_info = {
-        k: x_peak[k] for k in dx_directions + fixed_directions
-    }
-    x_2h_peak, snr_2h_peak = filter.find_peak_snr(
-        list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info, 
-        dx_directions, f_low, approximant, method=method, harm2=True
-    )
-    x_2h_peak = pe.convert(x_2h_peak, disable_remnant=True)
-    peak_info = {}
-    peak_pars = ['chirp_mass', 'symmetric_mass_ratio', 'distance']
-    for p in peak_pars:
-        peak_info[p] = x_2h_peak[p]
+    if trigger_parameters["_precessing"]:
+        # find two-harmonic peak
+        event_info = {
+            k: x_peak[k] for k in dx_directions + fixed_directions
+        }
+        x_2h_peak, snr_2h_peak = filter.find_peak_snr(
+            list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info, 
+            dx_directions, f_low, approximant, method=method, harm2=True
+        )
+        x_2h_peak = pe.convert(x_2h_peak, disable_remnant=True)
+        peak_info = {}
+        peak_pars = ['chirp_mass', 'symmetric_mass_ratio', 'distance']
+        for p in peak_pars:
+            peak_info[p] = x_2h_peak[p]
 
-    peak_info['chi'] = np.sqrt(x_2h_peak['chi_align']**2 + x_2h_peak['chi_p']**2)
-    peak_info['tilt'] = np.arctan2(x_2h_peak['chi_p'], x_2h_peak['chi_align'])
-    x_peak, snr_peak = filter.find_peak_snr(
-        list(strain_f.keys()), strain_f, psd, t_start, t_end, peak_info, 
-        ["chirp_mass", "symmetric_mass_ratio", "chi", "tilt"], f_low,
-        approximant, method=method, harm2=True
-    )
-    x_peak['chi_eff'] = x_peak['chi'] * np.cos(x_peak['tilt'])
-    x_peak['chi_p'] = x_peak['chi'] * np.sin(x_peak['tilt'])
-    print("Found two harmonic peak with SNR = %.4f" % snr_peak)
-    for k,v in x_peak.items():
-        print("%s = %.4f" % (k,v))
+        peak_info['chi'] = np.sqrt(x_2h_peak['chi_align']**2 + x_2h_peak['chi_p']**2)
+        peak_info['tilt'] = np.arctan2(x_2h_peak['chi_p'], x_2h_peak['chi_align'])
+        x_peak, snr_peak = filter.find_peak_snr(
+            list(strain_f.keys()), strain_f, psd, t_start, t_end, peak_info, 
+            ["chirp_mass", "symmetric_mass_ratio", "chi", "tilt"], f_low,
+            approximant, method=method, harm2=True
+        )
+        x_peak['chi_eff'] = x_peak['chi'] * np.cos(x_peak['tilt'])
+        x_peak['chi_p'] = x_peak['chi'] * np.sin(x_peak['tilt'])
+        print("Found two harmonic peak with SNR = %.4f" % snr_peak)
+        for k,v in x_peak.items():
+            print("%s = %.4f" % (k,v))
     peak_template = pe.SimplePESamples(x_peak)
     peak_template.add_fixed('phase', 0.)
     peak_template.add_fixed('f_ref', f_low)
@@ -352,7 +374,11 @@ def find_peak(
     peak_template.generate_prec_spin()
     peak_template.generate_all_posterior_samples(f_low=f_low, f_ref=f_low, delta_f=delta_f, disable_remnant=True)
     ifos = [key for key in psd.keys() if key != "hm"]
-    h = metric.make_waveform(
+    if not all(_ in peak_template.keys() for _ in ["spin_1z", "spin_2z"]):
+        if "chi_align" in peak_template.keys():
+            peak_template["spin_1z"] = peak_template["chi_align"]
+            peak_template["spin_2z"] = peak_template["chi_align"]
+    h = make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
     )
@@ -400,7 +426,7 @@ def calculate_subdominant_snr(
     z_hm = {}
     z_hm_perp = {}
     ifos = [key for key in psd if key != "hm"]
-    h_hm, h_hm_perp, sigmas, zetas = waveform_modes.calculate_hm_multipoles(
+    h_hm, h_hm_perp, sigmas, zetas = waveforms.calculate_hm_multipoles(
         peak_template["mass_1"], peak_template["mass_2"],
         peak_template["spin_1z"], peak_template["spin_2z"], psd["hm"],
         f_low, approximant, multipoles, '22',
@@ -412,7 +438,7 @@ def calculate_subdominant_snr(
             strain_f[ifo], psd[ifo], t_start, t_end, f_low, multipoles,
             h_hm, h_hm_perp
         )
-    _, _, _, hm_net_snr_perp = waveform_modes.network_mode_snr(
+    _, _, _, hm_net_snr_perp = waveforms.network_mode_snr(
         z_hm, z_hm_perp, ifos, multipoles, dominant_mode='22'
     )
     _snr = {}
@@ -444,7 +470,7 @@ def calculate_subdominant_snr(
     z_prec_perp = {}
     overlap_prec = {}
     for ifo in ifos:
-        h_perp, sigma, zeta = waveform_modes.orthonormalize_modes(
+        h_perp, sigma, zeta = waveforms.orthonormalize_modes(
             hp, psd[ifo], f_low, [0, 1], dominant_mode=0
         )
         overlap_prec[ifo] = zeta[1]
@@ -452,7 +478,7 @@ def calculate_subdominant_snr(
             strain_f[ifo], psd[ifo], t_start, t_end, f_low, [0, 1], hp, h_perp,
             dominant_mode=0
         )
-    _, _, _, prec_net_snr_perp = waveform_modes.network_mode_snr(
+    _, _, _, prec_net_snr_perp = waveforms.network_mode_snr(
         z_prec, z_prec_perp, ifos, [0, 1], 0
     )
     _snr["prec"] = prec_net_snr_perp[1]
@@ -511,14 +537,14 @@ def calculate_precession_snr(
     z_prec_perp = {}
     ifos = [key for key in psd if key != "hm"]
     for ifo in ifos:
-        h_perp, sigma, zeta = waveform_modes.orthonormalize_modes(
+        h_perp, sigma, zeta = waveforms.orthonormalize_modes(
             hprec, psd[ifo], f_low, harmonics, dominant_mode='0'
         )
         z_prec[ifo], z_prec_perp[ifo] = _calculate_mode_snr(
             strain_f[ifo], psd[ifo], t_start, t_end, f_low, harmonics,
             hprec, h_perp, dominant_mode='0'
         )
-    _, _, _, prec_net_snr_perp = waveform_modes.network_mode_snr(
+    _, _, _, prec_net_snr_perp = waveforms.network_mode_snr(
         z_prec, z_prec_perp, ifos, ['0','1'], dominant_mode='0'
     )
     return {"prec": prec_net_snr_perp['1']}
@@ -546,7 +572,8 @@ def _calculate_dominant_polarisation(
     """
     f_sig = []
     f_cplx = {}
-    h = metric.make_waveform(
+
+    h = make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
     )
@@ -565,7 +592,7 @@ def _calculate_dominant_polarisation(
         f_sig.append(sigma * np.array([_fp, _fc]))
 
     f_sig = np.array(f_sig)
-    fp, fc, _ = fstat.dominant_polarization(f_sig)
+    fp, fc, _ = dominant_polarization(f_sig)
     return fp, fc, f_cplx
 
 
@@ -642,9 +669,9 @@ def add_localisation_information(
     """
     snrs = {}
     ifos = [key for key in psd if key != "hm"]
-    net = network.Network(threshold=10.)
+    net = Network(threshold=10.)
     for ifo in ifos:
-        hor, f_mean, f_band = noise_curves.calc_reach_bandwidth(
+        hor, f_mean, f_band = calc_reach_bandwidth(
             peak_template['mass_1'], peak_template['mass_2'], peak_template["chi_align"],
             approximant, psd[ifo], f_low
         )
@@ -692,7 +719,7 @@ def add_localisation_information(
         )
         ee.add_network(net)
         fp[i], fc[i] = ee.get_f()
-    h = metric.make_waveform(
+    h = make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
     )
@@ -715,7 +742,7 @@ def add_localisation_information(
 def _calculate_mode_snr(
     strain_f, psd, t_start, t_end, f_low, harmonics, h, h_perp, **kwargs
 ):
-    """Wrapper for the waveform_modes.calculate_mode_snr function
+    """Wrapper for the waveforms.calculate_mode_snr function
 
     Parameters
     ----------
@@ -734,10 +761,10 @@ def _calculate_mode_snr(
     h_perp: pycbc.frequencyseries.FrequencySeries
         frequency domain perpendicular waveform
     """
-    aligned, _ = waveform_modes.calculate_mode_snr(
+    aligned, _ = waveforms.calculate_mode_snr(
         strain_f, psd, h, t_start, t_end, f_low, harmonics, **kwargs
     )
-    perp, _ = waveform_modes.calculate_mode_snr(
+    perp, _ = waveforms.calculate_mode_snr(
         strain_f, psd, h_perp, t_start, t_end, f_low, harmonics, **kwargs
     )
     return aligned, perp
@@ -765,7 +792,7 @@ def estimate_face_on_distance(
     f_high: float
         high frequency cutoff to use for the analysis
     """
-    h = metric.make_waveform(
+    h = make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
     )
@@ -793,7 +820,7 @@ def main(args=None):
     if not os.path.isdir(opts.outdir):
         os.mkdir(opts.outdir)
     trigger_parameters = _load_trigger_parameters_from_file(
-        opts.trigger_parameters
+        opts.trigger_parameters, opts.approximant
     )
     strain, strain_f = _load_strain_data_from_file(
         trigger_parameters, opts.strain, opts.f_low, opts.f_high,

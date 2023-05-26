@@ -1,10 +1,8 @@
 import numpy as np
 from numpy import *
-from simple_pe import cosmology
 import astropy.units as u
 
 import scipy.integrate as integrate
-from scipy.integrate import quad
 from scipy.interpolate import interp1d
 
 from astropy.cosmology import Planck15, z_at_value

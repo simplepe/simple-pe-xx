@@ -14,7 +14,7 @@ stages:
 .parallel_wvf: &parallel_wvf
   parallel:
     matrix:
-      - WVF: ["IMRPhenomXPHM", "IMRPhenomTPHM"]
+      - WVF: ["IMRPhenomXHM", "IMRPhenomXPHM", "IMRPhenomTPHM"]
 
 tarball:
   extends:
@@ -102,7 +102,7 @@ injections:zero-noise:
 
 documentation:
   stage: docs
-  image: python:3.7
+  image: python:3.8
   needs:
     - tarball
     - GW150914

@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 
 import os
-import numpy as np
 from argparse import ArgumentParser
 from pesummary.io import read
 from pesummary.core.command_line import DictionaryAction

@@ -1,7 +1,8 @@
 import numpy as np
 import copy
+import math
 from scipy import interpolate
-from simple_pe.waveforms import waveform_modes
+from simple_pe.waveforms import parameter_bounds, waveform_modes
 from simple_pe.detectors import noise_curves
 from simple_pe.fstat import fstat_hm
 from pesummary.utils.array import Array
@@ -9,88 +10,8 @@ from pesummary.utils.samples_dict import SamplesDict
 from pesummary.gw.conversions.spins import opening_angle
 from scipy.stats import ncx2, norm
 from pycbc.filter import sigma
+import lalsimulation as ls
 import tqdm
-
-spin_max = 0.98
-ecc_max = 0.5
-prec_min = 1e-3
-
-param_mins = {'chirp_mass': 1.,
-              'total_mass': 2.,
-              'mass_1': 1.,
-              'mass_2': 1.,
-              'symmetric_mass_ratio': 0.04,
-              'chi_eff': -1 * spin_max,
-              'chi_align': -1 * spin_max,
-              'chi_p': prec_min,
-              'chi_p2': prec_min,
-              'prec': prec_min,
-              'chi': prec_min,
-              'spin_1z': -1 * spin_max,
-              'spin_2z': -1 * spin_max,
-              'a_1': 0.,
-              'a_2': 0.,
-              'tilt_1': 0.,
-              'tilt_2': 0.,
-              'tilt': prec_min,
-              'eccentricity': 0.,
-              'ecc2': 0.,
-              }
-
-param_maxs = {'chirp_mass': 1e4,
-              'total_mass': 1e4,
-              'mass_1': 1e4,
-              'mass_2': 1e4,
-              'symmetric_mass_ratio': 0.25,
-              'chi_eff': spin_max,
-              'chi_align': spin_max,
-              'chi_p': spin_max,
-              'chi_p2': spin_max**2,
-              'chi': spin_max,
-              'spin_1z': spin_max,
-              'spin_2z': spin_max,
-              'a_1': spin_max,
-              'a_2': spin_max,
-              'tilt_1': np.pi,
-              'tilt_2': np.pi,
-              'tilt': np.pi - prec_min,
-              'eccentricity': ecc_max,
-              'ecc2': ecc_max**2,
-              }
-
-
-def param_bounds(params, dx_directions, harm2=False):
-    """
-    calculate appropriate bounds on the dx_directions given the value of params
-
-    :param params: dictionary with parameter values for initial point
-    :param dx_directions: list of parameters for which to calculate waveform variations
-    :param harm2: flag to indicate filtering 2-harmonic waveform
-    """
-    mins = copy.deepcopy(param_mins)
-    maxs = copy.deepcopy(param_maxs)
-
-    # generate bounds on spins:
-    chia = "chi_eff" if "chi_eff" in params.keys() else "chi_align"
-    chip = "chi_p2" if "chi_p2" in params.keys() else "chi_p"
-    if chip == "chi_p2":
-        n = 1
-    else:
-        n = 2
-
-    if (chia in params) and (chip in params) and ((chia in dx_directions) or (chip in dx_directions)):
-        if chia in dx_directions:
-            mins[chia] = - np.sqrt(mins[chia] ** 2 - params[chip] ** n)
-            maxs[chia] = np.sqrt(maxs[chia] ** 2 - params[chip] ** n)
-        if chip in dx_directions:
-            maxs[chip] = (maxs[chip] ** n - params[chia] ** 2) ** (1 / n)
-            if harm2:
-                # need to have nonzero chi_p to generate 2 harmonics
-                mins[chip] = mins['prec'] ** n
-
-    bounds = [(mins[k], maxs[k]) for k in dx_directions]
-
-    return bounds
 
 
 def _add_chi_align(data):
@@ -279,6 +200,7 @@ class SimplePESamples(SamplesDict):
         """
         generate distance points using the existing theta_JN samples and fiducial distance.
         interpolate sensitivity over the parameter space
+
         :param fiducial_distance: distance for a fiducial set of parameters
         :param fiducial_sigma: the range for a fiducial set of parameters
         :param psd: the PSD to use
@@ -317,6 +239,7 @@ class SimplePESamples(SamplesDict):
         """
         jitter distance values based upon existing distances
         jitter due to SNR and variation of network response
+
         :param net_snr: the network SNR
         :param response_sigma: standard deviation of network response (over sky)
         """
@@ -344,7 +267,7 @@ class SimplePESamples(SamplesDict):
         """
         generate chi_p points with the desired distribution and include in the existing samples dict
 
-        :param chi_p_dist: the distribution to use for chi_p. Currently supports 'uniform'
+        :param chi_p_dist: the distribution to use for chi_p. Currently supports 'uniform' and 'isotropic_on_sky'
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
         param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
@@ -417,11 +340,20 @@ class SimplePESamples(SamplesDict):
 
         :param overwrite: if True, then overwrite existing values, otherwise don't
         """
-        if 'chi_p' not in self.keys() and "chi_p2" not in self.keys():
-            print("Need to specify precessing spin component, please give either 'chi_p' or 'chi_p2")
-            return
-
         param = "chi_eff" if "chi_eff" in self.keys() else "chi_align"
+        if 'chi_p' not in self.keys() and "chi_p2" not in self.keys():
+            self["spin_1z"] = self[param]
+            self["spin_2z"] = self[param]
+            self["a_1"] = np.abs(self["spin_1z"])
+            self["a_2"] = np.abs(self["spin_2z"])
+            self["tilt_1"] = np.arccos(np.sign(self["spin_1z"]))
+            self["tilt_2"] = np.arccos(np.sign(self["spin_2z"]))
+            for param in [
+                "phi_12", "phi_jl", "beta", "spin_1x", "spin_1y",
+                "spin_2x", "spin_2y"
+            ]:
+                self[param] = np.zeros_like(self["spin_1z"])
+            return
 
         if ('spin_1z' in self.keys()) and ('spin_2z' in self.keys()):
             s1z = self['spin_1z']
@@ -476,10 +408,10 @@ class SimplePESamples(SamplesDict):
         :return physical_samples: SamplesDict with points outside the param max and min given
         """
         if mins is None:
-            mins = param_mins
+            mins = parameter_bounds.param_mins
 
         if maxs is None:
-            maxs = param_maxs
+            maxs = parameter_bounds.param_maxs
 
         if not set_to_bounds:
             keep = np.ones(self.number_of_samples, bool)
@@ -566,7 +498,8 @@ class SimplePESamples(SamplesDict):
         beta_grid, pts = interpolate_opening(maxs, mins, fixed_pars, psd, f_low, interp_points, approximant)
 
         self['beta'] = interpolate.interpn(pts, beta_grid, np.array([self[k] for k in interp_directions]).T)
-        self['rho_p'] = net_snr * 4 * np.tan(self['beta'] / 2) * np.tan(self["theta_jn"] / 2)
+        t_over_2 = np.minimum(self['theta_jn'], np.pi - self['theta_jn'])/2
+        self['rho_p'] = net_snr * 4 * np.tan(self['beta'] / 2) * np.tan(t_over_2)
 
     def calculate_hm_prec_probs(self, hm_snr=None, prec_snr=None, snr_2pol=None):
         """
@@ -579,6 +512,7 @@ class SimplePESamples(SamplesDict):
         weights = np.ones(self.number_of_samples)
 
         if hm_snr is not None:
+            hm_snr = np.nan_to_num(hm_snr, 0.)
             for lm, snr in hm_snr.items():
                 rv = ncx2(2, snr ** 2)
                 p = rv.pdf(self['rho_' + lm] ** 2)
@@ -586,6 +520,7 @@ class SimplePESamples(SamplesDict):
                 weights *= self['p_' + lm]
 
         if prec_snr is not None:
+            prec_snr = np.nan_to_num(prec_snr, 0.)
             rv = ncx2(2, prec_snr ** 2)
             p = rv.pdf(self['rho_p'] ** 2)
             self['p_p'] = p / p.max()
@@ -787,16 +722,22 @@ def calculate_interpolated_snrs(
                                   dist_interp_dirs, interp_points, approximant)
         samples.jitter_distance(dominant_snr, response_sigma)
     if "chi_p" not in samples.keys() and "chi_p2" not in samples.keys():
-        samples.generate_chi_p('isotropic_on_sky')
+        if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) > 2:
+            samples.generate_chi_p('isotropic_on_sky')
+        else:
+            samples["chi_p"] = np.zeros_like(samples["theta_jn"])
     samples.calculate_rho_lm(
         psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points, approximant
     )
     samples.calculate_rho_2nd_pol(alpha_net, dominant_snr)
     if ("chi_p" in prec_interp_dirs) and ("chi_p" not in samples.keys()):
         samples['chi_p'] = samples['chi_p2']**0.5
-    samples.calculate_rho_p(
-        psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
-    )
+    if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) > 2:
+        samples.calculate_rho_p(
+            psd, f_low, dominant_snr, prec_interp_dirs, interp_points, approximant
+        )
+    else:
+        samples["rho_p"] = np.zeros_like(samples["theta_jn"])
     if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
         samples['chi_p'] = samples['chi_p2']**0.5
     return samples
