@@ -354,7 +354,8 @@ class FilterNode(Node):
                 json_data = {
                     "mass_1": template_data["mass1"], "mass_2": template_data["mass2"],
                     "spin_1z": template_data["spin1z"], "spin_2z": template_data["spin2z"],
-                    "time": data["gpstime"]
+                    "time": data["gpstime"], "chi_p": 0.2, "tilt": 0.1,
+                    "coa_phase": 0.
                 }
                 filename = f"{self.opts.outdir}/output/trigger_parameters.json"
                 with open(filename, "w") as f:
@@ -373,12 +374,16 @@ class FilterNode(Node):
                 "is not provided"
             )
         from ligo.gracedb.rest import GraceDb
+        from ligo.gracedb.exceptions import HTTPError
         from ligo.skymap.io.fits import read_sky_map
         from ligo.skymap.postprocess.util import posterior_max
         out_filename = f"{self.opts.outdir}/output/{gid}_bayestar.fits"
         client = GraceDb("https://gracedb.ligo.org/api/")
         with open(out_filename, "wb") as f:
-            r = client.files(gid, "bayestar.fits")
+            try:
+                r = client.files(gid, "bayestar.fits")
+            except HTTPError:
+                r = client.files(gid, "bayestar.multiorder.fits,0")
             f.write(r.read())
         skymap, _ = read_sky_map(out_filename)
         _max = posterior_max(skymap)
@@ -386,7 +391,7 @@ class FilterNode(Node):
             template_parameters = json.load(f)
         template_parameters["ra"] = np.radians(_max.ra.value)
         template_parameters["dec"] = np.radians(_max.dec.value)
-        template_parameters["psi"] = 2.52593234 #0.7
+        template_parameters["psi"] = np.random.uniform(0, np.pi, size=1)[0]
         with open(filename, "w") as f:
             json.dump(template_parameters, f)
         return filename
