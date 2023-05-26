@@ -8,6 +8,7 @@ from .simple_pe_filter import (
     _load_psd_from_file, _estimate_data_length_from_template_parameters
 )
 from simple_pe.param_est import result
+import numpy as np
 
 __author__ = [
     "Charlie Hoy <charlie.hoy@ligo.org>",
