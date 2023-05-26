@@ -275,7 +275,8 @@ class AnalysisNode(Node):
     @property
     def arguments(self):
         string_args = [
-            "approximant", "f_low", "delta_f", "f_high", "minimum_data_length"
+            "approximant", "f_low", "delta_f", "f_high", "minimum_data_length",
+            "seed"
         ]
         dict_args = ["asd", "psd"]
         list_args = ["metric_directions", "precession_directions"]
@@ -310,7 +311,7 @@ class FilterNode(Node):
     def arguments(self):
         string_args = [
             "trigger_parameters", "approximant", "f_low", "f_high",
-            "minimum_data_length"
+            "minimum_data_length", "seed"
         ]
         dict_args = ["strain", "asd", "psd"]
         list_args = ["metric_directions"]

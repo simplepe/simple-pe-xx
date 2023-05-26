@@ -36,6 +36,12 @@ def command_line():
     """
     parser = ArgumentParser()
     parser.add_argument(
+        "--seed",
+        help="random seed to set for reproducibility",
+        default=123456789,
+        type=int
+    )
+    parser.add_argument(
         "--trigger_parameters",
         help="json file containing the trigger parameters",
         action=CheckFilesExistAction,
@@ -813,6 +819,7 @@ def main(args=None):
     """
     parser = command_line()
     opts, _ = parser.parse_known_args(args=args)
+    np.random.seed(opts.seed)
     if not os.path.isdir(opts.outdir):
         os.mkdir(opts.outdir)
     trigger_parameters = _load_trigger_parameters_from_file(
