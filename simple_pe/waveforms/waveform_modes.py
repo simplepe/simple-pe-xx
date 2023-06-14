@@ -106,16 +106,17 @@ def calculate_hm_multipoles(mass1, mass2, spin1z, spin2z, ifo_psd, f_low,
                 "spin_2z": [spin2z], "distance": [1.], "phase": [0.],
                 "f_ref": [f_low], "inc": [inc]
             }
-            N = int(ifo_psd.sample_frequencies[-1] / ifo_psd.delta_f) + 1
+            npts = int(ifo_psd.sample_frequencies[-1] / ifo_psd.delta_f) + 1
             h[lm] = make_waveform(
-                params, ifo_psd.delta_f, f_low, N, approximant=approximant,
+                params, ifo_psd.delta_f, f_low, npts, approximant=approximant,
                 modes=mode_array(lm, approximant)
             )
         else:
             print("Bad approximant")
             return -1
 
-    h_perp, sigmas, zetas = orthonormalize_modes(h, ifo_psd, f_low, all_modes, dominant_mode)
+    h_perp, sigmas, zetas = orthonormalize_modes(h, ifo_psd, f_low, all_modes,
+                                                 dominant_mode)
     return h, h_perp, sigmas, zetas
 
 
