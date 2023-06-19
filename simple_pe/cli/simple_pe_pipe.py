@@ -427,7 +427,28 @@ class FilterNode(Node):
         _strain = {}
         for ifo, value in strain.items():
             if ":" in ifo:
-                _strain[ifo] = value
+                import ast
+                if isinstance(ast.literal_eval(value), (float, int)):
+                    gps = float(value)
+                    start, stop = int(gps) - 512, int(gps) + 512
+                    logger.info(
+                        f"Fetching strain data with: "
+                        f"TimeSeries.get('{ifo}', start={start}, end={stop}, "
+                        f"verbose=False, allow_tape=True,).astype(dtype=np.float64, "
+                        f"subok=True, copy=False)"
+                    )
+                    data = TimeSeries.get(
+                        ifo, start=start, end=stop, verbose=False, allow_tape=True,
+                    ).astype(dtype=np.float64, subok=True, copy=False)
+                    _ifo, _channel = ifo.split(":")
+                    filename = (
+                        f"{self.opts.outdir}/output/{_ifo}-{_channel}-{int(gps)}.gwf"
+                    )
+                    logger.debug(f"Saving strain data to {filename}")
+                    data.write(filename)
+                    _strain[f"{_ifo}:{_channel}"] = filename
+                else:
+                    _strain[ifo] = value
                 continue
             elif not any(_ in value.lower() for _ in ["gwosc", "inj"]):
                 _strain[ifo] = value
@@ -448,6 +469,7 @@ class FilterNode(Node):
                 filename = (
                     f"{self.opts.outdir}/output/{ifo}-{_channel}-{int(gps)}.gwf"
                 )
+                logger.debug(f"Saving strain data to {filename}")
                 open_data.write(filename)
                 _strain[f"{ifo}:{_channel}"] = filename
             else:
