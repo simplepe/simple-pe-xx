@@ -6,6 +6,7 @@ import lalsimulation as ls
 import pycondor
 import os
 import numpy as np
+from . import logger
 
 __authors__ = [
     "Charlie Hoy <charlie.hoy@ligo.org>",
@@ -347,8 +348,12 @@ class FilterNode(Node):
         if sid is not None:
             from pesummary.gw.gracedb import get_gracedb_data
             import json
-            gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
+            try:
+                gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
+            except AttributeError:
+                gid = get_gracedb_data(sid, superevent=True, info="preferred_event_data")
             if trigger_parameters is None:
+                logger.info("Grabbing search data from gracedb for trigger_parameters")
                 data = get_gracedb_data(gid)
                 template_data = data["extra_attributes"]["SingleInspiral"][0]
                 json_data = {
@@ -357,7 +362,11 @@ class FilterNode(Node):
                     "time": data["gpstime"], "chi_p": 0.2, "tilt": 0.1,
                     "coa_phase": 0.
                 }
+                logger.info("Using the following trigger_parameters:")
+                for param, item in json_data.items():
+                    logger.info(f"{param} = {item}")
                 filename = f"{self.opts.outdir}/output/trigger_parameters.json"
+                logger.debug(f"Saving template_parameters to {filename}")
                 with open(filename, "w") as f:
                     json.dump(json_data, f)
         if trigger_parameters is None and sid is None:
@@ -377,6 +386,7 @@ class FilterNode(Node):
         from ligo.gracedb.exceptions import HTTPError
         from ligo.skymap.io.fits import read_sky_map
         from ligo.skymap.postprocess.util import posterior_max
+        logger.info("Grabbing localization data from gracedb for trigger_parameters")
         out_filename = f"{self.opts.outdir}/output/{gid}_bayestar.fits"
         client = GraceDb("https://gracedb.ligo.org/api/")
         with open(out_filename, "wb") as f:
@@ -392,6 +402,10 @@ class FilterNode(Node):
         template_parameters["ra"] = np.radians(_max.ra.value)
         template_parameters["dec"] = np.radians(_max.dec.value)
         template_parameters["psi"] = np.random.uniform(0, np.pi, size=1)[0]
+        logger.info("Using the following localization parameters:")
+        for key in ["ra", "dec", "psi"]:
+            logger.info(f"{key} = {template_parameters[key]}")
+        logger.debug(f"Saving template_parameters to {filename}")
         with open(filename, "w") as f:
             json.dump(template_parameters, f)
         return filename
@@ -422,6 +436,10 @@ class FilterNode(Node):
                 _value = value.split("-")[1]
                 gps = event_gps(_value)
                 start, stop = int(gps) + 512, int(gps) - 512
+                logger.info(
+                    f"Fetching strain data with: "
+                    f"TimeSeries.fetch_open_data({ifo}, {start}, {stop})"
+                )
                 open_data = TimeSeries.fetch_open_data(ifo, start, stop)
                 _channel = open_data.name
                 open_data.name = f"{ifo}:{_channel}"
@@ -445,6 +463,9 @@ class FilterNode(Node):
                     "mass_1", "mass_2", "spin_1x", "spin_1y", "spin_1z",
                     "spin_2x", "spin_2y", "spin_2z"
                 ]
+                logger.info("Generating injection with parameters using pycbc:")
+                for param, item in injection_params.items():
+                    logger.info(f"{param} = {item}")
                 for param in params_to_convert:
                     injection_params[param.replace("_", "")] = injection_params.pop(param)
                 hp, hc = get_td_waveform(**injection_params)
@@ -466,6 +487,7 @@ class FilterNode(Node):
                 filename = (
                     f"{self.opts.outdir}/output/{ifo}-INJECTION.gwf"
                 )
+                logger.debug("Saving injection to {filename}")
                 strain.write(filename)
                 _strain[f"{ifo}:HWINJ_INJECTED"] = filename
         return _strain
