@@ -44,7 +44,7 @@ def command_line():
         "--snr_threshold",
         help="SNR threshold to use for localization. Default 4",
         default=4,
-        type=int
+        type=float
     )
     parser.add_argument(
         "--strain",
