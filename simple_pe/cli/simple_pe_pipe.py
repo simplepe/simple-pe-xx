@@ -16,6 +16,7 @@ __authors__ = [
 class ConfigAction(_ConfigAction):
     @staticmethod
     def dict_from_str(string, delimiter=":"):
+        print(string)
         mydict = _ConfigAction.dict_from_str(string, delimiter=delimiter)
         for key, item in mydict.items():
             if isinstance(item, list):
@@ -331,7 +332,7 @@ class FilterNode(Node):
     def arguments(self):
         string_args = [
             "trigger_parameters", "approximant", "f_low", "f_high",
-            "minimum_data_length"
+            "minimum_data_length", "snr_threshold"
         ]
         dict_args = ["strain", "asd", "psd"]
         list_args = ["metric_directions"]
@@ -426,7 +427,10 @@ class FilterNode(Node):
         from gwosc.datasets import event_gps
         _strain = {}
         for ifo, value in strain.items():
-            if ":" in ifo:
+            if (":" in ifo) or (":" in value):
+                if ":" in value:
+                    ifo = f"{ifo}:{value.split(':')[0]}"
+                    value = value.split(':')[1]
                 import ast
                 if isinstance(ast.literal_eval(value), (float, int)):
                     gps = float(value)
@@ -562,6 +566,7 @@ def main(args=None):
     """
     parser = command_line()
     opts, _ = parser.parse_known_args(args=args)
+    logger.info(opts)
     MainDag = Dag(opts)
     FilterJob = FilterNode(opts, MainDag)
     CornerJob = CornerNode(opts, MainDag)
