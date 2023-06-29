@@ -47,6 +47,12 @@ def command_line():
         action=CheckFilesExistAction,
     )
     parser.add_argument(
+        "--snr_threshold",
+        help="SNR threshold to use for localization. Default 4",
+        default=4,
+        type=float
+    )
+    parser.add_argument(
         "--strain",
         help=(
             "Time domain strain data to analyse. Must be provided as a space "
@@ -646,7 +652,7 @@ def calculate_second_polarization_snr(
 
 def add_localisation_information(
     peak_template, psd, approximant, strain_f, f_low, delta_f, f_high, event_snr,
-    dominant_waveform, trigger_parameters
+    dominant_waveform, trigger_parameters, threshold
 ):
     """Calculate the SNR in the second polarisation for the peak template
 
@@ -677,13 +683,20 @@ def add_localisation_information(
             peak_template['mass_1'], peak_template['mass_2'], peak_template["chi_align"],
             approximant, psd[ifo], f_low
         )
-        net.add_ifo(ifo, hor/2.26, f_mean, f_band, bns_range=False)
+        net.add_ifo(ifo, hor/2.26, f_mean, f_band, bns_range=False, loc_thresh=threshold)
     try:
         ev = event.Event.from_snrs(
             net, event_snr["ifo_snr"], event_snr["ifo_time"], peak_template['chirp_mass']
         )
         ev.calculate_mirror()
         ev.localize_all()
+        if not all(_ in ev.mirror_loc for _ in ['left', 'right']):
+            raise KeyError(
+                f"Unable to localize event from SNRs. This could be because "
+                f"you are considering a network with less than 3 detectors, or "
+                f"because the IFO SNRs are < {threshold}. The recovered IFO SNRs "
+                f"are {', '.join([ifo + ':' + str(abs(event_snr['ifo_snr'][ifo])) for ifo in ifos])}"
+            )
         for hand in ['left', 'right']:
             snrs[hand] = max(ev.localization[hand].snr, ev.mirror_loc[hand].snr)
             snrs[f"not_{hand}"] = np.sqrt(np.linalg.norm(ev.get_snr()) ** 2 - snrs[hand] ** 2)
@@ -851,7 +864,7 @@ def main(args=None):
             peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
             delta_f, opts.f_high, event_snr,
             {key: value['22'] for key, value in z_hm.items()},
-            trigger_parameters
+            trigger_parameters, opts.snr_threshold
         )
     )
     peak_parameters.write(

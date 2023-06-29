@@ -16,6 +16,7 @@ __authors__ = [
 class ConfigAction(_ConfigAction):
     @staticmethod
     def dict_from_str(string, delimiter=":"):
+        print(string)
         mydict = _ConfigAction.dict_from_str(string, delimiter=delimiter)
         for key, item in mydict.items():
             if isinstance(item, list):
@@ -332,7 +333,7 @@ class FilterNode(Node):
     def arguments(self):
         string_args = [
             "trigger_parameters", "approximant", "f_low", "f_high",
-            "minimum_data_length", "seed"
+            "minimum_data_length", "seed", "snr_threshold"
         ]
         dict_args = ["strain", "asd", "psd"]
         list_args = ["metric_directions"]
@@ -427,8 +428,34 @@ class FilterNode(Node):
         from gwosc.datasets import event_gps
         _strain = {}
         for ifo, value in strain.items():
-            if ":" in ifo:
-                _strain[ifo] = value
+            if (":" in ifo) or (":" in value):
+                if ":" in value:
+                    ifo = f"{ifo}:{value.split(':')[0]}"
+                    value = value.split(':')[1]
+                import ast
+                if os.path.isfile(value):
+                    _strain[ifo] = value
+                elif isinstance(ast.literal_eval(value), (float, int)):
+                    gps = float(value)
+                    start, stop = int(gps) - 512, int(gps) + 512
+                    logger.info(
+                        f"Fetching strain data with: "
+                        f"TimeSeries.get('{ifo}', start={start}, end={stop}, "
+                        f"verbose=False, allow_tape=True,).astype(dtype=np.float64, "
+                        f"subok=True, copy=False)"
+                    )
+                    data = TimeSeries.get(
+                        ifo, start=start, end=stop, verbose=False, allow_tape=True,
+                    ).astype(dtype=np.float64, subok=True, copy=False)
+                    _ifo, _channel = ifo.split(":")
+                    filename = (
+                        f"{self.opts.outdir}/output/{_ifo}-{_channel}-{int(gps)}.gwf"
+                    )
+                    logger.debug(f"Saving strain data to {filename}")
+                    data.write(filename)
+                    _strain[f"{_ifo}:{_channel}"] = filename
+                else:
+                    _strain[ifo] = value
                 continue
             elif not any(_ in value.lower() for _ in ["gwosc", "inj"]):
                 _strain[ifo] = value
@@ -449,6 +476,7 @@ class FilterNode(Node):
                 filename = (
                     f"{self.opts.outdir}/output/{ifo}-{_channel}-{int(gps)}.gwf"
                 )
+                logger.debug(f"Saving strain data to {filename}")
                 open_data.write(filename)
                 _strain[f"{ifo}:{_channel}"] = filename
             else:
@@ -541,6 +569,7 @@ def main(args=None):
     """
     parser = command_line()
     opts, _ = parser.parse_known_args(args=args)
+    logger.info(opts)
     MainDag = Dag(opts)
     FilterJob = FilterNode(opts, MainDag)
     CornerJob = CornerNode(opts, MainDag)
