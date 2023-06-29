@@ -8,6 +8,7 @@ from .simple_pe_filter import (
     _load_psd_from_file, _estimate_data_length_from_template_parameters
 )
 from simple_pe.param_est import result
+import numpy as np
 
 __author__ = [
     "Charlie Hoy <charlie.hoy@ligo.org>",
@@ -19,6 +20,12 @@ def command_line():
     """Define the command line arguments for `simple_pe_analysis`
     """
     parser = ArgumentParser()
+    parser.add_argument(
+        "--seed",
+        help="random seed to set for reproducibility",
+        default=123456789,
+        type=int
+    )
     parser.add_argument(
         "--peak_parameters",
         help=(
@@ -122,6 +129,7 @@ def main(args=None):
     """
     parser = command_line()
     opts, _ = parser.parse_known_args(args=args)
+    np.random.seed(opts.seed)
     if not os.path.isdir(opts.outdir):
         os.mkdir(opts.outdir)
     peak_parameters = read(opts.peak_parameters).samples_dict
