@@ -432,7 +432,9 @@ class FilterNode(Node):
                     ifo = f"{ifo}:{value.split(':')[0]}"
                     value = value.split(':')[1]
                 import ast
-                if isinstance(ast.literal_eval(value), (float, int)):
+                if os.path.isfile(value):
+                    _strain[ifo] = value
+                elif isinstance(ast.literal_eval(value), (float, int)):
                     gps = float(value)
                     start, stop = int(gps) - 512, int(gps) + 512
                     logger.info(
