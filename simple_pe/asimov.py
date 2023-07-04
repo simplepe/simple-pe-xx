@@ -24,19 +24,16 @@ class AsimovPipeline(Pipeline):
         ini = self.production.event.repository.find_prods(name,
                                                           self.category)[0]
 
-        user = "daniel.williams"
+        if self.production.event.repository:
+            ini = self.production.event.repository.find_prods(
+                self.production.name, self.category
+            )[0]
+            ini = os.path.join(cwd, ini)
+        else:
+            ini = f"{self.production.name}.ini"
+
         
-        command = f"""--strain H1:GWOSC:GW150914 L1:GWOSC:GW150914"""
-        command += f"""--approximant {self.production.meta['waveform']['approximant']} """
-        command += f"""--f_low 20 """
-        command += f"""--f_high 2048 """
-        command += f"""--accounting_group UNKNOWN """
-        command += f"""--accounting_group_user {user} """
-        command += f"""--outdir ./outdir """
-        #command += f"""--trigger_parameters trigger_parameters.json """
-        command += f"""--asd H1:GW150914_H1_asd.txt L1:GW150914_L1_asd.txt """
-        #command += f"""--metric_directions ${METRIC_DIRECTIONS} """
-        #command += f"""--precession_directions ${PREC_DIRECTIONS} """
+        command = f"""{ini}"""
 
         executable = f"{os.path.join(config.get('pipelines', 'environment'), 'bin', self._pipeline_command)}"
 
