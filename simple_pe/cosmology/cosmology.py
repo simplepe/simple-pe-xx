@@ -21,11 +21,13 @@ def redshift_at_comoving_dist(distance):
     """
     return z_interp(distance)
 
+
 def redshift_at_lum_dist(distance):
     """
     return redshift at a given luminosity distance
     """
     return zdl_interp(distance)
+
 
 def luminosity_distance(distance):
     """
@@ -35,6 +37,7 @@ def luminosity_distance(distance):
 
 
 def volume(z_list, ratio_list):
-    return (4 * np.pi * ratio_list*cosmo.differential_comoving_volume(z_list).value/(1+z_list)).sum()
+    return (4 * np.pi * ratio_list *
+            cosmo.differential_comoving_volume(z_list).value/(1+z_list)).sum()
     
 

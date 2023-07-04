@@ -10,9 +10,17 @@ def detectors(ifos):
     """
     Set up a dictionary of detector locations and responses.
 
-    :param ifos: a list of IFOs
-    :returns: location: a dictionary of detector locations
-    :return: response: a dictionary of the detector responses
+    Parameters
+    ----------
+    ifos: list
+        a list of IFOs
+
+    Returns
+    -------
+    location: dict
+        a dictionary of detector locations
+    response: dict
+        a dictionary of the detector responses
     """
     location = {}
     response = {}
@@ -32,13 +40,26 @@ def detectors(ifos):
 
 def calc_location_response(longitude, latitude, arms):
     """
-    Calculate the location and response for a detector with longitude, latitude in degrees
-    The angle gives the orientation of the arms and is in degrees from North to East
+    Calculate the location and response for a detector with longitude,
+    latitude in degrees
+    The angle gives the orientation of the arms and is in degrees
+    from North to East
 
-    :param longitude: the longitude
-    :param latitude: the latitude
-    :param arms: the angle between the arms
-    :returns: location, response: the detector location and response
+    Parameters
+    ----------
+    longitude: float
+        the longitude
+    latitude: float
+        the latitude
+    arms: float
+        the angle between the arms
+
+    Returns
+    -------
+     location: np.array
+        the detector location
+     response: np.array
+        the detector response
     """
     phi = np.radians(longitude)
     theta = np.radians(latitude)
@@ -56,7 +77,8 @@ def calc_location_response(longitude, latitude, arms):
     # Calculate arm vectors
     u_y = e_e * np.sin(angle) + e_n * np.cos(angle)
     u_x = e_e * np.sin(angle + np.pi / 2) + e_n * np.cos(angle + np.pi / 2)
-    response = np.array(1. / 2 * (np.outer(u_x, u_x) - np.outer(u_y, u_y)), dtype=np.float32)
+    response = np.array(1. / 2 * (np.outer(u_x, u_x) - np.outer(u_y, u_y)),
+                        dtype=np.float32)
     return location, response
 
 
@@ -67,9 +89,16 @@ def xyz(phi, theta):
     """
     return cartesian co-ordinates on the unit sphere for a given theta and phi
 
-    :param phi: azimuthal angle
-    :param theta: inclination angle 
-    :return loc: array of (x, y, z) locations
+    Parameters
+    ----------
+    phi: float
+        azimuthal angle
+    theta: float
+        inclination angle
+
+    Returns
+    -------
+    loc: array of (x, y, z) locations
     """
     x = np.cos(theta) * np.cos(phi)
     y = np.cos(theta) * np.sin(phi)
@@ -82,9 +111,17 @@ def phitheta(loc):
     """
     return spherical co-ordinates for a given set of cartesian coordinates
 
-    :param loc: array of (x, y, z) locations
-    :return phi: azimuthal angle
-    :return theta: inclination angle
+    Parameters
+    ----------
+    loc: np.array
+        (x, y, z) locations
+
+    Returns
+    -------
+    phi: float
+        azimuthal angle
+    theta:
+        inclination angle
     """
     x = loc[0]
     y = loc[1]
@@ -92,15 +129,22 @@ def phitheta(loc):
     r = np.sqrt(x ** 2 + y ** 2 + z ** 2)
     theta = np.arcsin(z / r)
     phi = np.arctan2(y, x)
-    return (phi, theta)
+    return phi, theta
 
 
 def range_8(configuration):
     """
     Provide the range for a set of detectors based upon the given configuration
 
-    :param configuration: the name of the network configuration
-    :return range_dict: dictionary of ranges for ifos in network
+    Parameters
+    ----------
+    configuration: str
+        the name of the network configuration
+
+    Returns
+    -------
+    range_dict: dict
+        dictionary of ranges for ifos in network
     """
     range_dict_all = {
         "design": {'H1': 197.5, 'L1': 197.5, 'V1': 128.3},
@@ -113,7 +157,6 @@ def range_8(configuration):
         "india": {'H1': 197.5, 'L1': 197.5, 'V1': 128.3, "I1": 197.5},
         "kagra": {'H1': 197.5, 'L1': 197.5, 'V1': 128.3, "I1": 197.5,
                   "K1": 160.0},
-        # leaving the HLV numbers as Steve wrote, Tagoshi's group used 120 for HL and 60 for V.
         "kagra-o3-8": {'H1': 110, 'L1': 140, 'V1': 50, "K1": 8.0},
         "kagra-o3-15": {'H1': 110, 'L1': 140, 'V1': 50, "K1": 15.0},
         "kagra-o3-25": {'H1': 110, 'L1': 140, 'V1': 50, "K1": 25.0},
@@ -127,8 +170,10 @@ def range_8(configuration):
                 "K1": 160.0, "S1": 197.5},
         "steve": {'H1': 160.0, 'L1': 160.0, 'V1': 160.0, "I1": 160.0},
         "s6vsr2": {'H1': 20., 'L1': 20., 'V1': 8.},
-        "ET1": {'H1': 3 * 197.5, 'L1': 3 * 197.5, 'V1': 3 * 128.3, 'ETdet1': 1500., 'ETdet2': 1500.},  # Triangular ET
-        "ET2": {'H1': 3 * 197.5, 'L1': 3 * 197.5, 'V1': 3 * 128.3, 'ETdet1': 1500., 'ETdet3': 1500.},
+        "ET1": {'H1': 3 * 197.5, 'L1': 3 * 197.5, 'V1': 3 * 128.3,
+                'E1': 1500., 'E2': 1500., 'E3': 1500},  # Triangular ET
+        "ET2": {'H1': 3 * 197.5, 'L1': 3 * 197.5, 'V1': 3 * 128.3,
+                'E1': 1500., 'A1': 1500.},
         # L-shaped at 2 places
     }
     return range_dict_all[configuration]
@@ -136,10 +181,18 @@ def range_8(configuration):
 
 def bandwidth(configuration):
     """
-    Provide the bandwidth for a set of detectors based upon the given configuration
+    Provide the bandwidth for a set of detectors based upon the given
+    configuration
 
-    :param configuration: the name of the network configuration
-    :return bandwidth_dict: dictionary of bandwidths for ifos in network
+    Parameters
+    ----------
+    configuration: str
+        the name of the network configuration
+
+    Returns
+    -------
+    bandwidth_dict: dict
+        dictionary of bandwidths for ifos in network
     """
     bandwidth_dict_all = {
         "design": {'H1': 117.4, 'L1': 117.4, 'V1': 148.9},
@@ -167,18 +220,28 @@ def bandwidth(configuration):
                 "K1": 89.0, "S1": 117.4},
         "steve": {'H1': 100.0, 'L1': 100.0, 'V1': 100.0, "I1": 100.0},
         "s6vsr2": {'H1': 100., 'L1': 100., 'V1': 120.},
-        "ET1": {'H1': 117.4, 'L1': 117.4, 'V1': 148.9, 'ETdet1': 117.4, 'ETdet2': 117.4},
-        "ET2": {'H1': 117.4, 'L1': 117.4, 'V1': 148.9, 'ETdet1': 117.4, 'ETdet3': 117.4},
+        "ET1": {'H1': 117.4, 'L1': 117.4, 'V1': 148.9,
+                'E1': 117.4, 'E2': 117.4},
+        "ET2": {'H1': 117.4, 'L1': 117.4, 'V1': 148.9,
+                'E1': 117.4, 'A1': 117.4},
     }
     return bandwidth_dict_all[configuration]
 
 
 def fmean(configuration):
     """
-    Provide the mean frequency for a set of detectors based upon the given configuration
+    Provide the mean frequency for a set of detectors based upon the
+    given configuration
 
-    :param configuration: the name of the network configuration
-    :returns: fmean_dict: dictionary of mean frequencies for ifos in network
+    Parameters
+    ----------
+    configuration: str
+        the name of the network configuration
+
+    Returns
+    -------
+    fmean_dict: dict
+        dictionary of mean frequencies for ifos in network
     """
     fmean_dict_all = {
         "steve": {'H1': 100.0, 'L1': 100.0, 'V1': 100.0, "I1": 100.0},
@@ -195,21 +258,31 @@ def fmean(configuration):
         "nokagra-o3": {'H1': 100., 'L1': 100., 'V1': 130.},
         "aligoplus": {'H1': 120., 'K1': 100., 'L1': 120., 'V1': 100.},
         "s6vsr2": {'H1': 180., 'L1': 180., 'V1': 150.},
-        "ET1": {'H1': 100., 'L1': 100., 'V1': 130., 'ETdet1': 100., 'ETdet2': 100},
-        "ET2": {'H1': 100., 'L1': 100., 'V1': 130., 'ETdet1': 100., 'ETdet3': 100},
+        "ET1": {'H1': 100., 'L1': 100., 'V1': 130.,
+                'E1': 100., 'E2': 100},
+        "ET2": {'H1': 100., 'L1': 100., 'V1': 130.,
+                'E1': 100., 'A1': 100},
     }
     return fmean_dict_all[configuration]
 
 
 def sigma_t(configuration):
     """
-    return the timing accuracy.  We use SNR of 10 in LIGO, but scale the expected
+    return the timing accuracy.  We use SNR of 10 in LIGO,
+    but scale the expected
     SNR in other detectors based on the range.
     It's just 1/(20 pi sigma_f for LIGO.
     But 1/(20 pi sigma_f)(r_ligo/r_virgo) for others ;
 
-    :param configuration: the name of the network configuration
-    :return sigma_t_dict: dictionary of timing accuracies for ifos in network
+    Parameters
+    ----------
+    configuration: str
+        the name of the network configuration
+
+    Returns
+    -------
+    sigma_t_dict: dict
+        dictionary of timing accuracies for ifos in network
     """
     b = bandwidth(configuration)
     r = range_8(configuration)

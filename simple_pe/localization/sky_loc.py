@@ -1,4 +1,4 @@
-from simple_pe.detectors import detectors
+from simple_pe import detectors
 from pycbc import detector
 import numpy as np
 from scipy import optimize, constants

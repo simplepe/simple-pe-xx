@@ -1,7 +1,7 @@
 import numpy as np
 import random as rnd
 import copy
-from simple_pe.detectors import detectors
+from simple_pe import detectors
 from simple_pe.localization import loc, sky_loc
 from pesummary.gw.conversions.mass import mchirp_from_m1_m2
 from astropy.time import Time
@@ -14,28 +14,28 @@ from scipy.special import logsumexp
 ##################################################################
 def snr_projection(f_sig, method):
     """
-    Function to calculate the SNR projection matrix P for a given set
+    Function to calculate the SNR projection matrix p for a given set
     of detector responses, f_sig
 
     :param f_sig: a Nx2 array of detector responses [F+, Fx] x sigma
     :param method: the way we project (one of "time", "coh", "left", "right")
     """
     if method == "time":
-        P = np.identity(len(f_sig))
+        p = np.identity(len(f_sig))
     elif method == "coh":
         M = np.zeros((2, 2))
         for f in f_sig:
             M += np.outer(f, f)
-        P = np.inner(np.inner(f_sig, np.linalg.inv(M)), f_sig)
+        p = np.inner(np.inner(f_sig, np.linalg.inv(M)), f_sig)
     elif method == "right":
         cf = np.array([complex(f[0], f[1]) for f in f_sig])
-        P = np.outer(cf.conjugate(), cf) / np.inner(cf.conjugate(), cf)
+        p = np.outer(cf.conjugate(), cf) / np.inner(cf.conjugate(), cf)
     elif method == "left":
         cf = np.array([complex(f[0], f[1]) for f in f_sig])
-        P = np.outer(cf, cf.conjugate()) / np.inner(cf, cf.conjugate())
+        p = np.outer(cf, cf.conjugate()) / np.inner(cf, cf.conjugate())
     else:
         raise NameError("Invalid projection method: %s" % method)
-    return P
+    return p
 
 
 ##################################################################
@@ -98,13 +98,13 @@ class Event(object):
                    cosi=np.cos(np.radians(params["inclination"])),
                    mchirp=mchirp_from_m1_m2(params["mass1"], params["mass2"]),
                    t_gps=t.gps,
-
                    )
 
     @classmethod
     def random_values(cls, d_max=1000, mass=1.4, t_gps=1000000000):
         """
-        Generate an event with random distance, orientation at given time and mass
+        Generate an event with random distance, orientation at given time and
+        mass
         :param d_max: maximum distance
         :param mass: component mass (assumed equal mass)
         :param t_gps: GPS time of event
@@ -124,6 +124,7 @@ class Event(object):
         """
         Give a network with SNR and time in each detector and use this
         to populate the event information
+
         :param net: a network with SNR and time for each detector
         :param snrs: the complex snr in each detector
         :param times: the time in each detector
@@ -152,7 +153,8 @@ class Event(object):
 
     def add_network(self, network):
         """
-        calculate the sensitivities and SNRs for the various detectors in network
+        calculate the sensitivities and SNRs for the various detectors in
+        network
 
         :param network: structure containing details of the network
         """
@@ -162,7 +164,8 @@ class Event(object):
         self.snrsq = 0
         for ifo in network.ifos:
             i = getattr(network, ifo)
-            if rnd.random() < i.duty_cycle:  # don't use numpy's RNG here as messes up seeding for networks
+            # don't use Numpy's RNG here as messes up seeding for networks
+            if rnd.random() < i.duty_cycle:
                 det = copy.deepcopy(i)
                 setattr(self, ifo, det)
                 # calculate SNR (if not already given)
@@ -175,11 +178,15 @@ class Event(object):
                 if s > det.found_thresh:
                     self.found += 1
                 if s > det.loc_thresh:
-                    if ifo != "H2" and ifo != "ETdet2":
-                        self.localized += 1
                     self.snrsq += s ** 2
                     # add the details to the event
                     self.ifos.append(ifo)
+            # only count one ET and one Hanford detector in localization
+            hs = sum([i in self.ifos for i in ['H1', 'H2']])
+            ets = sum([i in self.ifos for i in ['E1', 'E2', 'E3',
+                                                'ETdet1', 'ETdet2']])
+            self.localized = len(self.ifos) - max(hs - 1, 0) - max(ets - 1, 0)
+
         if self.found >= 2 and self.snrsq > self.threshold ** 2:
             self.detected = True
 
@@ -196,22 +203,24 @@ class Event(object):
         """
         get the F_plus/cross times sigma for each detector
 
-        :param mirror: boolean indicating whether we are considering the mirror location
+        :param mirror: boolean indicating whether we are considering the
+            mirror location
         :return array with the sensitivities of the detectors
         """
         return np.array([getattr(self, i).get_fsig(mirror) for i in self.ifos])
 
     def get_f(self, mirror=False):
         """
-        get the network sensitivity to plus and cross in the dominant polarization
+        get the network sensitivity to plus and cross in dominant polarization
 
-        :param mirror: boolean indicating whether we are considering the mirror location
+        :param mirror: boolean indicating whether we are considering the
+            mirror location
         :return length 2 array containing F_+, F_x response
         """
-        M = np.zeros((2, 2))
+        m = np.zeros((2, 2))
         for f in self.get_fsig(mirror):
-            M += np.outer(f, f)
-        f_pc = np.sqrt(np.linalg.eig(M)[0])
+            m += np.outer(f, f)
+        f_pc = np.sqrt(np.linalg.eig(m)[0])
         f_pc.sort()
         return f_pc[::-1]
 
@@ -219,7 +228,8 @@ class Event(object):
         """
         get the relative network sensitivity to the second polarization
 
-        :param mirror: boolean indicating whether we are considering the mirror location
+        :param mirror: boolean indicating whether we are considering the
+            mirror location
         :return value of alpha_network
         """
         fp, fc = self.get_f(mirror)
@@ -229,7 +239,9 @@ class Event(object):
     def get_snr(self, dt_i=None):
         """
         get the relevant data for each detector and return it as an array
-        if dt_i is given then shift the time in each detector by that amount
+
+        :param dt_i: time shift to be applied in each detector
+        :return the complex snr for each detector
         """
         z = np.array([getattr(self, i).snr for i in self.ifos])
         if dt_i is not None:
@@ -241,12 +253,18 @@ class Event(object):
 
     def projected_snr(self, method, mirror=False, dt_i=None):
         """
-        Calculate the projected SNR for a given method at either original or mirror
-        sky location
+        Calculate the projected SNR for a given method at either original or
+        mirror sky location
+
+        :param method: localization method to use
+        :param mirror: boolean indicating whether we are considering the
+            mirror location
+        :param dt_i: time shift to be applied in each detector
+        :return the projected complex snr for each detector
         """
         f_sig = self.get_fsig(mirror)
-        P = snr_projection(f_sig, method)
-        zp = np.inner(self.get_snr(dt_i), P)
+        p = snr_projection(f_sig, method)
+        zp = np.inner(self.get_snr(dt_i), p)
         return zp
 
     def calculate_mirror(self):
@@ -284,6 +302,11 @@ class Event(object):
         of the detectors.
         Here, we keep all the projection operators -- required if Z is not
         compatible with being a signal from the given sky location
+
+        :param method: localization method to use
+        :param mirror: boolean indicating whether we are considering the
+            mirror location
+        :return localization factors A_i, C_ij, c_i, c
         """
         f_mean = self.get_data("f_mean")
         f_band = self.get_data("f_band")
@@ -294,36 +317,45 @@ class Event(object):
 
         # calculate projection:
         f_sig = self.get_fsig(mirror)
-        P = snr_projection(f_sig, method)
+        p = snr_projection(f_sig, method)
 
         # work out the localization factors
-        B_i = 4 * np.pi ** 2 * np.real(np.sum(np.outer(f_sq * z.conjugate(), z) * P, axis=1))
-        c_ij = 4 * np.pi ** 2 * np.real(np.outer(f_mean * z.conjugate(), f_mean * z) * P)
+        B_i = 4 * np.pi ** 2 * np.real(np.sum(np.outer(f_sq * z.conjugate(), z)
+                                              * p, axis=1))
+        c_ij = 4 * np.pi ** 2 * np.real(np.outer(f_mean * z.conjugate(),
+                                                 f_mean * z) * p)
         C_ij = B_i * np.eye(len(B_i)) - c_ij
         c_i = np.sum(C_ij, axis=1)
         c = np.sum(c_i)
 
-        A_i = 4 * np.pi * np.imag(np.sum(np.outer(f_mean * z.conjugate(), z) * P, axis=1))
+        A_i = 4 * np.pi * np.imag(np.sum(np.outer(f_mean * z.conjugate(), z)
+                                         * p, axis=1))
 
         return A_i, C_ij, c_i, c
 
     def localize(self, method, mirror=False, p=0.9):
         """
-        Localization of a source by a network of detectors, given the
-        complex snr, sensitivity, bandwidth, mean frequency, location
-        of the detectors.
-        Here, we keep all the projection operators -- required if Z is not
-        compatible with being a signal from the given sky location
+        Calculate localization of source at given probability with
+        chosen method
+
+        :param method: localization method to use
+        :param mirror: boolean indicating whether we are considering the
+            mirror location
+        :param p: probability region to calculate
         """
         if mirror:
-            self.mirror_loc[method] = loc.Localization(method, self, mirror, p)
+            self.mirror_loc[method] = loc.Localization(method, self,
+                                                       mirror, p)
         else:
-            self.localization[method] = loc.Localization(method, self, mirror, p)
+            self.localization[method] = loc.Localization(method, self,
+                                                         mirror, p)
 
     def combined_loc(self, method):
         """
-        Calculate the area from original and mirror locations for the given method
-        p = the confidence region (assume it's what was used to get a1, a2)
+        Calculate the area from original and mirror locations for the given
+        method
+
+        :param method: localization method to use
         """
         patches = 1
         p = self.localization[method].p
@@ -335,17 +367,24 @@ class Event(object):
             else:
                 drho2 = (self.localization[method].snr ** 2 -
                          self.mirror_loc[method].snr ** 2)
+
             prob_ratio = self.mirror_loc[method].p / p
-            a_ratio = self.mirror_loc[method].area / self.localization[method].area
-            if drho2 > 2 * (np.log(prob_ratio) + np.log(1 + p * a_ratio) - np.log(1 - p)):
-                a = - np.log(1 - p * (1 + a_ratio * prob_ratio * np.exp(-drho2 / 2))) * a0
+            a_ratio = self.mirror_loc[method].area / \
+                      self.localization[method].area
+
+            if drho2 > 2 * (np.log(prob_ratio) +
+                            np.log(1 + p * a_ratio) - np.log(1 - p)):
+                a = - np.log(1 - p * (1 + a_ratio * prob_ratio *
+                                      np.exp(-drho2 / 2))) * a0
             else:
                 patches = 2
                 a = a0 * ((1 + a_ratio) * (-np.log(1 - p) + np.log(1 + a_ratio)
-                                           - np.log(1 + a_ratio * prob_ratio * np.exp(-drho2 / 2)))
+                                           - np.log(1 + a_ratio * prob_ratio *
+                                                    np.exp(-drho2 / 2)))
                           - a_ratio * (drho2 / 2 - np.log(prob_ratio)))
             if np.isnan(a):
                 print("for method %s: we got a nan for the area" % method)
+
         if not self.mirror or np.isnan(a):
             a = - np.log(1. - p) * a0
             patches = 1
@@ -356,6 +395,10 @@ class Event(object):
     def marg_loc(self, mirror=False, p=0.9):
         """
         Calculate the marginalized localization.
+
+        :param mirror: boolean indicating whether we are considering the
+            mirror location
+        :param p: probability region to calculate
         """
         if mirror:
             localize = "mirror_loc"
@@ -370,30 +413,61 @@ class Event(object):
         r_max = 1.1 * np.sqrt(np.nanmax([l[k].area for k in keys]) / np.pi)
         r_min = 0.9 * np.sqrt(np.nanmin([l[k].area for k in keys]) / np.pi)
         r = brentq(f, r_min, r_max, (keys, l, p))
-        l["marg"] = loc.Localization("marg", self, mirror, p, area=np.pi * r ** 2)
-        l["marg"].like = logsumexp([l[k].like + np.log(l[k].area) - np.log(-2 * np.pi * np.log(1 - l[k].p))
+        l["marg"] = loc.Localization("marg", self, mirror, p,
+                                     area=np.pi * r ** 2)
+        l["marg"].like = logsumexp([l[k].like + np.log(l[k].area) -
+                                    np.log(-2 * np.pi * np.log(1 - l[k].p))
                                     for k in keys])
-        l["marg"].like -= np.log(l["marg"].area) - np.log(-2 * np.pi * np.log(1 - p))
+        l["marg"].like -= np.log(l["marg"].area) - \
+                          np.log(-2 * np.pi * np.log(1 - p))
 
-    def localize_all(self, p=0.9):
+    def localize_all(self, p=0.9, methods=None):
         """
         Calculate all localizations
+
+        :param p: probability region to calculate
+        :param methods: methods to use
+            (out of 'time', 'coh', 'left', 'right', 'marg')
         """
+        if methods is None:
+            methods = ["time", "coh", "left", "right", "marg"]
+
+        if 'marg' in methods:
+            marg = True
+            methods.remove('marg')
+        else:
+            marg = False
+
         self.calculate_mirror()
         self.calculate_sensitivity()
-        for method in ["time", "coh", "left", "right"]:
+        for method in methods:
             self.localize(method, mirror=False, p=p)
-            if self.mirror: self.localize(method, mirror=True, p=p)
-        self.marg_loc(p=p)
-        if self.mirror: self.marg_loc(mirror=True, p=p)
-        for method in ["time", "coh", "marg"]:
+            if self.mirror:
+                self.localize(method, mirror=True, p=p)
+
+        if marg:
+            methods.append('marg')
+            self.marg_loc(p=p)
+            if self.mirror:
+                self.marg_loc(mirror=True, p=p)
+
+        for method in methods:
             self.combined_loc(method)
 
 
 def f(r, keys, l, p):
+    """
+    Function used in marginalization of localizations
+
+    :param r: radius
+    :param keys: the different localization methods to consider
+    :param l: localization object
+    :param p: probability
+    """
     f = 0
     lmax = max([l[k].like for k in keys])
     for k in keys:
         s2 = l[k].area / (-2 * np.pi * np.log(1 - l[k].p))
-        f += np.exp(l[k].like - lmax) * s2 * (1 - p - np.exp(-r ** 2 / (2 * s2)))
+        f += np.exp(l[k].like - lmax) * s2 * \
+             (1 - p - np.exp(-r ** 2 / (2 * s2)))
     return f

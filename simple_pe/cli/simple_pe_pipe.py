@@ -1,12 +1,27 @@
 #! /usr/bin/env python
 
 from argparse import ArgumentParser
+from pesummary.core.command_line import ConfigAction as _ConfigAction
+import lalsimulation as ls
 import pycondor
 import os
+import numpy as np
+from . import logger
 
 __authors__ = [
     "Charlie Hoy <charlie.hoy@ligo.org>",
 ]
+
+
+class ConfigAction(_ConfigAction):
+    @staticmethod
+    def dict_from_str(string, delimiter=":"):
+        print(string)
+        mydict = _ConfigAction.dict_from_str(string, delimiter=delimiter)
+        for key, item in mydict.items():
+            if isinstance(item, list):
+                mydict[key] = item[0]
+        return mydict
 
 
 def command_line():
@@ -20,10 +35,29 @@ def command_line():
     )
     remove = ["--peak_parameters", "--peak_snrs"]
     for action in parser._actions[::-1]:
-        if action.option_strings[0] in remove:
+        if len(action.option_strings) and action.option_strings[0] in remove:
             parser._handle_conflict_resolve(
                 None, [(action.option_strings[0], action)]
             )
+    parser.add_argument(
+        "config_file", nargs="?", action=ConfigAction,
+        help="Configuration file containing command line arguments"
+    )
+    parser.add_argument(
+        "--sid",
+        help=(
+            "superevent ID for the event you wish to analyse. If "
+            "provided, and --trigger_parameters is not provided, the "
+            "trigger parameters are downloaded from the best matching "
+            "search template on GraceDB."
+        )
+    )
+    parser.add_argument(
+        "--use_bayestar_localization",
+        action="store_true",
+        default=False,
+        help="use the bayestar localization. --sid must also be provided"
+    )
     parser.add_argument(
         "--truth",
         help="File containing the injected values. Used only for plotting",
@@ -33,12 +67,10 @@ def command_line():
     parser.add_argument(
         "--accounting_group_user",
         help="Accounting group user to use for this workflow",
-        required=True
     )
     parser.add_argument(
         "--accounting_group",
         help="Accounting group to use for this workflow",
-        required=True
     )
     return parser
 
@@ -261,7 +293,8 @@ class AnalysisNode(Node):
     @property
     def arguments(self):
         string_args = [
-            "approximant", "f_low", "delta_f", "f_high", "minimum_data_length"
+            "approximant", "f_low", "delta_f", "f_high", "minimum_data_length",
+            "seed"
         ]
         dict_args = ["asd", "psd"]
         list_args = ["metric_directions", "precession_directions"]
@@ -289,6 +322,10 @@ class FilterNode(Node):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._executable = self.get_executable("simple_pe_filter")
+        self.opts.trigger_parameters = self._prepare_trigger_parameters(
+            self.opts.sid, self.opts.trigger_parameters,
+            self.opts.use_bayestar_localization
+        )
         self.opts.strain = self._prepare_strain(self.opts.strain)
         self.create_pycondor_job()
 
@@ -296,13 +333,84 @@ class FilterNode(Node):
     def arguments(self):
         string_args = [
             "trigger_parameters", "approximant", "f_low", "f_high",
-            "minimum_data_length"
+            "minimum_data_length", "seed", "snr_threshold"
         ]
         dict_args = ["strain", "asd", "psd"]
         list_args = ["metric_directions"]
         args = self._format_arg_lists(string_args, dict_args, list_args)
         args += [["--outdir", f"{self.opts.outdir}/output"]]
         return " ".join([item for sublist in args for item in sublist])
+
+    def _prepare_trigger_parameters(self, sid, trigger_parameters, use_bayestar_localization):
+        """
+        """
+        os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
+        if trigger_parameters is not None:
+            filename = trigger_parameters
+        if sid is not None:
+            from pesummary.gw.gracedb import get_gracedb_data
+            import json
+            try:
+                gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
+            except AttributeError:
+                gid = get_gracedb_data(sid, superevent=True, info="preferred_event_data")
+            if trigger_parameters is None:
+                logger.info("Grabbing search data from gracedb for trigger_parameters")
+                data = get_gracedb_data(gid)
+                template_data = data["extra_attributes"]["SingleInspiral"][0]
+                json_data = {
+                    "mass_1": template_data["mass1"], "mass_2": template_data["mass2"],
+                    "spin_1z": template_data["spin1z"], "spin_2z": template_data["spin2z"],
+                    "time": data["gpstime"], "chi_p": 0.2, "tilt": 0.1,
+                    "coa_phase": 0.
+                }
+                logger.info("Using the following trigger_parameters:")
+                for param, item in json_data.items():
+                    logger.info(f"{param} = {item}")
+                filename = f"{self.opts.outdir}/output/trigger_parameters.json"
+                logger.debug(f"Saving template_parameters to {filename}")
+                with open(filename, "w") as f:
+                    json.dump(json_data, f)
+        if trigger_parameters is None and sid is None:
+            raise ValueError(
+                "Please provide a file containing the trigger parameters "
+                "or a superevent ID to download the trigger parameters "
+                "from GraceDB"
+            )
+        if not use_bayestar_localization:
+            return filename
+        elif sid is None:
+            raise ValueError(
+                "Unable to use --use_bayestar_localization when --sid "
+                "is not provided"
+            )
+        from ligo.gracedb.rest import GraceDb
+        from ligo.gracedb.exceptions import HTTPError
+        from ligo.skymap.io.fits import read_sky_map
+        from ligo.skymap.postprocess.util import posterior_max
+        logger.info("Grabbing localization data from gracedb for trigger_parameters")
+        out_filename = f"{self.opts.outdir}/output/{gid}_bayestar.fits"
+        client = GraceDb("https://gracedb.ligo.org/api/")
+        with open(out_filename, "wb") as f:
+            try:
+                r = client.files(gid, "bayestar.fits")
+            except HTTPError:
+                r = client.files(gid, "bayestar.multiorder.fits,0")
+            f.write(r.read())
+        skymap, _ = read_sky_map(out_filename)
+        _max = posterior_max(skymap)
+        with open(filename, "r") as f:
+            template_parameters = json.load(f)
+        template_parameters["ra"] = np.radians(_max.ra.value)
+        template_parameters["dec"] = np.radians(_max.dec.value)
+        template_parameters["psi"] = np.random.uniform(0, np.pi, size=1)[0]
+        logger.info("Using the following localization parameters:")
+        for key in ["ra", "dec", "psi"]:
+            logger.info(f"{key} = {template_parameters[key]}")
+        logger.debug(f"Saving template_parameters to {filename}")
+        with open(filename, "w") as f:
+            json.dump(template_parameters, f)
+        return filename
 
     def _prepare_strain(self, strain):
         """Prepare strain data
@@ -319,23 +427,98 @@ class FilterNode(Node):
         from gwpy.timeseries import TimeSeries
         from gwosc.datasets import event_gps
         _strain = {}
-        for key, value in strain.items():
-            ifo, channel = key.split(":")
-            if channel.lower() != "gwosc":
-                _strain[key] = value
+        for ifo, value in strain.items():
+            if (":" in ifo) or (":" in value):
+                if ":" in value:
+                    ifo = f"{ifo}:{value.split(':')[0]}"
+                    value = value.split(':')[1]
+                import ast
+                if os.path.isfile(value):
+                    _strain[ifo] = value
+                elif isinstance(ast.literal_eval(value), (float, int)):
+                    gps = float(value)
+                    start, stop = int(gps) - 512, int(gps) + 512
+                    logger.info(
+                        f"Fetching strain data with: "
+                        f"TimeSeries.get('{ifo}', start={start}, end={stop}, "
+                        f"verbose=False, allow_tape=True,).astype(dtype=np.float64, "
+                        f"subok=True, copy=False)"
+                    )
+                    data = TimeSeries.get(
+                        ifo, start=start, end=stop, verbose=False, allow_tape=True,
+                    ).astype(dtype=np.float64, subok=True, copy=False)
+                    _ifo, _channel = ifo.split(":")
+                    filename = (
+                        f"{self.opts.outdir}/output/{_ifo}-{_channel}-{int(gps)}.gwf"
+                    )
+                    logger.debug(f"Saving strain data to {filename}")
+                    data.write(filename)
+                    _strain[f"{_ifo}:{_channel}"] = filename
+                else:
+                    _strain[ifo] = value
                 continue
-            gps = event_gps(value)
-            start, stop = int(gps) + 512, int(gps) - 512
-            open_data = TimeSeries.fetch_open_data(ifo, start, stop)
-            _channel = open_data.name
-            open_data.name = f"{ifo}:{_channel}"
-            open_data.channel = f"{ifo}:{_channel}"
-            os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
-            filename = (
-                f"{self.opts.outdir}/output/{ifo}-{_channel}-{int(gps)}.gwf"
-            )
-            open_data.write(filename)
-            _strain[f"{ifo}:{_channel}"] = filename
+            elif not any(_ in value.lower() for _ in ["gwosc", "inj"]):
+                _strain[ifo] = value
+                continue
+            elif "gwosc" in value.lower():
+                _value = value.split("-")[1]
+                gps = event_gps(_value)
+                start, stop = int(gps) + 512, int(gps) - 512
+                logger.info(
+                    f"Fetching strain data with: "
+                    f"TimeSeries.fetch_open_data({ifo}, {start}, {stop})"
+                )
+                open_data = TimeSeries.fetch_open_data(ifo, start, stop)
+                _channel = open_data.name
+                open_data.name = f"{ifo}:{_channel}"
+                open_data.channel = f"{ifo}:{_channel}"
+                os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
+                filename = (
+                    f"{self.opts.outdir}/output/{ifo}-{_channel}-{int(gps)}.gwf"
+                )
+                logger.debug(f"Saving strain data to {filename}")
+                open_data.write(filename)
+                _strain[f"{ifo}:{_channel}"] = filename
+            else:
+                # make waveform with independent code: pycbc.waveform.get_td_waveform
+                from pycbc.waveform import get_td_waveform, taper_timeseries
+                from pycbc.detector import Detector
+                import json
+                _value = value.split("-")[1]
+                with open(_value, "r") as f:
+                    injection_params = json.load(f)
+                # convert to pycbc convention
+                params_to_convert = [
+                    "mass_1", "mass_2", "spin_1x", "spin_1y", "spin_1z",
+                    "spin_2x", "spin_2y", "spin_2z"
+                ]
+                logger.info("Generating injection with parameters using pycbc:")
+                for param, item in injection_params.items():
+                    logger.info(f"{param} = {item}")
+                for param in params_to_convert:
+                    injection_params[param.replace("_", "")] = injection_params.pop(param)
+                hp, hc = get_td_waveform(**injection_params)
+                hp.start_time += injection_params["time"]
+                hc.start_time += injection_params["time"]
+                ra = injection_params["ra"]
+                dec = injection_params["dec"]
+                psi = injection_params["psi"]
+                ht = Detector(ifo).project_wave(hp, hc, ra, dec, psi)
+                ht = taper_timeseries(ht, tapermethod="TAPER_STARTEND")
+                prepend = int(512 / ht.delta_t)
+                ht.append_zeros(prepend)
+                ht.prepend_zeros(prepend)
+                strain = TimeSeries.from_pycbc(ht)
+                strain = strain.crop(injection_params["time"] - 512, injection_params["time"] + 512)
+                strain.name = f"{ifo}:HWINJ_INJECTED"
+                strain.channel = f"{ifo}:HWINJ_INJECTED"
+                os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
+                filename = (
+                    f"{self.opts.outdir}/output/{ifo}-INJECTION.gwf"
+                )
+                logger.debug("Saving injection to {filename}")
+                strain.write(filename)
+                _strain[f"{ifo}:HWINJ_INJECTED"] = filename
         return _strain
 
 
@@ -357,12 +540,27 @@ class CornerNode(Node):
         self.create_pycondor_job()
 
     @property
+    def universe(self):
+        return "local"
+
+    @property
     def arguments(self):
         args = self._format_arg_lists(["truth"], [], [])
         args += [
             ["--outdir", f"{self.opts.outdir}/output"],
             ["--posterior", f"{self.opts.outdir}/output/posterior_samples.dat"]
         ]
+        args += [
+            [
+                "--parameters", "chirp_mass", "symmetric_mass_ratio", "chi_align",
+                "theta_jn", "luminosity_distance"
+            ]
+        ]
+        sp = ls.SimInspiralGetSpinSupportFromApproximant(
+            getattr(ls, self.opts.approximant)
+        )
+        if sp > 2:
+            args[-1] += ["chi_p"]
         return " ".join([item for sublist in args for item in sublist])
 
 
@@ -371,6 +569,7 @@ def main(args=None):
     """
     parser = command_line()
     opts, _ = parser.parse_known_args(args=args)
+    logger.info(opts)
     MainDag = Dag(opts)
     FilterJob = FilterNode(opts, MainDag)
     CornerJob = CornerNode(opts, MainDag)

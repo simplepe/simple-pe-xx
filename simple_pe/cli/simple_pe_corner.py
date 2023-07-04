@@ -4,7 +4,7 @@ import os
 from argparse import ArgumentParser
 from pesummary.io import read
 from pesummary.core.command_line import CheckFilesExistAction
-from simple_pe.param_est.pe import SimplePESamples
+from simple_pe.param_est import SimplePESamples
 
 __authors__ = [
     "Charlie Hoy <charlie.hoy@ligo.org>",
@@ -55,7 +55,18 @@ def main(args=None):
     samples = SimplePESamples(read(opts.posterior).samples_dict)
     samples.generate_all_posterior_samples()
     if opts.truth is not None:
-        truth = SimplePESamples(read(opts.truth).samples_dict)
+        from pesummary.gw.file.standard_names import standard_names
+        try:
+            _truth = read(opts.truth).samples_dict
+        except Exception:
+            import json
+            with open(opts.truth, "r") as f:
+                _truth = json.load(f)
+        if "approximant" in _truth.keys():
+            _truth.pop("approximant")
+        truth = SimplePESamples(
+            {standard_names.get(key, key): value for key, value in _truth.items()}
+        )
         truth.generate_all_posterior_samples()
         truth = [truth.get(param, [None])[0] for param in opts.parameters]
     else:

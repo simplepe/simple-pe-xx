@@ -1,5 +1,5 @@
 import numpy as np
-from simple_pe.fstat import fstat
+from simple_pe import fstat
 from scipy import special
 from pesummary.core.reweight import rejection_sampling
 
@@ -44,7 +44,7 @@ def project_to_sky(x, y, event_xyz, gmst, evec, ellipse=False, sky_weight=False)
     x = x[~bad]
     y = y[~bad]
 
-    z = np.sqrt(1 - x ** 2 - y ** 2) * np.sign(np.inner(event_xyz, evec[2]))
+    z = np.sqrt(1 - x ** 2 - y ** 2) * np.sign(np.inner(event_xyz, evec[:, 2]))
 
     if sky_weight:
         weights = abs(1./z)

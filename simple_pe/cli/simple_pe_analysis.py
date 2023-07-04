@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 
 import os
-import numpy as np
 from argparse import ArgumentParser
 from pesummary.io import read
 from pesummary.core.command_line import DictionaryAction
@@ -9,6 +8,7 @@ from .simple_pe_filter import (
     _load_psd_from_file, _estimate_data_length_from_template_parameters
 )
 from simple_pe.param_est import result
+import numpy as np
 
 __author__ = [
     "Charlie Hoy <charlie.hoy@ligo.org>",
@@ -21,12 +21,17 @@ def command_line():
     """
     parser = ArgumentParser()
     parser.add_argument(
+        "--seed",
+        help="random seed to set for reproducibility",
+        default=123456789,
+        type=int
+    )
+    parser.add_argument(
         "--peak_parameters",
         help=(
             "JSON file containing peak parameters generated with "
             "the `simple_pe_analysis` executable"
         ),
-        required=True
     )
     parser.add_argument(
         "--peak_snrs",
@@ -34,7 +39,6 @@ def command_line():
             "JSON file containing peak SNRs generated with the "
             "`simple_pe_analysis` executable"
         ),
-        required=True
     )
     parser.add_argument(
         "--asd",
@@ -97,13 +101,13 @@ def command_line():
         "--metric_directions",
         help="Directions to calculate metric",
         nargs="+",
-        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align', 'chi_p2']
+        default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align', 'chi_p']
     )
     parser.add_argument(
         "--precession_directions",
         help="Directions for precession",
         nargs="+",
-        default=['symmetric_mass_ratio', 'chi_align', 'chi_p2']
+        default=['symmetric_mass_ratio', 'chi_align', 'chi_p']
     )
     parser.add_argument(
         "--multipole_directions",
@@ -125,6 +129,7 @@ def main(args=None):
     """
     parser = command_line()
     opts, _ = parser.parse_known_args(args=args)
+    np.random.seed(opts.seed)
     if not os.path.isdir(opts.outdir):
         os.mkdir(opts.outdir)
     peak_parameters = read(opts.peak_parameters).samples_dict

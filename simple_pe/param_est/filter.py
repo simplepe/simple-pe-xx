@@ -1,9 +1,8 @@
 import numpy as np
 from simple_pe.param_est import metric, pe
-from simple_pe.waveforms import waveform_modes, waveform
+from simple_pe.waveforms import waveform_modes, waveform, parameter_bounds
 from scipy import optimize
 from pesummary.utils.samples_dict import SamplesDict
-import copy
 
 
 def matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low, dominant_mode=0):
@@ -89,7 +88,7 @@ def _neg_net_snr(x, dx_directions, ifos, data, psds, t_start, t_end, f_low, appr
 
 
 def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
-                  f_low, approximant="IMRPhenomD", method='scipy', harm2=False,
+                  f_low, approximant="IMRPhenomD", method='scipy', harm2=False, bounds=None,
                   initial_mismatch=0.03, final_mismatch=0.001, tolerance=0.01, verbose=False):
     """
     A function to find the maximum SNR.
@@ -106,7 +105,8 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
     :param f_low: low frequency cutoff
     :param approximant: the approximant to use
     :param method: how to find the maximum (either 'scipy' or 'metric')
-    :param harm2: use SNR from second harmonic (only with method='scipy')
+    :param harm2: use SNR from second harmonic
+    :param bounds: give initial bounds for the range of parameters to investigate
     :param initial_mismatch: the mismatch for calculating the metric
     :param final_mismatch: the mismatch required to stop iteration
     :param tolerance: the allowed error in the metric is (tolerance * mismatch)
@@ -121,34 +121,25 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
         return
     
     elif method == 'scipy':
-        mins = copy.deepcopy(metric.param_mins)
-        maxs = copy.deepcopy(metric.param_maxs)
-
-        # generate bounds on spins:
-        chia = "chi_eff" if "chi_eff" in x.keys() else "chi_align"
-        chip = "chi_p2" if "chi_p2" in x.keys() else "chi_p"
-        if chip == "chi_p2":
-            n = 1
-        else:
-            n = 2
 
         nlc = None
-        if (chia in x) and (chip in x) and ((chia in dx_directions) or (chip in dx_directions)):
-            # need bounds based on spin limits
-            if (chia in dx_directions) and (chip in dx_directions):
-                con = lambda y: y[dx_directions.index(chia)] ** 2 + y[dx_directions.index(chip)] ** n
-                nlc = optimize.NonlinearConstraint(con, pe.param_mins['a_1'], pe.param_maxs['a_1'])
+        if bounds is None:
+            bounds = parameter_bounds.param_bounds(x, dx_directions, harm2)
 
-            if chia in dx_directions:
-                mins[chia] = - np.sqrt(mins[chia] ** 2 - x[chip] ** n)
-                maxs[chia] = np.sqrt(maxs[chia] ** 2 - x[chip] ** n)
-            if chip in dx_directions:
-                maxs[chip] = (maxs[chip]**n - x[chia]**2) ** (1/n)
-                if harm2:
-                    # need to have nonzero chi_p to generate 2 harmonics
-                    mins[chip] = mins['prec'] ** n
+            # generate constraint on spins:
+            chia = "chi_eff" if "chi_eff" in x.keys() else "chi_align"
+            chip = "chi_p2" if "chi_p2" in x.keys() else "chi_p"
+            if chip == "chi_p2":
+                n = 1
+            else:
+                n = 2
 
-        bounds = [(mins[k], maxs[k]) for k in dx_directions]
+            if (chia in x) and (chip in x) and ((chia in dx_directions) or (chip in dx_directions)):
+                # need bounds based on spin limits
+                if (chia in dx_directions) and (chip in dx_directions):
+                    con = lambda y: y[dx_directions.index(chia)] ** 2 + y[dx_directions.index(chip)] ** n
+                    nlc = optimize.NonlinearConstraint(con, pe.param_mins['a_1'], pe.param_maxs['a_1'])
+
         x0 = np.array([x[k] for k in dx_directions]).flatten()
         fixed_pars = {k: float(v) for k, v in x.items() if k not in dx_directions}
 
@@ -173,9 +164,8 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
         snr_peak = -out.fun
 
     elif method == 'metric':
-        if harm2:
-            print('2nd harmonic not implemented for metric')
         mismatch = initial_mismatch
+        x = pe.SimplePESamples(x)
 
         while mismatch > final_mismatch:
             x, snr_peak = _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions,
@@ -188,7 +178,7 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
 
 
 def _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions, f_low, approximant,
-                      mismatch, tolerance=0.01):
+                      mismatch, tolerance=0.01, harm2=False, verbose=False):
     """
     A function to find the maximum SNR for a given metric mismatch
     Calculate a metric at the point x in dx_directions and walk to peak
@@ -204,6 +194,8 @@ def _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions, f_low,
     :param approximant: the approximant to use
     :param mismatch: the mismatch for calculating the metric
     :param tolerance: the allowed error in the metric is (tolerance * mismatch)
+    :param harm2: use SNR from second harmonic
+    :param verbose: if True then print info
     :return x_prime: the point in the grid with the highest snr
     :return snr_peak: the SNR squared at this point
     """
@@ -212,7 +204,7 @@ def _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions, f_low,
     g.iteratively_update_metric()
 
     while True:
-        h = waveform.make_waveform(x, g.psd.delta_f, g.f_low, len(g.psd), g.approximant)
+        h = waveform.make_waveform(x, g.psd.delta_f, g.f_low, len(g.psd), g.approximant, harm2=harm2)
         snr_0 = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
         snrs = np.zeros([g.ndim, 2])
@@ -220,10 +212,10 @@ def _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions, f_low,
 
         for i in range(g.ndim):
             for j in range(2):
-                alphas[i, j] = metric.check_physical(x, g.normalized_evecs()[i:i + 1], (-1) ** j)
+                alphas[i, j] = metric.check_physical(x, g.normalized_evecs()[i:i + 1], (-1) ** j, verbose=verbose)
                 h = metric.make_offset_waveform(x, g.normalized_evecs()[i:i + 1], alphas[i, j] * (-1) ** j,
                                                 g.psd.delta_f, g.f_low, len(g.psd),
-                                                g.approximant)
+                                                g.approximant, harm2=harm2)
                 snrs[i, j] = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
         if snrs.max() > snr_0:
@@ -239,9 +231,9 @@ def _metric_find_peak(ifos, data, psds, t_start, t_end, x, dx_directions, f_low,
     s = (snrs[:, 0] - snrs[:, 1]) * 0.25 / \
         (snr_0 - 0.5 * (snrs[:, 0] + snrs[:, 1]))
     delta_x = SamplesDict(dx_directions, np.matmul(g.normalized_evecs().samples, s))
-    alpha = metric.check_physical(x, delta_x, 1)
+    alpha = metric.check_physical(x, delta_x, 1, verbose=verbose)
 
-    h = metric.make_offset_waveform(x, delta_x, alpha, g.psd.delta_f, f_low, len(g.psd), approximant)
+    h = metric.make_offset_waveform(x, delta_x, alpha, g.psd.delta_f, f_low, len(g.psd), approximant, harm2=harm2)
     snr_peak = matched_filter_network(ifos, data, psds, t_start, t_end, h, f_low)[0]
 
     for k, dx_val in delta_x.items():
