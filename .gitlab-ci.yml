@@ -73,10 +73,14 @@ executables:
     - sed -i "s/approximant=IMRPhenomXPHM/approximant=${WVF}/g" config.ini
     - simple_pe_pipe config.ini
     - bash ./outdir/submit/bash_simple_pe.sh
+    - mv ./outdir/output/peak_parameters.json ../../${WVF}_GW150914_peak_parameters.json
+    - mv ./outdir/output/peak_snrs.json ../../${WVF}_GW150914_peak_snrs.json
     - mv ./outdir/output/corner.png ../../${WVF}_GW150914_corner.png
     - cd ../..
   artifacts:
     paths:
+        - ${WVF}_GW150914_peak_parameters.json
+        - ${WVF}_GW150914_peak_snrs.json
         - ${WVF}_GW150914_corner.png
 
 .injections:
@@ -86,10 +90,14 @@ executables:
     - sed -i "s/approximant=IMRPhenomXPHM/approximant=${WVF}/g" config.ini
     - simple_pe_pipe config.ini
     - bash ./outdir/submit/bash_simple_pe.sh
+    - mv ./outdir/output/peak_parameters.json ../../${WVF}_peak_parameters.json
+    - mv ./outdir/output/peak_snrs.json ../../${WVF}_peak_snrs.json
     - mv ./outdir/output/corner.png ../../${WVF}_injection_corner.png
     - cd ../..
   artifacts:
     paths:
+        - ${WVF}_peak_parameters.json
+        - ${WVF}_peak_snrs.json
         - ${WVF}_injection_corner.png
 
 GW150914:
