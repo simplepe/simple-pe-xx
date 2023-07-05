@@ -502,30 +502,30 @@ class FilterNode(Node):
                 _strain[ifo] = filename
             else:
                 import ast
-                if ifo not in strain.keys():
-                    raise ValueError(f"Please provide a gwf file for {ifo}")
-                if os.path.isfile(strain[ifo]):
-                    _strain[f"{ifo}:{value}"] = strain[ifo]
-                elif isinstance(ast.literal_eval(strain[ifo]), (float, int)):
-                    gps = float(value)
+                if trigger_time is not None:
+                    gps = float(trigger_time)
                     start, stop = int(gps) - 512, int(gps) + 512
                     logger.info(
                         f"Fetching strain data with: "
-                        f"TimeSeries.get('{ifo}', start={start}, end={stop}, "
+                        f"TimeSeries.get('{value}', start={start}, end={stop}, "
                         f"verbose=False, allow_tape=True,).astype(dtype=np.float64, "
                         f"subok=True, copy=False)"
                     )
                     data = TimeSeries.get(
-                        ifo, start=start, end=stop, verbose=False, allow_tape=True,
+                        value, start=start, end=stop, verbose=False, allow_tape=True,
                     ).astype(dtype=np.float64, subok=True, copy=False)
-                    _ifo, _channel = ifo.split(":")
                     filename = (
-                        f"{self.opts.outdir}/output/{_ifo}-{_channel}-{int(gps)}.gwf"
+                        f"{self.opts.outdir}/output/{ifo}-{value}-{int(gps)}.gwf"
                     )
                     logger.debug(f"Saving strain data to {filename}")
                     data.write(filename)
-                    _channels[ifo] = _channel
+                    _channels[ifo] = value
                     _strain[ifo] = filename
+                elif ifo not in strain.keys():
+                    raise ValueError(f"Please provide a gwf file for {ifo}")
+                elif os.path.isfile(strain[ifo]):
+                    _channels[ifo] = value
+                    _strain[ifo] = strain[ifo]
                 else:
                     raise ValueError("Unable to grab strain data")
         return _strain, _channels
