@@ -1,6 +1,7 @@
 import importlib
 import os
 import configparser
+import subprocess
 
 from asimov.pipeline import Pipeline, PipelineException
 from asimov import config
