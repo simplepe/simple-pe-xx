@@ -24,6 +24,8 @@ class AsimovPipeline(Pipeline):
         ini = self.production.event.repository.find_prods(name,
                                                           self.category)[0]
 
+        print("Config template", self.config_template)
+        
         if self.production.event.repository:
             ini = self.production.event.repository.find_prods(
                 self.production.name, self.category
