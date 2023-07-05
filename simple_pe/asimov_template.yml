@@ -1,7 +1,4 @@
-# 
-# This is a config file for simple_pe
-# {{ production.name }}
-#
+
 {%- if production.event.repository %}
 {%- assign repo_dir = production.event.repository.directory %}
 {%- else %}
@@ -17,12 +14,13 @@
 {%- assign ifos = production.meta['interferometers'] %}
 
 [pesummary]
-strain={ {% for ifo in ifos %}{{data['channels'][ifo]}},{% endfor %} }
+trigger_time={{ production.meta['event time'] }}
+channels={ {% for ifo in ifos %}{{data['channels'][ifo]}},{% endfor %} }
 outdir={{ production.rundir }}
 accounting_group={{ scheduler['accounting group'] }}
 accounting_group_user={{ config['condor']['user'] }}
-f_low={ {% for ifo in ifos %}{{ifo}}:{{quality['minimum frequency'][ifo]}},{% endfor %} }
-f_high={ {% for ifo in ifos %}{{ifo}}:{{quality['maximum frequency'][ifo]}},{% endfor %} }
+f_low={{ quality['minimum frequency'][ifos[0]] }}
+f_high={{ quality['maximum frequency'][ifos[0]]}}
 {%- if likelihood contains "fiducial parameters" %}
 trigger_parameters={{ likelihood['fiducial parameters'] }}
 {%- endif %}
