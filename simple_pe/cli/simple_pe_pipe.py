@@ -325,7 +325,7 @@ class FilterNode(Node):
             self.opts.sid, self.opts.trigger_parameters,
             self.opts.use_bayestar_localization
         )
-        self.opts.strain = self._prepare_strain(
+        self.opts.strain, self.opts.channels = self._prepare_strain(
             self.opts.strain, self.opts.trigger_time, self.opts.channels,
             self.opts.injection
         )
@@ -337,7 +337,7 @@ class FilterNode(Node):
             "trigger_parameters", "approximant", "f_low", "f_high",
             "minimum_data_length", "seed", "snr_threshold"
         ]
-        dict_args = ["strain", "asd", "psd"]
+        dict_args = ["strain", "channels", "asd", "psd"]
         list_args = ["metric_directions"]
         args = self._format_arg_lists(string_args, dict_args, list_args)
         args += [["--outdir", f"{self.opts.outdir}/output"]]
@@ -432,6 +432,7 @@ class FilterNode(Node):
         from gwpy.timeseries import TimeSeries
         from gwosc.datasets import event_gps
         _strain = {}
+        _channels = {}
         for ifo, value in channels.items():
             if "gwosc" in value.lower():
                 if trigger_time is None:
@@ -455,7 +456,8 @@ class FilterNode(Node):
                 )
                 logger.debug(f"Saving strain data to {filename}")
                 open_data.write(filename)
-                _strain[f"{ifo}:{_channel}"] = filename
+                _channels[ifo] = _channel
+                _strain[ifo] = filename
             elif "inj" in value.lower():
                 # make waveform with independent code: pycbc.waveform.get_td_waveform
                 from pycbc.waveform import get_td_waveform, taper_timeseries
@@ -496,7 +498,8 @@ class FilterNode(Node):
                 )
                 logger.debug("Saving injection to {filename}")
                 strain.write(filename)
-                _strain[f"{ifo}:HWINJ_INJECTED"] = filename
+                _channels[ifo] = "HWINJ_INJECTED"
+                _strain[ifo] = filename
             else:
                 import ast
                 if ifo not in strain.keys():
@@ -521,10 +524,11 @@ class FilterNode(Node):
                     )
                     logger.debug(f"Saving strain data to {filename}")
                     data.write(filename)
-                    _strain[f"{_ifo}:{_channel}"] = filename
+                    _channels[ifo] = _channel
+                    _strain[ifo] = filename
                 else:
                     raise ValueError("Unable to grab strain data")
-        return _strain
+        return _strain, _channels
 
 
 class CornerNode(Node):
