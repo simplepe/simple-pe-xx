@@ -346,12 +346,17 @@ class FilterNode(Node):
     def _prepare_trigger_parameters(self, sid, trigger_parameters, use_bayestar_localization):
         """
         """
+        import json
         os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
-        if trigger_parameters is not None:
+        if trigger_parameters is not None and isinstance(trigger_parameters, dict):
+            filename = f"{self.opts.outdir}/output/trigger_parameters.json"
+            with open(filename, "w") as f:
+                _trigger_parameters = {key: float(item) for key, item in trigger_parameters.items()}
+                json.dump(_trigger_parameters, f)
+        elif trigger_parameters is not None:
             filename = trigger_parameters
         if sid is not None:
             from pesummary.gw.gracedb import get_gracedb_data
-            import json
             try:
                 gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
             except AttributeError:
