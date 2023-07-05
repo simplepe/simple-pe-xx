@@ -43,8 +43,13 @@ def command_line():
     )
     parser.add_argument(
         "--trigger_parameters",
-        help="json file containing the trigger parameters",
-        action=CheckFilesExistAction,
+        help=(
+            "Either a json file containing the trigger parameters or a space "
+            "separated dictionary giving the trigger parameters, e.g. "
+            "mass1:10 mass2:5"
+        ),
+        action=DictionaryAction,
+        default=None,
     )
     parser.add_argument(
         "--snr_threshold",
