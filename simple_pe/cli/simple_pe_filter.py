@@ -238,7 +238,7 @@ def _estimate_data_length_from_template_parameters(
 
 
 def _load_strain_data_from_file(
-    trigger_parameters, strain_data, f_low, f_high, fudge_length=1.1,
+    trigger_parameters, strain_data, channels, f_low, f_high, fudge_length=1.1,
     fudge_min=0.02, minimum_data_length=16
 ):
     """
@@ -274,11 +274,10 @@ def _load_strain_data_from_file(
     strain = {}
     strain_f = {}
     for key, fname in strain_data.items():
-        ifo, channel = key.split(":")
-        data = TimeSeries.read(fname, f"{ifo}:{channel}").to_pycbc()
-        strain[ifo] = data.time_slice(data_start, data_end) 
-        strain_f[ifo] =  strain[ifo].to_frequencyseries()
-        strain_f[ifo].resize(int(data_len * f_high + 1))
+        data = TimeSeries.read(fname, f"{key}:{channels[key]}").to_pycbc()
+        strain[key] = data.time_slice(data_start, data_end) 
+        strain_f[key] =  strain[key].to_frequencyseries()
+        strain_f[key].resize(int(data_len * f_high + 1))
     return strain, strain_f
 
 
@@ -867,7 +866,7 @@ def main(args=None):
         opts.trigger_parameters, opts.approximant
     )
     strain, strain_f = _load_strain_data_from_file(
-        trigger_parameters, opts.strain, opts.f_low, opts.f_high,
+        trigger_parameters, opts.strain, opts.channels, opts.f_low, opts.f_high,
         minimum_data_length=opts.minimum_data_length
     )
     delta_f = list(strain_f.values())[0].delta_f
