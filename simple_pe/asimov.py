@@ -13,7 +13,10 @@ class AsimovPipeline(Pipeline):
     An asimov pipeline for heron.
     """
     name = "simple_pe"
-    config_template = importlib.resources.path("simple_pe", "asimov_template.yml")
+    with importlib.resources.path("simple_pe", "asimov_template.yml") as template_file:
+        config_template = template_file
+
+    #config_template = importlib.resources.path("simple_pe", "asimov_template.yml")
     _pipeline_command = "simple_pe_pipe"
 
     def build_dag(self, dryrun=False):
@@ -23,8 +26,7 @@ class AsimovPipeline(Pipeline):
         name = self.production.name #meta['name']
         ini = self.production.event.repository.find_prods(name,
                                                           self.category)[0]
-
-        print("Config template", self.config_template)
+        cwd = os.getcwd()
         
         if self.production.event.repository:
             ini = self.production.event.repository.find_prods(
@@ -41,32 +43,33 @@ class AsimovPipeline(Pipeline):
 
         print(executable, command)
         
-        description = {
-            "executable": executable,
-            "arguments": command,
-            "output": f"{name}.out",
-            "error": f"{name}.err",
-            "log": f"{name}.log",
-            "request_gpus": 1,
-            "batch_name": f"simple_pe/{name}",
-        }
+        # description = {
+        #     "executable": executable,
+        #     "arguments": command,
+        #     "output": f"{name}.out",
+        #     "error": f"{name}.err",
+        #     "log": f"{name}.log",
+        #     "request_gpus": 1,
+        #     "request_disk": "50MB",
+        #     "batch_name": f"simple_pe/{name}",
+        # }
 
-        job = htcondor.Submit(description)
-        os.makedirs(self.production.rundir, exist_ok=True)
-        with set_directory(self.production.rundir):
-            with open(f"{name}.sub", "w") as subfile:
-                subfile.write(job.__str__())
+        # job = htcondor.Submit(description)
+        # os.makedirs(self.production.rundir, exist_ok=True)
+        # with set_directory(self.production.rundir):
+        #     with open(f"{name}.sub", "w") as subfile:
+        #         subfile.write(job.__str__())
 
-        with set_directory(self.production.rundir):
-            try:
-                schedulers = htcondor.Collector().locate(htcondor.DaemonTypes.Schedd, config.get("condor", "scheduler"))
-            except configparser.NoOptionError:
-                schedulers = htcondor.Collector().locate(htcondor.DaemonTypes.Schedd)
-            schedd = htcondor.Schedd(schedulers)
-            with schedd.transaction() as txn:
-                cluster_id = job.queue(txn)
+        # with set_directory(self.production.rundir):
+        #     try:
+        #         schedulers = htcondor.Collector().locate(htcondor.DaemonTypes.Schedd, config.get("condor", "scheduler"))
+        #     except configparser.NoOptionError:
+        #         schedulers = htcondor.Collector().locate(htcondor.DaemonTypes.Schedd)
+        #     schedd = htcondor.Schedd(schedulers)
+        #     with schedd.transaction() as txn:
+        #         cluster_id = job.queue(txn)
 
-        self.clusterid = cluster_id
+        # self.clusterid = cluster_id
 
     def submit_dag(self, dryrun=False):
         return self.clusterid
