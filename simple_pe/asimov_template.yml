@@ -23,7 +23,11 @@ accounting_group={{ scheduler['accounting group'] }}
 accounting_group_user={{ config['condor']['user'] }}
 f_low={ {% for ifo in ifos %}{{ifo}}:{{quality['minimum frequency'][ifo]}},{% endfor %} }
 f_high={ {% for ifo in ifos %}{{ifo}}:{{quality['maximum frequency'][ifo]}},{% endfor %} }
-
+{%- if likelihood contains "fiducial parameters" %}
 trigger_parameters={{ likelihood['fiducial parameters'] }}
+{%- endif %}
+{%- if "superevent" in production.meta['ligo'] %}
+sid = production.meta['ligo']['superevent']
+{%- endif %}
 approximant={{ production.meta['waveform']['approximant'] }}
 psd={ {% for ifo in ifos %}{{production.psds[ifo]}},{% endfor %} }

@@ -1,0 +1,6 @@
+kind: analysis
+name: Simple PE Test
+pipeline: simple_pe
+event: GW150914_095045
+waveform:
+  approximant: IMRPhenomXPHM
