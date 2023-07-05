@@ -45,6 +45,9 @@ class AsimovPipeline(Pipeline):
         if dryrun:
             print(" ".join([executable, command]))
         else:
+            if not os.path.exists(self.production.rundir):
+                os.makedirs(self.production.rundir)
+            
             with set_directory(self.production.rundir): 
             
                 self.logger.info(" ".join([executable, command]))
