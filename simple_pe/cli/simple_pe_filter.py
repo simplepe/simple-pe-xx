@@ -867,6 +867,8 @@ def main(args=None):
     np.random.seed(opts.seed)
     if not os.path.isdir(opts.outdir):
         os.mkdir(opts.outdir)
+    if isinstance(opts.trigger_parameters, list):
+        opts.trigger_parameters = "".join(opts.trigger_parameters)
     trigger_parameters = _load_trigger_parameters_from_file(
         opts.trigger_parameters, opts.approximant
     )
