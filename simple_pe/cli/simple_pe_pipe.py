@@ -507,12 +507,12 @@ class FilterNode(Node):
                     start, stop = int(gps) - 512, int(gps) + 512
                     logger.info(
                         f"Fetching strain data with: "
-                        f"TimeSeries.get('{value}', start={start}, end={stop}, "
+                        f"TimeSeries.get('{ifo}:{value}', start={start}, end={stop}, "
                         f"verbose=False, allow_tape=True,).astype(dtype=np.float64, "
                         f"subok=True, copy=False)"
                     )
                     data = TimeSeries.get(
-                        value, start=start, end=stop, verbose=False, allow_tape=True,
+                        f"{ifo}:{value}", start=start, end=stop, verbose=False, allow_tape=True,
                     ).astype(dtype=np.float64, subok=True, copy=False)
                     filename = (
                         f"{self.opts.outdir}/output/{ifo}-{value}-{int(gps)}.gwf"
