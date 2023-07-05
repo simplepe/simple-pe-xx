@@ -2,19 +2,19 @@
 # This is a config file for simple_pe
 # {{ production.name }}
 #
-{%- if production.event.repository -%}
-{%- assign repo_dir = production.event.repository.directory -%}
-{%- else -%}
-{%- assign repo_dir = "." -%}
-{%- endif -%}
-{%- assign meta = production.meta -%}
-{%- assign sampler = production.meta['sampler'] -%}
-{%- assign scheduler = production.meta['scheduler'] -%}
-{%- assign likelihood = production.meta['likelihood'] -%}
-{%- assign priors = production.meta['priors'] -%}
-{%- assign data = production.meta['data'] -%}
-{%- assign quality = production.meta['quality'] -%}
-{%- assign ifos = production.meta['interferometers'] -%}
+{%- if production.event.repository %}
+{%- assign repo_dir = production.event.repository.directory %}
+{%- else %}
+{%- assign repo_dir = "." %}
+{%- endif %}
+{%- assign meta = production.meta %}
+{%- assign sampler = production.meta['sampler'] %}
+{%- assign scheduler = production.meta['scheduler'] %}
+{%- assign likelihood = production.meta['likelihood'] %}
+{%- assign priors = production.meta['priors'] %}
+{%- assign data = production.meta['data'] %}
+{%- assign quality = production.meta['quality'] %}
+{%- assign ifos = production.meta['interferometers'] %}
 
 [pesummary]
 strain={ {% for ifo in ifos %}{{data['channels'][ifo]}},{% endfor %} }
@@ -27,7 +27,7 @@ f_high={ {% for ifo in ifos %}{{ifo}}:{{quality['maximum frequency'][ifo]}},{% e
 trigger_parameters={{ likelihood['fiducial parameters'] }}
 {%- endif %}
 {%- if "superevent" in production.meta['ligo'] %}
-sid = production.meta['ligo']['superevent']
+sid = {{ production.meta['ligo']['superevent'] }}
 {%- endif %}
 approximant={{ production.meta['waveform']['approximant'] }}
 psd={ {% for ifo in ifos %}{{production.psds[ifo]}},{% endfor %} }
