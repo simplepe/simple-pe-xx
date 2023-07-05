@@ -1,5 +1,5 @@
 kind: analysis
-name: Simple PE Test
+name: simple-pe-analysis
 pipeline: simple_pe
 waveform:
   approximant: IMRPhenomXPHM
