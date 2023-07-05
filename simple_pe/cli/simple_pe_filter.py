@@ -43,8 +43,13 @@ def command_line():
     )
     parser.add_argument(
         "--trigger_parameters",
-        help="json file containing the trigger parameters",
-        action=CheckFilesExistAction,
+        help=(
+            "Either a json file containing the trigger parameters or a space "
+            "separated dictionary giving the trigger parameters, e.g. "
+            "mass1:10 mass2:5"
+        ),
+        action=DictionaryAction,
+        default=None,
     )
     parser.add_argument(
         "--snr_threshold",
@@ -53,15 +58,43 @@ def command_line():
         type=float
     )
     parser.add_argument(
-        "--strain",
+        "--channels",
         help=(
-            "Time domain strain data to analyse. Must be provided as a space "
-            "separated dictionary with keys giving the channel name, e.g. "
-            "H1:HWINJ_INJECTED:/path/to/file L1:HWINJ_INJECTED/path/to/file "
+            "Channels to use when reading in strain data. Must be provided as "
+            "a space separated dictionary with keys giving the ifo and items "
+            "giving the channel name, e.g. H1:HWINJ_INJECTED. For GWOSC open data "
+            "the dictionary items must be GWOSC, e.g. H1:GWOSC. If you wish to use "
+            "simple-pe to produce an injection for you, the dictionary items must be "
+            "INJ, e.g. H1:INJ"
         ),
         nargs="+",
         default={},
         action=DictionaryAction,
+    )
+    parser.add_argument(
+        "--strain",
+        help=(
+            "Time domain strain data to analyse. Must be provided as a space "
+            "separated dictionary with keys giving the ifo and items giving the path "
+            "to the strain data you wish to analyse, e.g. H1:/path/to/file. Strain "
+            "data must be a gwf file"
+        ),
+        nargs="+",
+        default={},
+        action=DictionaryAction,
+    )
+    parser.add_argument(
+        "--injection",
+        help="A json file giving the injection parameters of a signal you wish to inject",
+        default=None,
+    )
+    parser.add_argument(
+        "--trigger_time",
+        help=(
+            "Either a GPS time or the event name you wish to analyse. If an "
+            "event name is provided, GWOSC is queried to find the event time"
+        ),
+        default=None,
     )
     parser.add_argument(
         "--asd",
@@ -210,7 +243,7 @@ def _estimate_data_length_from_template_parameters(
 
 
 def _load_strain_data_from_file(
-    trigger_parameters, strain_data, f_low, f_high, fudge_length=1.1,
+    trigger_parameters, strain_data, channels, f_low, f_high, fudge_length=1.1,
     fudge_min=0.02, minimum_data_length=16
 ):
     """
@@ -246,11 +279,10 @@ def _load_strain_data_from_file(
     strain = {}
     strain_f = {}
     for key, fname in strain_data.items():
-        ifo, channel = key.split(":")
-        data = TimeSeries.read(fname, f"{ifo}:{channel}").to_pycbc()
-        strain[ifo] = data.time_slice(data_start, data_end) 
-        strain_f[ifo] =  strain[ifo].to_frequencyseries()
-        strain_f[ifo].resize(int(data_len * f_high + 1))
+        data = TimeSeries.read(fname, f"{key}:{channels[key]}").to_pycbc()
+        strain[key] = data.time_slice(data_start, data_end) 
+        strain_f[key] =  strain[key].to_frequencyseries()
+        strain_f[key].resize(int(data_len * f_high + 1))
     return strain, strain_f
 
 
@@ -835,11 +867,13 @@ def main(args=None):
     np.random.seed(opts.seed)
     if not os.path.isdir(opts.outdir):
         os.mkdir(opts.outdir)
+    if isinstance(opts.trigger_parameters, list):
+        opts.trigger_parameters = "".join(opts.trigger_parameters)
     trigger_parameters = _load_trigger_parameters_from_file(
         opts.trigger_parameters, opts.approximant
     )
     strain, strain_f = _load_strain_data_from_file(
-        trigger_parameters, opts.strain, opts.f_low, opts.f_high,
+        trigger_parameters, opts.strain, opts.channels, opts.f_low, opts.f_high,
         minimum_data_length=opts.minimum_data_length
     )
     delta_f = list(strain_f.values())[0].delta_f
