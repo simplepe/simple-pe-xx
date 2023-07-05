@@ -53,15 +53,43 @@ def command_line():
         type=float
     )
     parser.add_argument(
-        "--strain",
+        "--channels",
         help=(
-            "Time domain strain data to analyse. Must be provided as a space "
-            "separated dictionary with keys giving the channel name, e.g. "
-            "H1:HWINJ_INJECTED:/path/to/file L1:HWINJ_INJECTED/path/to/file "
+            "Channels to use when reading in strain data. Must be provided as "
+            "a space separated dictionary with keys giving the ifo and items "
+            "giving the channel name, e.g. H1:HWINJ_INJECTED. For GWOSC open data "
+            "the dictionary items must be GWOSC, e.g. H1:GWOSC. If you wish to use "
+            "simple-pe to produce an injection for you, the dictionary items must be "
+            "INJ, e.g. H1:INJ"
         ),
         nargs="+",
         default={},
         action=DictionaryAction,
+    )
+    parser.add_argument(
+        "--strain",
+        help=(
+            "Time domain strain data to analyse. Must be provided as a space "
+            "separated dictionary with keys giving the ifo and items giving the path "
+            "to the strain data you wish to analyse, e.g. H1:/path/to/file. Strain "
+            "data must be a gwf file"
+        ),
+        nargs="+",
+        default={},
+        action=DictionaryAction,
+    )
+    parser.add_argument(
+        "--injection",
+        help="A json file giving the injection parameters of a signal you wish to inject",
+        default=None,
+    )
+    parser.add_argument(
+        "--trigger_time",
+        help=(
+            "Either a GPS time or the event name you wish to analyse. If an "
+            "event name is provided, GWOSC is queried to find the event time"
+        ),
+        default=None,
     )
     parser.add_argument(
         "--asd",
