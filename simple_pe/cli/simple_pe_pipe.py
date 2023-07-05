@@ -16,7 +16,6 @@ __authors__ = [
 class ConfigAction(_ConfigAction):
     @staticmethod
     def dict_from_str(string, delimiter=":"):
-        print(string)
         mydict = _ConfigAction.dict_from_str(string, delimiter=delimiter)
         for key, item in mydict.items():
             if isinstance(item, list):
@@ -326,7 +325,10 @@ class FilterNode(Node):
             self.opts.sid, self.opts.trigger_parameters,
             self.opts.use_bayestar_localization
         )
-        self.opts.strain = self._prepare_strain(self.opts.strain)
+        self.opts.strain, self.opts.channels = self._prepare_strain(
+            self.opts.strain, self.opts.trigger_time, self.opts.channels,
+            self.opts.injection
+        )
         self.create_pycondor_job()
 
     @property
@@ -335,7 +337,7 @@ class FilterNode(Node):
             "trigger_parameters", "approximant", "f_low", "f_high",
             "minimum_data_length", "seed", "snr_threshold"
         ]
-        dict_args = ["strain", "asd", "psd"]
+        dict_args = ["strain", "channels", "asd", "psd"]
         list_args = ["metric_directions"]
         args = self._format_arg_lists(string_args, dict_args, list_args)
         args += [["--outdir", f"{self.opts.outdir}/output"]]
@@ -412,7 +414,7 @@ class FilterNode(Node):
             json.dump(template_parameters, f)
         return filename
 
-    def _prepare_strain(self, strain):
+    def _prepare_strain(self, strain, trigger_time, channels, injection):
         """Prepare strain data
 
         Parameters
@@ -423,46 +425,22 @@ class FilterNode(Node):
             be the name of the GW signal that you wish to analyse. When
             channel = 'gwosc', data is downloaded with
             `gwpy.timeseries.TimeSeries.fetch_open_data`
+        trigger_time:
+        channels:
+        injection:
         """
         from gwpy.timeseries import TimeSeries
         from gwosc.datasets import event_gps
         _strain = {}
-        for ifo, value in strain.items():
-            if (":" in ifo) or (":" in value):
-                if ":" in value:
-                    ifo = f"{ifo}:{value.split(':')[0]}"
-                    value = value.split(':')[1]
-                import ast
-                if os.path.isfile(value):
-                    _strain[ifo] = value
-                elif isinstance(ast.literal_eval(value), (float, int)):
-                    gps = float(value)
-                    start, stop = int(gps) - 512, int(gps) + 512
-                    logger.info(
-                        f"Fetching strain data with: "
-                        f"TimeSeries.get('{ifo}', start={start}, end={stop}, "
-                        f"verbose=False, allow_tape=True,).astype(dtype=np.float64, "
-                        f"subok=True, copy=False)"
+        _channels = {}
+        for ifo, value in channels.items():
+            if "gwosc" in value.lower():
+                if trigger_time is None:
+                    raise ValueError(
+                        "Please provide the name of the event you wish to analyse via "
+                        "the trigger_time argument"
                     )
-                    data = TimeSeries.get(
-                        ifo, start=start, end=stop, verbose=False, allow_tape=True,
-                    ).astype(dtype=np.float64, subok=True, copy=False)
-                    _ifo, _channel = ifo.split(":")
-                    filename = (
-                        f"{self.opts.outdir}/output/{_ifo}-{_channel}-{int(gps)}.gwf"
-                    )
-                    logger.debug(f"Saving strain data to {filename}")
-                    data.write(filename)
-                    _strain[f"{_ifo}:{_channel}"] = filename
-                else:
-                    _strain[ifo] = value
-                continue
-            elif not any(_ in value.lower() for _ in ["gwosc", "inj"]):
-                _strain[ifo] = value
-                continue
-            elif "gwosc" in value.lower():
-                _value = value.split("-")[1]
-                gps = event_gps(_value)
+                gps = event_gps(trigger_time)
                 start, stop = int(gps) + 512, int(gps) - 512
                 logger.info(
                     f"Fetching strain data with: "
@@ -478,14 +456,16 @@ class FilterNode(Node):
                 )
                 logger.debug(f"Saving strain data to {filename}")
                 open_data.write(filename)
-                _strain[f"{ifo}:{_channel}"] = filename
-            else:
+                _channels[ifo] = _channel
+                _strain[ifo] = filename
+            elif "inj" in value.lower():
                 # make waveform with independent code: pycbc.waveform.get_td_waveform
                 from pycbc.waveform import get_td_waveform, taper_timeseries
                 from pycbc.detector import Detector
                 import json
-                _value = value.split("-")[1]
-                with open(_value, "r") as f:
+                if not os.path.isfile(injection):
+                    raise FileNotFoundError(f"Unable to find file: {injection}")
+                with open(injection, "r") as f:
                     injection_params = json.load(f)
                 # convert to pycbc convention
                 params_to_convert = [
@@ -518,8 +498,37 @@ class FilterNode(Node):
                 )
                 logger.debug("Saving injection to {filename}")
                 strain.write(filename)
-                _strain[f"{ifo}:HWINJ_INJECTED"] = filename
-        return _strain
+                _channels[ifo] = "HWINJ_INJECTED"
+                _strain[ifo] = filename
+            else:
+                import ast
+                if trigger_time is not None:
+                    gps = float(trigger_time)
+                    start, stop = int(gps) - 512, int(gps) + 512
+                    logger.info(
+                        f"Fetching strain data with: "
+                        f"TimeSeries.get('{ifo}:{value}', start={start}, end={stop}, "
+                        f"verbose=False, allow_tape=True,).astype(dtype=np.float64, "
+                        f"subok=True, copy=False)"
+                    )
+                    data = TimeSeries.get(
+                        f"{ifo}:{value}", start=start, end=stop, verbose=False, allow_tape=True,
+                    ).astype(dtype=np.float64, subok=True, copy=False)
+                    filename = (
+                        f"{self.opts.outdir}/output/{ifo}-{value}-{int(gps)}.gwf"
+                    )
+                    logger.debug(f"Saving strain data to {filename}")
+                    data.write(filename)
+                    _channels[ifo] = value
+                    _strain[ifo] = filename
+                elif ifo not in strain.keys():
+                    raise ValueError(f"Please provide a gwf file for {ifo}")
+                elif os.path.isfile(strain[ifo]):
+                    _channels[ifo] = value
+                    _strain[ifo] = strain[ifo]
+                else:
+                    raise ValueError("Unable to grab strain data")
+        return _strain, _channels
 
 
 class CornerNode(Node):
