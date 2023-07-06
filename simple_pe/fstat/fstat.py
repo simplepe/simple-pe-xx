@@ -185,13 +185,14 @@ def log_like(a_hat, f_plus, f_cross, d, cosi, psi, phi, d0=1):
 
 def circ_project(a, f_plus, f_cross, hand):
     """
-    Project the f-stat A parameters to those that would be observed by restricting
-    to left or right circular polarization
+    Project the f-stat A parameters to those that would be observed by
+    restricting to left or right circular polarization
 
     :param f_plus: sensitivity to plus polarization
     :param f_cross: sensitivity to cross polarization
     :param hand: one of "left", "right"
-    :returns: f-stat A parameters projected to left or right circularly polarized system
+    :returns: f-stat A parameters projected to left or right circularly
+    polarized system
     """
     if hand == "right":
         x = 1
@@ -221,7 +222,8 @@ def circ_project(a, f_plus, f_cross, hand):
 
 def snr_f_to_a(z, f_sig):
     """
-    Given the complex SNR and the detector sensitivities, calculate the f-stat A parameters
+    Given the complex SNR and the detector sensitivities, c
+    alculate the f-stat A parameters
 
     :param z: array containing complex snrs for the detectors
     :param f_sig: sensitivity of detectors sigma * (F+, Fx)
@@ -239,11 +241,18 @@ def snr_f_to_a(z, f_sig):
 
 def a_f_to_snr(a, f_plus, f_cross):
     """
-    Given the F-stat a parameters and f_plus, f_cross for a detector, calculate the SNR.
-    From the Harry-Fairhurst paper, the waveform is :math:`h = A^{\mu} h_{\mu}` where
-    :math:`h_1 = F_{+} h_{0}`; :math:`h_2 = F_x h_{0}`; :math:`h_{3} = F_{+} h_{\pi/2}`;
-    :math:`h_{4} = F_x h_{\pi/2}` and :math:`z = (s | h_{0}) + i (s | h_{\pi/2})`.
-    Given the :math:`A^{\mu}`, the expected SNR is:
+    Given the F-stat a parameters and f_plus, f_cross for a detector,
+    calculate the SNR.
+    From the Harry-Fairhurst paper, the waveform is :math:
+    `h = A^{\mu} h_{\mu}`
+    where
+    :math:`h_1 = F_{+} h_{0}`; :math:`h_2 = F_x h_{0}`;
+    :math:`h_{3} = F_{+} h_{\pi/2}`;
+    :math:`h_{4} = F_x h_{\pi/2}`
+    and
+    :math:`z = (s | h_{0}) + i (s | h_{\pi/2})`.
+    Given the :math:`A^{\mu}`,
+    the expected SNR is:
     :math:`z = F_{+} A^{1} + F_x A^{2} + i( F_{+} A^{3} + F_x A^{4})`
 
     :param a: F-stat parameters
@@ -255,12 +264,10 @@ def a_f_to_snr(a, f_plus, f_cross):
     return z
 
 
-# Calculate the dominant polarization F+, Fx and the angle between this and the original frame.
-
 def dominant_polarization(f_sig):
     """
-    Given the detector responses, compute the dominant polarization F+, Fx and the
-    angle that we have to rotate through to get to D.P.
+    Given the detector responses, compute the dominant polarization F+, Fx
+    and the angle that we have to rotate through to get to D.P.
 
     :param f_sig: sensitivity of detectors: sigma * (F+, Fx)
     """
