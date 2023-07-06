@@ -25,7 +25,7 @@ f_high={{ quality['maximum frequency'][ifos[0]]}}
 trigger_parameters={{ likelihood['fiducial parameters'] }}
 {%- endif %}
 {%- if "superevent" in production.meta['ligo'] %}
-sid = {{ production.meta['ligo']['superevent'] }}
+sid={{ production.meta['ligo']['superevent'] }}
 {%- endif %}
 approximant={{ production.meta['waveform']['approximant'] }}
 psd={ {% for ifo in ifos %}{{production.psds[ifo]}}{% if forloop.last != true %},{% endif %}{% endfor %} }

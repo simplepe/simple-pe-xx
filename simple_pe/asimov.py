@@ -81,7 +81,7 @@ class AsimovPipeline(Pipeline):
                 job_label = self.production.meta["job label"]
             else:
                 job_label = self.production.name
-            dag_filename = glob.glob(os.path.join(self.production.rundir, "submit", "*.submit"))[0]
+            dag_filename = glob.glob(os.path.join(self.production.rundir, "submit", "*.dag"))[0]
             command = [
                 # "ssh", f"{config.get('scheduler', 'server')}",
                 "condor_submit_dag",
