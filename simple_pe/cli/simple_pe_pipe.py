@@ -90,6 +90,7 @@ class Dag(object):
         self.output = string.format("output")
         self.submit = string.format("submit")
         self.dagman = pycondor.Dagman(name="simple_pe", submit=self.submit)
+        self.submit_file = os.path.join(self.dagman.submit, '{}.dag'.format(self.dagman.name))
 
     @property
     def bash_file(self):
@@ -103,10 +104,18 @@ class Dag(object):
         }
         return dirs
 
+    def _rename_dag(self):
+        """
+        """
+        new_name = self.dagman.submit_file.replace(".submit", ".dag")
+        os.rename(self.dagman.submit_file, new_name)
+        self.dagman.submit_file = new_name
+
     def build(self):
         """Build the pycondor dag
         """
         self.dagman.build()
+        self._rename_dag()
         self.write_bash_script()
         print("Dag Generation complete.")
         print("To submit jobs to condor run:\n")
