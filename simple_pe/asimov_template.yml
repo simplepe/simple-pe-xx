@@ -15,7 +15,7 @@
 
 [pesummary]
 trigger_time={{ production.meta['event time'] }}
-channels={ {% for ifo in ifos %}{{data['channels'][ifo]}},{% endfor %} }
+channels={ {% for ifo in ifos %}{{data['channels'][ifo]}}{% if forloop.last != true %},{% endif %}{% endfor %} }
 outdir={{ production.rundir }}
 accounting_group={{ scheduler['accounting group'] }}
 accounting_group_user={{ config['condor']['user'] }}
@@ -28,4 +28,4 @@ trigger_parameters={{ likelihood['fiducial parameters'] }}
 sid = {{ production.meta['ligo']['superevent'] }}
 {%- endif %}
 approximant={{ production.meta['waveform']['approximant'] }}
-psd={ {% for ifo in ifos %}{{production.psds[ifo]}},{% endfor %} }
+psd={ {% for ifo in ifos %}{{production.psds[ifo]}}{% if forloop.last != true %},{% endif %}{% endfor %} }
