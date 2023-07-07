@@ -715,7 +715,7 @@ def add_localisation_information(
             peak_template['mass_1'], peak_template['mass_2'], peak_template["chi_align"],
             approximant, psd[ifo], f_low
         )
-        net.add_ifo(ifo, hor/2.26, f_mean, f_band, bns_range=False, loc_thresh=threshold)
+        net.add_ifo(ifo, hor, f_mean, f_band, bns_range=False, loc_thresh=threshold)
     try:
         ev = event.Event.from_snrs(
             net, event_snr["ifo_snr"], event_snr["ifo_time"], peak_template['chirp_mass']
