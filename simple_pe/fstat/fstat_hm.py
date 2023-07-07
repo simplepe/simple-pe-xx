@@ -1,16 +1,19 @@
 import numpy as np
 
-# The following functions all convert between physical parameters and f-stat values
-# In particular, they do not need anything about a detector or network other than the relative
-# sensitivity to the modes, encoded in the sigmas
+# The following functions all convert between physical parameters
+# and f-stat values.  In particular, they do not need anything about a detector
+# or network other than the relative sensitivity to the modes,
+# encoded in the sigmas
 
 t = lambda iota: np.tan(iota / 2.)
-sqri43 = lambda iota: np.sin(iota / 2.) * np.cos(iota / 2.) ** 5 * (1 - 2 * np.cos(iota))
-sqri4m3 = lambda iota: np.sin(iota / 2.) ** 5 * np.cos(iota / 2.) * (2 * np.cos(iota) + 1)
+sqri43 = lambda iota: np.sin(iota / 2.) * np.cos(iota / 2.) ** 5 * (
+        1 - 2 * np.cos(iota))
+sqri4m3 = lambda iota: np.sin(iota / 2.) ** 5 * np.cos(iota / 2.) * (
+        2 * np.cos(iota) + 1)
 
 amp = {
     # expressions taken from Mills and Fairhurst, PRD 103, 024042 (2021)
-    '22+': lambda iota: (np.cos(iota) ** 2 + 1) / 2.,
+    '22+': lambda iota: (1. + np.cos(iota) ** 2) / 2.,
     '22x': lambda iota: np.cos(iota),
     '21+': lambda iota: np.sin(iota),
     '21x': lambda iota: np.sin(iota) * np.cos(iota),
@@ -30,17 +33,18 @@ def params_to_mode_a(mode, d, cosi, psi, phi=0, alpha=1, d0=1):
     Calculate the mode A params given the physical parameters and a choice of
     d0 to set the overall scaling
 
-    Note, the reference iota for 22 will always be iota = 0, where + and x both equal to one.
-    Therefore this factor never appears in the equations. For the other modes, however, there is no
-    iota for which both polarizations are equal to 1, but we use their respective values at iota=pi/2
-    as reference.
+    Note, the reference iota for 22 will always be iota = 0,
+    where + and x both equal to one. Therefore, this factor never appears in the
+    equations. For the other modes, however, there is no iota for which both
+    polarizations are equal to 1, but we use their respective values at
+    iota=pi/2 as reference.
 
     :param mode: the mode for which to calculate As
     :param d: distance to source
     :param cosi: cos(inclination) of source
     :param psi: polarization of source
     :param phi: coalescence phase of source
-    :param sigma: overall scaling of the mode relative to 22 -->
+    :param alpha: overall scaling of the mode relative to 22 -->
     calculated with at iota = pi/2. (22 at iota = 0).
     :param d0: overall scaling of A's
     """
@@ -63,10 +67,14 @@ def params_to_mode_a(mode, d, cosi, psi, phi=0, alpha=1, d0=1):
     mode_m = int(mode[1])
 
     a[:, 0] = alpha
-    a[:, 1] = a_plus * np.cos(mode_m * phi) * np.cos(2 * psi) - a_cross * np.sin(mode_m * phi) * np.sin(2 * psi)
-    a[:, 2] = a_plus * np.cos(mode_m * phi) * np.sin(2 * psi) + a_cross * np.sin(mode_m * phi) * np.cos(2 * psi)
-    a[:, 3] = - a_plus * np.sin(mode_m * phi) * np.cos(2 * psi) - a_cross * np.cos(mode_m * phi) * np.sin(2 * psi)
-    a[:, 4] = - a_plus * np.sin(mode_m * phi) * np.sin(2 * psi) + a_cross * np.cos(mode_m * phi) * np.cos(2 * psi)
+    a[:, 1] = a_plus * np.cos(mode_m * phi) * np.cos(2 * psi) \
+              - a_cross * np.sin(mode_m * phi) * np.sin(2 * psi)
+    a[:, 2] = a_plus * np.cos(mode_m * phi) * np.sin(2 * psi) \
+              + a_cross * np.sin(mode_m * phi) * np.cos(2 * psi)
+    a[:, 3] = - a_plus * np.sin(mode_m * phi) * np.cos(2 * psi) \
+              - a_cross * np.cos(mode_m * phi) * np.sin(2 * psi)
+    a[:, 4] = - a_plus * np.sin(mode_m * phi) * np.sin(2 * psi) \
+              + a_cross * np.cos(mode_m * phi) * np.cos(2 * psi)
     return a
 
 
@@ -74,7 +82,8 @@ def expected_snr_in_modes(a_dict, f_plus, f_cross):
     """
     Calculate the SNR for a given set of A parameters and network sensitivity.
 
-    :param a_dict: a dictionary, labelled by the modes, of the amplitude parameters
+    :param a_dict: a dictionary, labelled by the modes,
+                   of the amplitude parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
     """
@@ -93,7 +102,8 @@ def set_snr_in_modes(a_dict, f_plus, f_cross, snr):
     FIXME: for now ignoring all the cross terms.
     rescale distance to give desired SNR, return rescaled as and distance
 
-    :param a_dict: a dictionary, labelled by the modes, of the amplitude parameters
+    :param a_dict: a dictionary, labelled by the modes,
+                   of the amplitude parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
     :param snr: the desired SNR
