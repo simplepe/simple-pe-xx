@@ -198,8 +198,8 @@ class SimplePESamples(SamplesDict):
                           psd, f_low, interp_directions, interp_points=5,
                           approximant="IMRPhenomXPHM", overwrite=False):
         """
-        generate distance points using the existing theta_JN samples and fiducial distance.
-        interpolate sensitivity over the parameter space
+        generate distance points using the existing theta_JN samples and
+        fiducial distance.  Interpolate sensitivity over the parameter space
 
         :param fiducial_distance: distance for a fiducial set of parameters
         :param fiducial_sigma: the range for a fiducial set of parameters
@@ -680,10 +680,6 @@ def calculate_interpolated_snrs(
         low frequency cut-off to use for SNR calculations
     dominant_snr: float
         SNR in the dominant 22 multipole
-    left_snr: float
-        SNR consistent with left circular polarization
-    right_snr: float
-        SNR consistent with right circular polarization
     modes: list
         list of higher order multipoles that you wish to calculate
         the SNR for
@@ -695,7 +691,8 @@ def calculate_interpolated_snrs(
     fiducial_distance: float
         distance at which a face on signal would give the observed dominant SNR
     fiducial_sigma: float
-        distance at which a face on signal would give SNR=8 at (using params for fiducial_distance)
+        distance at which a face on signal would give SNR=8 at
+        (using params for fiducial_distance)
     dist_interp_dirs: list
         directions to interpolate the distance
     hm_interp_dirs: list

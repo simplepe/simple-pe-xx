@@ -7,8 +7,8 @@ from scipy import interpolate
 # Cosmology
 ##################################################################
 
-max_z = 200.
-redshifts = np.linspace(0, max_z, 2000)
+max_z = 400.
+redshifts = np.linspace(0, max_z, 4000)
 distances = cosmo.comoving_distance(redshifts)
 dl = cosmo.luminosity_distance(redshifts)
 z_interp = interpolate.interp1d(distances, redshifts)

@@ -29,7 +29,7 @@ class Network(object):
         Parameters
         ----------
         ifo: name of ifo
-        det_range: the BNS range of the detector
+        horizon: the BNS range of the detector
         f_mean: float, mean frequency
         f_band: float, frequency bandwidth
         found_thresh: threshold for declaring an event found
