@@ -101,7 +101,6 @@ def calc_detector_horizon(mass1, mass2, spin, psd, fmin, snr=8,
                              '22', waveform, triangle)
 
 
-
 def interpolate_horizon(min_mass, max_mass, q, spin, psd, fmin, snr=8,
                         waveform='IMRPhenomD', triangle=False):
     """
@@ -141,7 +140,7 @@ def interpolate_horizon(min_mass, max_mass, q, spin, psd, fmin, snr=8,
 
 
 def calc_mode_horizon(mass1, mass2, spin, psd, fmin, snr=8, mode='22',
-                    waveform='IMRPhenomXHM', triangle=False):
+                      waveform='IMRPhenomXHM', triangle=False):
     """
     Calculate the horizon for a given PSD [in the detector frame]
 
@@ -205,7 +204,8 @@ def calc_mode_horizon(mass1, mass2, spin, psd, fmin, snr=8, mode='22',
 
 
 def interpolate_mode_horizon(min_mass, max_mass, q, spin, psd, fmin, snr=8,
-                           mode='22', waveform='IMRPhenomXHM', triangle=False):
+                             mode='22', waveform='IMRPhenomXHM',
+                             triangle=False):
     """
     Generate an interpolation function for the horizon [in the detector frame]
     for a binary with total mass between min_mass and max_mass,
@@ -245,10 +245,10 @@ def interpolate_mode_horizon(min_mass, max_mass, q, spin, psd, fmin, snr=8,
                          np.log10(1.5 * max_mass),
                          100)
     horizon = np.array([calc_mode_horizon(mass * q / (1. + q),
-                                        mass * 1 / (1. + q),
-                                        spin,
-                                        psd, fmin, snr, mode,
-                                        waveform, triangle)
+                                          mass * 1 / (1. + q),
+                                          spin,
+                                          psd, fmin, snr, mode,
+                                          waveform, triangle)
                         for mass in masses])
     horizon_interp = interpolate.interp1d(masses, horizon)
     return horizon_interp
@@ -390,12 +390,8 @@ def calc_amp_info(amp, probs=None):
 
     Parameters
     ----------
-    ntrials: int
-        the number of trials
-    modes: list
-        a list of modes
-    triangle: bool
-        L or triangle detector
+    amp = array of reported amplitudes
+    probs = list of probabilities at which to calculate relative amplitude
 
     Returns
     -------
