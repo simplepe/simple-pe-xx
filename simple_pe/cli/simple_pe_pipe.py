@@ -334,10 +334,6 @@ class FilterNode(Node):
             self.opts.sid, self.opts.trigger_parameters,
             self.opts.use_bayestar_localization
         )
-        self.opts.strain, self.opts.channels = self._prepare_strain(
-            self.opts.strain, self.opts.trigger_time, self.opts.channels,
-            self.opts.injection
-        )
         self.create_pycondor_job()
 
     @property
@@ -428,121 +424,33 @@ class FilterNode(Node):
             json.dump(template_parameters, f)
         return filename
 
-    def _prepare_strain(self, strain, trigger_time, channels, injection):
-        """Prepare strain data
 
-        Parameters
-        ----------
-        strain: dict
-            dictionary containing strain data. Key must be {ifo}:{channel} and
-            value must be path to gwf file. If channel = 'gwosc' then value must
-            be the name of the GW signal that you wish to analyse. When
-            channel = 'gwosc', data is downloaded with
-            `gwpy.timeseries.TimeSeries.fetch_open_data`
-        trigger_time:
-        channels:
-        injection:
-        """
-        from gwpy.timeseries import TimeSeries
-        from gwosc.datasets import event_gps
-        _strain = {}
-        _channels = {}
-        for ifo, value in channels.items():
-            if "gwosc" in value.lower():
-                if trigger_time is None:
-                    raise ValueError(
-                        "Please provide the name of the event you wish to analyse via "
-                        "the trigger_time argument"
-                    )
-                gps = event_gps(trigger_time)
-                start, stop = int(gps) + 512, int(gps) - 512
-                logger.info(
-                    f"Fetching strain data with: "
-                    f"TimeSeries.fetch_open_data({ifo}, {start}, {stop})"
-                )
-                open_data = TimeSeries.fetch_open_data(ifo, start, stop)
-                _channel = open_data.name
-                open_data.name = f"{ifo}:{_channel}"
-                open_data.channel = f"{ifo}:{_channel}"
-                os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
-                filename = (
-                    f"{self.opts.outdir}/output/{ifo}-{_channel}-{int(gps)}.gwf"
-                )
-                logger.debug(f"Saving strain data to {filename}")
-                open_data.write(filename)
-                _channels[ifo] = _channel
-                _strain[ifo] = filename
-            elif "inj" in value.lower():
-                # make waveform with independent code: pycbc.waveform.get_td_waveform
-                from pycbc.waveform import get_td_waveform, taper_timeseries
-                from pycbc.detector import Detector
-                import json
-                if not os.path.isfile(injection):
-                    raise FileNotFoundError(f"Unable to find file: {injection}")
-                with open(injection, "r") as f:
-                    injection_params = json.load(f)
-                # convert to pycbc convention
-                params_to_convert = [
-                    "mass_1", "mass_2", "spin_1x", "spin_1y", "spin_1z",
-                    "spin_2x", "spin_2y", "spin_2z"
-                ]
-                logger.info("Generating injection with parameters using pycbc:")
-                for param, item in injection_params.items():
-                    logger.info(f"{param} = {item}")
-                for param in params_to_convert:
-                    injection_params[param.replace("_", "")] = injection_params.pop(param)
-                hp, hc = get_td_waveform(**injection_params)
-                hp.start_time += injection_params["time"]
-                hc.start_time += injection_params["time"]
-                ra = injection_params["ra"]
-                dec = injection_params["dec"]
-                psi = injection_params["psi"]
-                ht = Detector(ifo).project_wave(hp, hc, ra, dec, psi)
-                ht = taper_timeseries(ht, tapermethod="TAPER_STARTEND")
-                prepend = int(512 / ht.delta_t)
-                ht.append_zeros(prepend)
-                ht.prepend_zeros(prepend)
-                strain = TimeSeries.from_pycbc(ht)
-                strain = strain.crop(injection_params["time"] - 512, injection_params["time"] + 512)
-                strain.name = f"{ifo}:HWINJ_INJECTED"
-                strain.channel = f"{ifo}:HWINJ_INJECTED"
-                os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
-                filename = (
-                    f"{self.opts.outdir}/output/{ifo}-INJECTION.gwf"
-                )
-                logger.debug("Saving injection to {filename}")
-                strain.write(filename)
-                _channels[ifo] = "HWINJ_INJECTED"
-                _strain[ifo] = filename
-            else:
-                import ast
-                if trigger_time is not None:
-                    gps = float(trigger_time)
-                    start, stop = int(gps) - 512, int(gps) + 512
-                    logger.info(
-                        f"Fetching strain data with: "
-                        f"TimeSeries.get('{ifo}:{value}', start={start}, end={stop}, "
-                        f"verbose=False, allow_tape=True,).astype(dtype=np.float64, "
-                        f"subok=True, copy=False)"
-                    )
-                    data = TimeSeries.get(
-                        f"{ifo}:{value}", start=start, end=stop, verbose=False, allow_tape=True,
-                    ).astype(dtype=np.float64, subok=True, copy=False)
-                    filename = (
-                        f"{self.opts.outdir}/output/{ifo}-{value}-{int(gps)}.gwf"
-                    )
-                    logger.debug(f"Saving strain data to {filename}")
-                    data.write(filename)
-                    _channels[ifo] = value
-                    _strain[ifo] = filename
-                elif ifo not in strain.keys():
-                    raise ValueError(f"Please provide a gwf file for {ifo}")
-                elif os.path.isfile(strain[ifo]):
-                    _channels[ifo] = value
-                    _strain[ifo] = strain[ifo]
-                else:
-                    raise ValueError("Unable to grab strain data")
-        return _strain, _channels
+class DataFindNode(Node):
+    """Node to handle fetching the strain data to analyse
+
+    Parameters
+    ----------
+    opts: argparse.Namespace
+        Namespace containing the command line arguments
+    dag: Dag
+        Dag object to control the generation of the DAG
+    """
+    job_name = "datafind"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._executable = self.get_executable("simple_pe_datafind")
+        self.create_pycondor_job()
+
+    @property
+    def universe(self):
+        return "local"
+
+    @property
+    def arguments(self):
+        string_args = ["outdir", "trigger_time", "injection"]
+        args = self._format_arg_lists(string_args, ["channels"], [])
+        return " ".join([item for sublist in args for item in sublist])
 
 
 class CornerNode(Node):
@@ -599,6 +507,9 @@ def main(args=None):
     AnalysisJob = AnalysisNode(opts, MainDag)
     AnalysisJob.add_child(CornerJob.job)
     FilterJob.add_child(AnalysisJob.job)
+    if not len(opts.strain):
+        DataFindJob = DataFindNode(opts, MainDag)
+        DataFindJob.add_child(FilterJob.job)
     MainDag.build()
 
 
