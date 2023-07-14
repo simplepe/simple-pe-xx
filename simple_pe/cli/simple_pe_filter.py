@@ -58,6 +58,20 @@ def command_line():
         type=float
     )
     parser.add_argument(
+        "--strain",
+        help=(
+            "Time domain strain data to analyse. Must be provided as a space "
+            "separated dictionary with keys giving the ifo and items giving the path "
+            "to the strain data you wish to analyse, e.g. H1:/path/to/file or a single "
+            "json file giving the path to file and channel name for each ifo, e.g. "
+            "{H1: {strain: /path/to/file, channel: channel}}. Strain data must be a "
+            "gwf file"
+        ),
+        nargs="+",
+        default=None,
+        action=DictionaryAction,
+    )
+    parser.add_argument(
         "--channels",
         help=(
             "Channels to use when reading in strain data. Must be provided as "
@@ -65,36 +79,11 @@ def command_line():
             "giving the channel name, e.g. H1:HWINJ_INJECTED. For GWOSC open data "
             "the dictionary items must be GWOSC, e.g. H1:GWOSC. If you wish to use "
             "simple-pe to produce an injection for you, the dictionary items must be "
-            "INJ, e.g. H1:INJ"
+            "INJ, e.g. H1:INJ. Only used if strain is not a json file"
         ),
         nargs="+",
         default={},
         action=DictionaryAction,
-    )
-    parser.add_argument(
-        "--strain",
-        help=(
-            "Time domain strain data to analyse. Must be provided as a space "
-            "separated dictionary with keys giving the ifo and items giving the path "
-            "to the strain data you wish to analyse, e.g. H1:/path/to/file. Strain "
-            "data must be a gwf file"
-        ),
-        nargs="+",
-        default={},
-        action=DictionaryAction,
-    )
-    parser.add_argument(
-        "--injection",
-        help="A json file giving the injection parameters of a signal you wish to inject",
-        default=None,
-    )
-    parser.add_argument(
-        "--trigger_time",
-        help=(
-            "Either a GPS time or the event name you wish to analyse. If an "
-            "event name is provided, GWOSC is queried to find the event time"
-        ),
-        default=None,
     )
     parser.add_argument(
         "--asd",
@@ -252,10 +241,7 @@ def _load_strain_data_from_file(
     ----------
     trigger_parameters: dict
         dictionary containing trigger parameters
-    strain_data: dict
-        dictionary containing paths to strain data. The keys should be of the
-        form '{ifo}:{channel}' and the items should be the of the form
-        '{path_to_file}'
+    strain_data: str/dict
     f_low: float
         low frequency cut off to use for the analysis
     f_high: float
@@ -278,8 +264,19 @@ def _load_strain_data_from_file(
 
     strain = {}
     strain_f = {}
-    for key, fname in strain_data.items():
-        data = TimeSeries.read(fname, f"{key}:{channels[key]}").to_pycbc()
+    if not isinstance(strain_data, dict):
+        with open(strain_data[0], "r") as f:
+            strain_data = json.load(f)
+        channels = {
+            ifo: value["channel"] for ifo, value in strain_data.items()
+        }
+        strain_data = {
+            ifo: value["strain"] for ifo, value in strain_data.items()
+        }
+    else:
+        channels = {ifo: f"{ifo}:{value}" for ifo, value in channels.items()}
+    for key in strain_data.keys():
+        data = TimeSeries.read(strain_data[key], channels[key]).to_pycbc()
         strain[key] = data.time_slice(data_start, data_end) 
         strain_f[key] =  strain[key].to_frequencyseries()
         strain_f[key].resize(int(data_len * f_high + 1))

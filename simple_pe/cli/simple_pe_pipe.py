@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 from argparse import ArgumentParser
-from pesummary.core.command_line import ConfigAction as _ConfigAction
+from pesummary.core.command_line import DictionaryAction, ConfigAction as _ConfigAction
 import lalsimulation as ls
 import pycondor
 import os
@@ -28,8 +28,9 @@ def command_line():
     """
     from .simple_pe_analysis import command_line as _analysis_command_line
     from .simple_pe_filter import command_line as _filter_command_line
+    from .simple_pe_datafind import command_line as _datafind_command_line
     parser = ArgumentParser(
-        parents=[_analysis_command_line(), _filter_command_line()],
+        parents=[_analysis_command_line(), _filter_command_line(), _datafind_command_line()],
         conflict_handler='resolve'
     )
     remove = ["--peak_parameters", "--peak_snrs"]
@@ -342,7 +343,11 @@ class FilterNode(Node):
             "trigger_parameters", "approximant", "f_low", "f_high",
             "minimum_data_length", "seed", "snr_threshold"
         ]
-        dict_args = ["strain", "channels", "asd", "psd"]
+        dict_args = ["asd", "psd"]
+        if "strain_cache" in self.opts.strain:
+            string_args += ["strain"]
+        else:
+            dict_args += ["strain", "channels"]
         list_args = ["metric_directions"]
         args = self._format_arg_lists(string_args, dict_args, list_args)
         args += [["--outdir", f"{self.opts.outdir}/output"]]
@@ -495,6 +500,7 @@ class CornerNode(Node):
         return " ".join([item for sublist in args for item in sublist])
 
 
+
 def main(args=None):
     """Main interface for `simple_pe_pipe`
     """
@@ -502,13 +508,17 @@ def main(args=None):
     opts, _ = parser.parse_known_args(args=args)
     logger.info(opts)
     MainDag = Dag(opts)
+    DATAFIND = False
+    if opts.strain is None:
+        DataFindJob = DataFindNode(opts, MainDag)
+        DATAFIND = True
+        opts.strain = f"{opts.outdir}/output/strain_cache.json"
     FilterJob = FilterNode(opts, MainDag)
     CornerJob = CornerNode(opts, MainDag)
     AnalysisJob = AnalysisNode(opts, MainDag)
     AnalysisJob.add_child(CornerJob.job)
     FilterJob.add_child(AnalysisJob.job)
-    if not len(opts.strain):
-        DataFindJob = DataFindNode(opts, MainDag)
+    if DATAFIND:
         DataFindJob.add_child(FilterJob.job)
     MainDag.build()
 

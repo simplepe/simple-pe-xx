@@ -3,6 +3,9 @@
 import os
 from argparse import ArgumentParser
 from gwpy.timeseries import TimeSeries
+import json
+import numpy as np
+from pesummary.core.command_line import CheckFilesExistAction, DictionaryAction
 from . import logger
 
 __author__ = [
@@ -50,6 +53,17 @@ def command_line():
 
 
 def get_gwosc_data(outdir, event_name, ifo):
+    """Fetch GWOSC data with gwpy.timeseries.TimeSeries.fetch_open_data
+
+    Parameters
+    ----------
+    outdir: str
+        directory to output data
+    event_name: str
+        name of the event you wish to grab the data for
+    ifo: str
+        name of the IFO you wish to grab data for
+    """
     from gwosc.datasets import event_gps
     gps = event_gps(event_name)
     start, stop = int(gps) + 512, int(gps) - 512
@@ -69,10 +83,20 @@ def get_gwosc_data(outdir, event_name, ifo):
 
 
 def get_injection_data(outdir, injection, ifo):
+    """Create an injection with pycbc and save to a gwf file
+
+    Parameters
+    ----------
+    outdir: str
+        directory to output data
+    injection: str
+        path to a json file containing the injection parameters
+    ifo: str
+        name of the IFO you wish to create data for
+    """
     # make waveform with independent code: pycbc.waveform.get_td_waveform
     from pycbc.waveform import get_td_waveform, taper_timeseries
     from pycbc.detector import Detector
-    import json
     with open(injection, "r") as f:
         injection_params = json.load(f)
     # convert to pycbc convention
@@ -108,6 +132,20 @@ def get_injection_data(outdir, injection, ifo):
 
 
 def get_internal_data(outdir, trigger_time, ifo, channel):
+    """Fetch data with gwpy.timeseries.TimeSeries.get
+
+    Parameters
+    ----------
+    outdir: str
+        directory to output data
+    trigger_time: float
+        central time to grab data for. By default the start time is
+        trigger_time-512 and end time if trigger_time+512
+    ifo: str
+        name of the IFO you wish to grab data for
+    channel: str
+        name of the channel you wish to grab data for
+    """
     gps = float(trigger_time)
     start, stop = int(gps) - 512, int(gps) + 512
     logger.info(
@@ -125,8 +163,30 @@ def get_internal_data(outdir, trigger_time, ifo, channel):
     return filename, channel
 
 
+def write_cache_file(outdir, strain, channels):
+    """Write cache file
+
+    Parameters
+    ----------
+    outdir: str
+        directory to output data
+    strain: dict
+        dictionary containing the paths to the gwf files for each ifo
+    channels: dict
+        dictionary containing the channel names for each ifo
+    """
+    filename = f"{outdir}/output/strain_cache.json"
+    logger.info(f"Saving cache file to: {filename}")
+    with open(filename, "w") as f:
+        _data = {
+            ifo: {"strain": strain[ifo], "channel": f"{ifo}:{channels[ifo]}"} for
+            ifo in strain.keys()
+        }
+        json.dump(_data, f)
+
+
 def main(args=None):
-    """Main interface for `simple_pe_filter`
+    """Main interface for `simple_pe_datafind`
     """
     parser = command_line()
     opts, _ = parser.parse_known_args(args=args)
@@ -158,6 +218,7 @@ def main(args=None):
                 raise ValueError(f"Please provide a gwf file for {ifo}")
             else:
                 raise ValueError("Unable to grab strain data")
+    write_cache_file(opts.outdir, _strain, _channels)
 
 
 if __name__ == "__main__":
