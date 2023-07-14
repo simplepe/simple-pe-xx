@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 from gwpy.timeseries import TimeSeries
 import json
 import numpy as np
-from pesummary.core.command_line import CheckFilesExistAction, DictionaryAction
+from pesummary.core.command_line import DictionaryAction
 from . import logger
 
 __author__ = [
@@ -160,7 +160,8 @@ def get_internal_data(outdir, trigger_time, ifo, channel):
         f"subok=True, copy=False)"
     )
     data = TimeSeries.get(
-        f"{ifo}:{channel}", start=start, end=stop, verbose=False, allow_tape=True,
+        f"{ifo}:{channel}", start=start, end=stop, verbose=False,
+        allow_tape=True,
     ).astype(dtype=np.float64, subok=True, copy=False)
     filename = f"{outdir}/output/{ifo}-{channel}-{int(gps)}.gwf"
     logger.debug(f"Saving strain data to {filename}")
@@ -221,8 +222,6 @@ def main(args=None):
                 _strain[ifo], _channels[ifo] = get_internal_data(
                     opts.outdir, opts.trigger_time, ifo, value
                 )
-            elif ifo not in strain.keys():
-                raise ValueError(f"Please provide a gwf file for {ifo}")
             else:
                 raise ValueError("Unable to grab strain data")
     write_cache_file(opts.outdir, _strain, _channels)
