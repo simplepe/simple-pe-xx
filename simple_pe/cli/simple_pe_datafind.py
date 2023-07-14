@@ -27,10 +27,10 @@ def command_line():
         help=(
             "Channels to use when reading in strain data. Must be provided as "
             "a space separated dictionary with keys giving the ifo and items "
-            "giving the channel name, e.g. H1:HWINJ_INJECTED. For GWOSC open data "
-            "the dictionary items must be GWOSC, e.g. H1:GWOSC. If you wish to use "
-            "simple-pe to produce an injection for you, the dictionary items must be "
-            "INJ, e.g. H1:INJ"
+            "giving the channel name, e.g. H1:HWINJ_INJECTED. For GWOSC open "
+            "data the dictionary items must be GWOSC, e.g. H1:GWOSC. If you "
+            "wish to use simple-pe to produce an injection for you, the "
+            "dictionary items must be INJ, e.g. H1:INJ"
         ),
         nargs="+",
         default={},
@@ -38,7 +38,10 @@ def command_line():
     )
     parser.add_argument(
         "--injection",
-        help="A json file giving the injection parameters of a signal you wish to inject",
+        help=(
+            "A json file giving the injection parameters of a signal you "
+            "wish to inject"
+        ),
         default=None,
     )
     parser.add_argument(
@@ -121,7 +124,9 @@ def get_injection_data(outdir, injection, ifo):
     ht.append_zeros(prepend)
     ht.prepend_zeros(prepend)
     strain = TimeSeries.from_pycbc(ht)
-    strain = strain.crop(injection_params["time"] - 512, injection_params["time"] + 512)
+    strain = strain.crop(
+        injection_params["time"] - 512, injection_params["time"] + 512
+    )
     strain.name = f"{ifo}:HWINJ_INJECTED"
     strain.channel = f"{ifo}:HWINJ_INJECTED"
     os.makedirs(f"{outdir}/output", exist_ok=True)
@@ -179,8 +184,8 @@ def write_cache_file(outdir, strain, channels):
     logger.info(f"Saving cache file to: {filename}")
     with open(filename, "w") as f:
         _data = {
-            ifo: {"strain": strain[ifo], "channel": f"{ifo}:{channels[ifo]}"} for
-            ifo in strain.keys()
+            ifo: {"strain": strain[ifo], "channel": f"{ifo}:{channels[ifo]}"}
+            for ifo in strain.keys()
         }
         json.dump(_data, f)
 
@@ -197,15 +202,17 @@ def main(args=None):
         if "gwosc" in value.lower():
             if opts.trigger_time is None:
                 raise ValueError(
-                    "Please provide the name of the event you wish to analyse via "
-                    "the trigger_time argument"
+                    "Please provide the name of the event you wish to analyse "
+                    "via the trigger_time argument"
                 )
             _strain[ifo], _channels[ifo] = get_gwosc_data(
                 opts.outdir, opts.trigger_time, ifo
             )
         elif "inj" in value.lower():
             if not os.path.isfile(opts.injection):
-                raise FileNotFoundError(f"Unable to find file: {opts.injection}")
+                raise FileNotFoundError(
+                    f"Unable to find file: {opts.injection}"
+                )
             _strain[ifo], _channels[ifo] = get_injection_data(
                 opts.outdir, opts.injection, ifo
             )
