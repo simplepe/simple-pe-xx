@@ -61,11 +61,11 @@ def command_line():
         "--strain",
         help=(
             "Time domain strain data to analyse. Must be provided as a space "
-            "separated dictionary with keys giving the ifo and items giving the path "
-            "to the strain data you wish to analyse, e.g. H1:/path/to/file or a single "
-            "json file giving the path to file and channel name for each ifo, e.g. "
-            "{H1: {strain: /path/to/file, channel: channel}}. Strain data must be a "
-            "gwf file"
+            "separated dictionary with keys giving the ifo and items giving "
+            "the path to the strain data you wish to analyse, e.g. "
+            "H1:/path/to/file or a single json file giving the path to file "
+            "and channel name for each ifo, e.g. {H1: {strain: /path/to/file,"
+            "channel: channel}}. Strain data must be a gwf file"
         ),
         nargs="+",
         default=None,
@@ -76,10 +76,11 @@ def command_line():
         help=(
             "Channels to use when reading in strain data. Must be provided as "
             "a space separated dictionary with keys giving the ifo and items "
-            "giving the channel name, e.g. H1:HWINJ_INJECTED. For GWOSC open data "
-            "the dictionary items must be GWOSC, e.g. H1:GWOSC. If you wish to use "
-            "simple-pe to produce an injection for you, the dictionary items must be "
-            "INJ, e.g. H1:INJ. Only used if strain is not a json file"
+            "giving the channel name, e.g. H1:HWINJ_INJECTED. For GWOSC open "
+            "data the dictionary items must be GWOSC, e.g. H1:GWOSC. If you "
+            "wish to use simple-pe to produce an injection for you, the "
+            "dictionary items must be INJ, e.g. H1:INJ. Only used if strain is "
+            "not a json file"
         ),
         nargs="+",
         default={},
@@ -213,8 +214,8 @@ def _estimate_data_length_from_template_parameters(
         factor to multiple the rough time estimate of the waveform by to ensure
         that it is a conservative value. Default 1.1
     fudge_min: float, optional
-        the minimum that the rough time estimate of the waveform can be. Default
-        0.02
+        the minimum that the rough time estimate of the waveform can be.
+        Default 0.02
     minimum_data_length: int, optional
         the minimum that the data length can be in seconds. Default 16
 
@@ -250,8 +251,8 @@ def _load_strain_data_from_file(
         factor to multiple the rough time estimate of the waveform by to ensure
         that it is a conservative value. Default 1.1
     fudge_min: float, optional
-        the minimum that the rough time estimate of the waveform can be. Default
-        0.02
+        the minimum that the rough time estimate of the waveform can be.
+        Default 0.02
     minimum_data_length: int, optional
         the minimum that the data length can be in seconds. Default 16
     """
