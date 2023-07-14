@@ -27,7 +27,7 @@ dependencies = [
         "gwpy",
 	"h5py",
 	"lalsuite",
-        "ligo.skymap",
+        "ligo.skymap<=1.0.7",
 	"mpmath",
 	"numpy>=1.15.4",
 	"pesummary",
