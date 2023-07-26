@@ -383,8 +383,11 @@ def average_mismatch(x, dx, scaling, f_low, psd,
     for s in [1., -1.]:
         a[s] = waveform.check_physical(x, dx, s * scaling)
         try:
-            h = waveform.make_offset_waveform(x, dx, s * a[s] * scaling, psd.delta_f, f_low, len(psd), approximant)
-            m[s] = match(h0, h, psd, low_frequency_cutoff=f_low, subsample_interpolation=True)[0]
+            h = waveform.make_offset_waveform(x, dx, s * a[s] * scaling,
+                                              psd.delta_f, f_low, len(psd),
+                                              approximant)
+            m[s] = match(h0, h, psd, low_frequency_cutoff=f_low,
+                         subsample_interpolation=True)[0]
         except RuntimeError:
             m[s] = 1e-5
 
@@ -393,7 +396,8 @@ def average_mismatch(x, dx, scaling, f_low, psd,
         print("Mismatches %.3g, %.3g" % (1 - m[-1], 1 - m[1]))
     if min(a.values()) < 1e-2:
         if verbose:
-            print("we're really close to the boundary, so down-weight match contribution")
+            print("we're really close to the boundary," 
+                  "so down-weight match contribution")
         mm = (2 - m[1] - m[-1]) / (a[1] ** 2 + a[-1] ** 2)
     else:
         mm = 1 - 0.5 * (scale_match(m[1], a[1]) + scale_match(m[-1], a[-1]))
@@ -424,11 +428,12 @@ def scale_dx(x, dx, desired_mismatch, f_low, psd,
     return scale
 
 
-def find_metric_and_eigendirections(x, dx_directions, snr, f_low, psd, approximant="IMRPhenomD",
+def find_metric_and_eigendirections(x, dx_directions, snr, f_low, psd,
+                                    approximant="IMRPhenomD",
                                     tolerance=0.05, max_iter=20):
     """
-    Calculate the eigendirections in parameter space, normalized to enclose a 90% confidence
-    region at the requested SNR
+    Calculate the eigendirections in parameter space, normalized to enclose a
+    90% confidence region at the requested SNR
 
     :param x: dictionary with parameter values for initial point
     :param dx_directions: list of parameters for which to calculate waveform variations
