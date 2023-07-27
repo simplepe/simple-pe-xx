@@ -5,7 +5,7 @@ from pycbc.filter import sigma, sigmasq
 from pycbc.waveform import get_fd_waveform
 from simple_pe.cosmology import redshift_at_lum_dist
 from pycbc.detector import Detector
-from simple_pe.fstat import fstat, fstat_hm
+from simple_pe import fstat
 from simple_pe.waveforms.waveform_modes import mode_array_dict
 
 
@@ -68,10 +68,13 @@ def calc_reach_bandwidth(mass1, mass2, spin, approx, psd, fmin, thresh=8.):
     return max_dist, meanf, sigf
 
 
-def calc_detector_horizon(mass1, mass2, spin, psd, fmin, snr=8,
-                          waveform='IMRPhenomD', triangle=False):
+def calc_detector_horizon(mass1, mass2, spin1z, spin2z,
+                          psd, fmin, snr=8, waveform='IMRPhenomXHM'):
     """
     Calculate the horizon for a given PSD [in the detector frame]
+    using only the (2, 2) mode.
+    Note: the code doesn't use the opening angle between detector arms,
+    i.e. takes the maximum F+= 1.
 
     Parameters
     ----------
@@ -79,8 +82,10 @@ def calc_detector_horizon(mass1, mass2, spin, psd, fmin, snr=8,
         the mass of the first component
     mass2: float
         the mass of second component
-    spin: float
-        the z-component of spin for both components
+    spin1z: float
+        the z-component of spin for first component
+    spin2z: float
+        the z-component of spin for second component
     psd: pycbc.psd
         the power spectrum to use
     fmin: float
@@ -89,60 +94,29 @@ def calc_detector_horizon(mass1, mass2, spin, psd, fmin, snr=8,
         the SNR at which to calculate the horizon
     waveform: str
         the waveform used to calculate the horizon
-    triangle: bool
-        scale horizon for a triangular detector (True/False)
     
     Returns
     -------
     horizon: float
         the horizon distance for the given system
     """
-    return calc_mode_horizon(mass1, mass2, spin, psd, fmin, snr,
-                             '22', waveform, triangle)
+    return calc_mode_horizon(mass1, mass2, spin1z, spin2z,
+                             psd, fmin, snr,
+                             '22', waveform)
 
 
-def interpolate_horizon(min_mass, max_mass, q, spin, psd, fmin, snr=8,
-                        waveform='IMRPhenomD', triangle=False):
-    """
-    Generate an interpolation function for the horizon [in the detector frame] f
-    or a binary with total mass between min_mass and max_mass,
-    with given mass ratio and spin from a frequency fmin in a detector with
-    given psd
-
-    Parameters
-    ----------
-    min_mass: float
-        the minimum total mass
-    max_mass: float
-        the maximum total mass
-    q: float
-        the mass ratio
-    spin: float
-        the z-component of spin for both components
-    psd: pycbc.psd
-        the PSD used to calculate the horizon
-    fmin: float
-        the minimum frequency
-    snr: float
-        the SNR at which to calculate the horizon
-    waveform: str
-        the waveform used to calculate the horizon
-    triangle: bool
-        scale horizon for a triangular detector (True/False)
-    
-    Returns
-    -------
-    horizon_interp:
-        horizon interpolation function
-    """
-    return interpolate_mode_horizon(min_mass, max_mass, q, spin, psd,
-                                    fmin, snr, '22', waveform, triangle)
-
-
-def calc_mode_horizon(mass1, mass2, spin, psd, fmin, snr=8, mode='22',
-                      waveform='IMRPhenomXHM', triangle=False):
+def calc_mode_horizon(mass1, mass2, spin1z, spin2z,
+                      psd, fmin, snr=8, mode='22',
+                      waveform='IMRPhenomXHM'):
     """
     Calculate the horizon for a given PSD [in the detector frame]
+    using only the (2, 2) mode.
+    Note: the code doesn't use the opening angle between detector arms,
+    i.e. takes the maximum F+= 1.
+    For the (2, 2) mode, we return the horizon for a face-on signal, for
+    other modes we return the horizon for an edge-on system.  [This is
+    correct for most modes, but the (3, 3) has a slightly larger amplitude
+    at a different inclination]
 
     Parameters
     ----------
@@ -150,8 +124,10 @@ def calc_mode_horizon(mass1, mass2, spin, psd, fmin, snr=8, mode='22',
         the mass of the first component
     mass2: float
         the mass ratio of second component
-    spin: float
-        the z-component of spin for both components
+    spin1z: float
+        the z-component of spin for first component
+    spin2z: float
+        the z-component of spin for second component
     psd: pycbc.psd
         the power spectrum to use
     fmin: float
@@ -180,8 +156,8 @@ def calc_mode_horizon(mass1, mass2, spin, psd, fmin, snr=8, mode='22',
         hp, _ = get_fd_waveform(approximant=waveform,
                                 mass1=mass1,
                                 mass2=mass2,
-                                spin1z=spin,
-                                spin2z=spin,
+                                spin1z=spin1z,
+                                spin2z=spin2z,
                                 mode_array=mode_array_dict[mode],
                                 distance=1,
                                 f_lower=fmin,
@@ -197,20 +173,19 @@ def calc_mode_horizon(mass1, mass2, spin, psd, fmin, snr=8, mode='22',
     except:
         sig = 0.
 
-    if triangle:
-        return 1.5 * sig / snr
-    else:
-        return sig / snr
+    return sig / snr
 
 
-def interpolate_mode_horizon(min_mass, max_mass, q, spin, psd, fmin, snr=8,
-                             mode='22', waveform='IMRPhenomXHM',
-                             triangle=False):
+def interpolate_horizon(min_mass, max_mass, q, spin1z, spin2z,
+                        psd, fmin, snr=8,
+                        waveform='IMRPhenomXHM', npts=100):
     """
     Generate an interpolation function for the horizon [in the detector frame]
     for a binary with total mass between min_mass and max_mass,
-    with given mass ratio and spin from a frequency fmin in a detector
-    with given psd
+    with given mass ratio and spin from a frequency fmin in a detector with
+    given psd
+    Note: the code doesn't use the opening angle between detector arms,
+    i.e. takes the maximum F+= 1.
 
     Parameters
     ----------
@@ -220,8 +195,55 @@ def interpolate_mode_horizon(min_mass, max_mass, q, spin, psd, fmin, snr=8,
         the maximum total mass
     q: float
         the mass ratio
-    spin: float
-        the z-component of spin for both components
+    spin1z: float
+        the z-component of spin for first component
+    spin2z: float
+        the z-component of spin for second component
+    psd: pycbc.psd
+        the PSD used to calculate the horizon
+    fmin: float
+        the minimum frequency
+    snr: float
+        the SNR at which to calculate the horizon
+    waveform: str
+        the waveform used to calculate the horizon
+    npts: int
+        number of points to use in interpolation
+    
+    Returns
+    -------
+    horizon_interp:
+        horizon interpolation function
+    """
+    return interpolate_mode_horizon(min_mass, max_mass, q,
+                                    spin1z, spin2z, psd,
+                                    fmin, snr, '22', waveform, npts)
+
+
+def interpolate_mode_horizon(min_mass, max_mass, q, spin1z, spin2z,
+                             psd, fmin, snr=8,
+                             mode='22', waveform='IMRPhenomXHM',
+                             npts=100):
+    """
+    Generate an interpolation function for the horizon [in the detector frame]
+    for a binary with total mass between min_mass and max_mass,
+    with given mass ratio and spin from a frequency fmin in a detector
+    with given psd
+    Note: the code doesn't use the opening angle between detector arms,
+    i.e. takes the maximum F+= 1.
+
+    Parameters
+    ----------
+    min_mass: float
+        the minimum total mass
+    max_mass: float
+        the maximum total mass
+    q: float
+        the mass ratio
+    spin1z: float
+        the z-component of spin for first component
+    spin2z: float
+        the z-component of spin for second component
     psd: pycbc.psd
         the power spectrum to use
     fmin: float
@@ -234,6 +256,8 @@ def interpolate_mode_horizon(min_mass, max_mass, q, spin, psd, fmin, snr=8,
         the waveform used to calculate the horizon
     triangle: bool
         scale horizon for a triangular detector (True/False)
+    npts: int
+        number of points to use in interpolation
 
     Returns
     -------
@@ -243,12 +267,12 @@ def interpolate_mode_horizon(min_mass, max_mass, q, spin, psd, fmin, snr=8,
     # add a safety margin so interpolation definitely covers range
     masses = np.logspace(np.log10(0.5 * min_mass),
                          np.log10(1.5 * max_mass),
-                         100)
+                         npts)
     horizon = np.array([calc_mode_horizon(mass * q / (1. + q),
                                           mass * 1 / (1. + q),
-                                          spin,
+                                          spin1z, spin2z,
                                           psd, fmin, snr, mode,
-                                          waveform, triangle)
+                                          waveform)
                         for mass in masses])
     horizon_interp = interpolate.interp1d(masses, horizon)
     return horizon_interp
@@ -316,7 +340,7 @@ def generate_fplus_fcross_samples(ntrials=int(1e6), triangle=False):
     t_gps = 1187008882.4434
 
     if triangle:
-        ifos = ["ET1", "ET2", "ET3"]
+        ifos = ["E1", "E2", "E3"]
     else:
         ifos = ['H1']
 
@@ -359,10 +383,9 @@ def calc_orientation_factors(ntrials=int(1e6), modes=None, triangle=False):
 
      Returns
      -------
-     f_plus: numpy.array
-         array of f_plus values
-     f_cross: numpy.array
-         array of f_plus values
+     amp: dict
+        dictionary of arrays of amplitudes.  One array with ntrials entries
+        per mode
      """
     if modes is None:
         modes = ['22']
@@ -371,16 +394,15 @@ def calc_orientation_factors(ntrials=int(1e6), modes=None, triangle=False):
     # chosen
     chi = np.random.uniform(0, np.pi, ntrials)
     cosi = np.random.uniform(-1, 1, ntrials)
-    phi0 = np.zeros_like(cosi)  # set the phase to zero (doesn't affect results)
+    phi0 = np.random.uniform(0, 2 * np.pi, ntrials)
     dist = np.ones_like(cosi)  # arbitrarily fix distance to unity
     f_plus, f_cross = generate_fplus_fcross_samples(ntrials, triangle)
 
     a_vals = {}
     for mode in modes:
-        a_vals[mode] = fstat_hm.params_to_mode_a(mode, dist, cosi, chi, phi0,
-                                                 alpha=1.)
-
-    amp = fstat.expected_snr(a_vals, f_plus, f_cross)
+        a_vals[mode] = fstat.params_to_mode_a(mode, dist, cosi, chi, phi0,
+                                              alpha=1.)
+    total, amp = fstat.expected_snr_in_modes(a_vals, f_plus, f_cross)
     return amp
 
 
@@ -395,14 +417,23 @@ def calc_amp_info(amp, probs=None):
 
     Returns
     -------
+    amax: float
+        the maximum amplitude
+    p_amp: dict
+        dictionary of relative amplitudes for each of the given
+        probabilities
     """
     if probs is None:
         probs = [0.1, 0.5, 0.9]
 
     amp.sort()
     amax = np.max(amp)
-    p_amp = np.zeros(len(probs))
-    for i, p in enumerate(probs):
-        p_amp[i] = amp[int(-p * len(amp))] / amax
+    p_amp = {}
+
+    for p in probs:
+        if amax > 0:
+            p_amp[p] = amp[int(-p * len(amp))] / amax
+        else:
+            p_amp[p] = 0
 
     return amax, p_amp
