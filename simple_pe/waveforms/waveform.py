@@ -53,7 +53,8 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
         x.generate_prec_spin()
 
     if 'tilt_1' in x.keys() and np.mod(x['tilt_1'], np.pi):
-        x.generate_all_posterior_samples(f_low=f_low, f_ref=x["f_ref"][0], delta_f=df, disable_remnant=True)
+        x.generate_all_posterior_samples(f_low=f_low, f_ref=x["f_ref"][0],
+                                         delta_f=df, disable_remnant=True)
         if harm2:
             harmonics = [0, 1]
         else:
@@ -86,8 +87,10 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
     elif approximant == "teobresums":
         if ('spin_1z' not in x.keys()) or ('spin_2z' not in x.keys()):
             x.generate_spin_z()
-        x.generate_all_posterior_samples(f_low=f_low, f_ref=x["f_ref"][0], delta_f=df, disable_remnant=True)
-        h_plus, h_cross = eccentric.generate_eccentric_waveform(x, df, f_low, flen)
+        x.generate_all_posterior_samples(f_low=f_low, f_ref=x["f_ref"][0],
+                                         delta_f=df, disable_remnant=True)
+        h_plus, h_cross = eccentric.generate_eccentric_waveform(x, df, f_low,
+                                                                flen)
         if return_hc:
             return h_plus, h_cross
         return h_plus
@@ -98,12 +101,14 @@ def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=F
         if "inc" not in x.keys():
             x["inc"] = 0.
 
-        x.generate_all_posterior_samples(f_low=f_low, f_ref=x["f_ref"][0], delta_f=df, disable_remnant=True)
+        x.generate_all_posterior_samples(f_low=f_low, f_ref=x["f_ref"][0],
+                                         delta_f=df, disable_remnant=True)
         waveform_dictionary = lal.CreateDict()
         mode_array_lal = SimInspiralCreateModeArray()
         for mode in modes:
             SimInspiralModeArrayActivateMode(mode_array_lal, mode[0], mode[1])
-        SimInspiralWaveformParamsInsertModeArray(waveform_dictionary, mode_array_lal)
+        SimInspiralWaveformParamsInsertModeArray(waveform_dictionary,
+                                                 mode_array_lal)
         if isinstance(x["mass_1"], list):
             m1 = x["mass_1"][0]
         else:
@@ -171,13 +176,15 @@ def offset_params(x, dx, scaling):
     return x_prime
 
 
-def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenomD", harm2=False):
+def make_offset_waveform(x, dx, scaling, df, f_low, flen,
+                         approximant="IMRPhenomD", harm2=False):
     """
     This function makes a waveform for the given parameters and
     returns h_plus generated at value (x + scaling * dx).
 
     :param x: dictionary with parameter values for initial point
-    :param dx: dictionary with parameter variations (can be a subset of the parameters in x)
+    :param dx: dictionary with parameter variations
+               (can be a subset of the parameters in x)
     :param scaling: the scaling to apply to dx
     :param df: frequency spacing of points
     :param f_low: low frequency cutoff
@@ -186,7 +193,8 @@ def make_offset_waveform(x, dx, scaling, df, f_low, flen, approximant="IMRPhenom
     :param harm2: generate the 2-harmonics
     :return h_plus: waveform at parameter space point x + scaling * dx
     """
-    h_plus = make_waveform(offset_params(x, dx, scaling), df, f_low, flen, approximant, harm2=harm2)
+    h_plus = make_waveform(offset_params(x, dx, scaling), df, f_low, flen,
+                           approximant, harm2=harm2)
 
     return h_plus
 
