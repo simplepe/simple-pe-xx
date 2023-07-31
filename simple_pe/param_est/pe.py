@@ -234,6 +234,11 @@ class SimplePESamples(SamplesDict):
             fixed_pars = {k: v[0] for k, v in self.mean.items() 
                           if k not in interp_directions}
             fixed_pars['distance'] = 1.0
+            # ensure we wind up with unphysical spins
+            if 'chi_p' in fixed_pars.keys():
+                fixed_pars['chi_p'] = 0.
+            if 'chi_p2' in fixed_pars.keys():
+                fixed_pars['chi_p2'] = 0.
 
             sigma_grid, pts = interpolate_sigma(maxs, mins, fixed_pars, psd, 
                                                 f_low, interp_points,
