@@ -95,7 +95,7 @@ class Result(GWSingleAnalysisRead):
             self._snrs["22"] = dominant_snr
         self._metric = metric.find_metric_and_eigendirections(
             self.template_parameters, metric_directions, self.snrs['22'],
-            self.f_low, self.psd,  self.approximant, tolerance=0.01, max_iter=10
+            self.f_low, self.psd,  self.approximant, tolerance, max_iter
         )
     
     def generate_samples_from_metric(self, *args, npts=1e6, **kwargs):
