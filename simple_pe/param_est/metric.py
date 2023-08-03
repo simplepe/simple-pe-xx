@@ -328,21 +328,37 @@ class Metric:
 
     def generate_samples(self, npts=int(1e5)):
         """
+        Generate a given number of samples
+
+        :param npts: number of points to generate
+        :return phys_samples: SimplePESamples with samples
+        """
+        sample_pts = self._get_samples(2 * npts)
+
+        while sample_pts.number_of_samples < npts:
+            extra_pts = self._get_samples(npts)
+            sample_pts = SimplePESamples(SamplesDict(sample_pts.keys(),
+                np.concatenate((sample_pts.samples.T, extra_pts.samples.T)).T))
+
+        if sample_pts.number_of_samples > npts:
+            sample_pts = sample_pts.downsample(npts)
+        return sample_pts
+
+    def _get_samples(self, npts=int(1e5)):
+        """
         Generate an ellipse of points of constant mismatch
 
         :param npts: number of points to generate
         :return phys_samples: SimplePESamples with samples
         """
-        pts = np.random.normal(0, 1, [2 * npts, self.ndim])
+        pts = np.random.normal(0, 1, [npts, self.ndim])
 
         sample_pts = SimplePESamples(SamplesDict(self.dx_directions,
-                                                 (np.array([self.x[dx] for dx in self.normalized_evecs().keys()
-                                                            ]).reshape([len(self.dx_directions), 1])
-                                                  + np.matmul(pts,
-                                                              self.normalized_evecs().samples.T / self.n_sigma).T)))
+            (np.array([self.x[dx] for dx in self.normalized_evecs().keys()
+                       ]).reshape([len(self.dx_directions), 1])
+             + np.matmul(pts, self.normalized_evecs().samples.T /
+                         self.n_sigma).T)))
         sample_pts.trim_unphysical()
-        if sample_pts.number_of_samples > npts:
-            sample_pts = sample_pts.downsample(npts)
 
         return sample_pts
 
