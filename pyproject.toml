@@ -42,6 +42,7 @@ docs = [
 	"furo",
 	"sphinx",
 	"sphinx_rtd_theme",
+	"sphinx-design",
 ]
 
 [project.scripts]
