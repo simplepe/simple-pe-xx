@@ -42,7 +42,10 @@ docs = [
 	"furo",
 	"sphinx",
 	"sphinx_rtd_theme",
+	"sphinxcontrib.programoutput",
 ]
+
+plotting = ["cartopy"]
 
 [project.scripts]
 simple_pe_analysis = "simple_pe.cli.simple_pe_analysis:main"
