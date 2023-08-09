@@ -64,4 +64,3 @@ sensitivity to the second polarization for the network over the sky.
 .. image:: ./images/design_sky_sens.png
 
 .. image:: ./images/design_2nd_pol.png
-.. image:: ./images/design_2nd_pol.png
