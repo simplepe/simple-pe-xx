@@ -31,5 +31,4 @@ software,
 
    $ git clone git@git.ligo.org:stephen-fairhurst/simple-pe.git
    $ cd simple-pe/
-   $ pip install -r requirements.txt
-   $ pip install -e .
+   $ pip install .
