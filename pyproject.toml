@@ -53,6 +53,9 @@ simple_pe_corner = "simple_pe.cli.simple_pe_corner:main"
 simple_pe_datafind = "simple_pe.cli.simple_pe_datafind:main"
 simple_pe_filter = "simple_pe.cli.simple_pe_filter:main"
 simple_pe_pipe = "simple_pe.cli.simple_pe_pipe:main"
+simple_pe_localization_ellipses = "simple_pe.cli.simple_pe_localization_ellpses:main"
+simple_pe_network_coverage = "simple_pe.cli.simple_pe_network_coverage:main"
+
 
 [project.urls]
 "Source code" = "https://git.ligo.org/stephen-fairhurst/simple-pe"
