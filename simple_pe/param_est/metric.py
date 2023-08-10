@@ -436,11 +436,21 @@ def scale_dx(x, dx, desired_mismatch, f_low, psd,
     :param tolerance: the maximum fractional error in the mismatch
     :return scale: The required scaling of dx to achieve the desired mismatch
     """
-    opt = optimize.root_scalar(lambda a: average_mismatch(x, dx, a, f_low, psd,
-                                                          approximant=approximant) - desired_mismatch,
-                               bracket=[0, 20], method='brentq', rtol=tolerance)
-    scale = opt.root
+    for num in range(10):
+        try:
+            opt = optimize.root_scalar(
+                lambda a: average_mismatch(
+                    x, dx, a, f_low, psd, approximant=approximant
+                ) - desired_mismatch, bracket=np.array([0., 20.]) * (float(num) + 1),
+                method='brentq', rtol=tolerance
+            )
+        except ValueError:
+            continue
 
+    try:
+        scale = opt.root
+    except UnboundLocalError:
+        raise ValueError("Unable to scale the input vectors")
     return scale
 
 
