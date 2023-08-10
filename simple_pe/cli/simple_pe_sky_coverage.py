@@ -168,7 +168,8 @@ def main(args=None):
     cf = ax.contourf(np.degrees(ra), np.degrees(dec), f_response, v,
                      cmap=plt.cm.viridis, transform=data_crs)
     plt.colorbar(cf, fraction=0.046, pad=0.04)
-    plt.savefig("%s_sky_sens.png" % opts.net_state, dpi=200,
+    plt.savefig("%s/%s_sky_sens.png" % (opts.outdir, opts.net_state),
+                dpi=200,
                 bbox_inches='tight')
 
     plt.figure(figsize=(10, 10))
