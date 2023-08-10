@@ -1,5 +1,6 @@
-simple_pe.localization package
-==============================
+Localization package
+====================
+.. _localize:
 
 Submodules
 ----------
@@ -21,7 +22,7 @@ simple_pe.localization.sky module
     :show-inheritance:
 
 simple_pe.localization.sky_ring module
----------------------------------
+--------------------------------------
 
 .. automodule:: simple_pe.localization.sky_ring
     :members:
