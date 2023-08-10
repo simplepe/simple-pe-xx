@@ -1,7 +1,6 @@
-Event Localization
-================================
-
-.. _localize:
+Event Localization Examples
+===========================
+.. _localization:
 
 Overview
 --------
@@ -11,9 +10,9 @@ gravitational wave sources with a network of detectors <https://doi.org/10
 .1088/1367-2630/11/12/123006>`_ for details).  Inclusion of additional
 information, particularly relative amplitudes and phases at the different
 locations can serve to improve localization and remove some degeneracies (see
-`Localization of transient gravitational wave sources: beyond
-    triangulation <https://doi.org/10.1088/1361-6382/aab675>`_).  The
-:ref:`localization` module implements these analyses.
+`Localization of transient gravitational wave sources: beyond triangulation
+<https://doi.org/10.1088/1361-6382/aab675>`_).  The :ref:`localize` module
+implements these analyses.
 
 
 Example: Localization over the sky
