@@ -154,7 +154,6 @@ def main(args=None):
                / np.sum(np.cos(dec) * f_response ** 3)))
     f.close()
 
-
     v = np.linspace(0.0, 1.0, 41)
     plt.figure(figsize=(10, 10))
     ax = plt.axes(projection=ccrs.Mollweide())
@@ -172,7 +171,6 @@ def main(args=None):
     plt.savefig("%s_sky_sens.png" % opts.net_state, dpi=200,
                 bbox_inches='tight')
 
-
     plt.figure(figsize=(10, 10))
     ax = plt.axes(projection=ccrs.Mollweide())
     ax.coastlines()
@@ -187,9 +185,9 @@ def main(args=None):
                      f_response ** 3, v, cmap=plt.cm.viridis,
                      transform=ccrs.PlateCarree())
     plt.colorbar(cf, fraction=0.046, pad=0.04)
-    plt.savefig("%s_sky_rate.png" % opts.net_state, dpi=200,
+    plt.savefig("%s/%s_sky_rate.png" % (opts.outdir, opts.net_state),
+                dpi=200,
                 bbox_inches='tight')
-
 
     plt.figure(figsize=(10, 10))
     ax = plt.axes(projection=ccrs.Mollweide())
@@ -205,7 +203,9 @@ def main(args=None):
                      v, cmap=plt.cm.viridis, transform=ccrs.PlateCarree())
     plt.colorbar(cf, fraction=0.046, pad=0.04)
 
-    plt.savefig("%s_2nd_pol.png" % opts.net_state, dpi=200, bbox_inches='tight')
+    plt.savefig("%s/%s_2nd_pol.png" % (opts.outdir, opts.net_state),
+                dpi=200,
+                bbox_inches='tight')
 
 
 if __name__ == "__main__":

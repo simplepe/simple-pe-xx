@@ -170,7 +170,7 @@ def main(args=None):
                 transform=data_crs)
 
     plt.title(opts.net_state, fontsize=24)
-    plt.savefig('%s_sky_ellipses.png' % opts.net_state)
+    plt.savefig('%s/%s_sky_ellipses.png' % (opts.outdir, opts.net_state))
 
     plt.figure(figsize=[20, 20])
     ax = plt.axes(projection=ccrs.Mollweide())
@@ -199,7 +199,7 @@ def main(args=None):
                 transform=data_crs)
 
     plt.title(opts.net_state, fontsize=24)
-    plt.savefig('%s_sky_ellipses_found.png' % opts.net_state)
+    plt.savefig('%s/%s_sky_ellipses_found.png' % (opts.outdir, opts.net_state))
 
 
 if __name__ == "__main__":
