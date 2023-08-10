@@ -44,6 +44,7 @@ docs = [
 	"sphinx_rtd_theme",
 	"sphinxcontrib.programoutput",
 	"sphinx-design",
+	"sphinx_design",
 ]
 
 plotting = ["cartopy"]
