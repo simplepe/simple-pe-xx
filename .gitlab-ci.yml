@@ -124,7 +124,7 @@ localization:
   script:
     - cd examples
     - simple_pe_localization_ellipses --outdir outdir
-    - simple_pe_network_coverage --outdir outdir
+    - simple_pe_sky_coverage --outdir outdir
     - mv ./outdir/design_sky_ellipses_found.png ../design_sky_ellipses_found.png
     - mv ./outdir/design_sky_sens.png  ../design_sky_sens.png
     - mv ./outdir/design_second_pol.png ../design_sky_second_pol.png
