@@ -49,7 +49,7 @@ style:
 
 executables:
   stage: basic
-  image: python:3.8
+  image: python:3.10
   needs:
     - tarball
   before_script:
@@ -63,7 +63,7 @@ executables:
 
 .metric:
   stage: pipeline
-  image: python:3.8
+  image: python:3.10
   needs:
     - tarball
     - executables
@@ -111,7 +111,7 @@ injections:zero-noise:
 
 documentation:
   stage: docs
-  image: python:3.8
+  image: python:3.10
   needs:
     - tarball
     - GW150914
@@ -132,7 +132,7 @@ documentation:
 
 pages:
   stage: deploy
-  image: python:3.8-slim
+  image: python:3.10-slim
   dependencies:
     - conda
     - tarball
