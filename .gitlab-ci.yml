@@ -114,7 +114,7 @@ injections:zero-noise:
 
 localization:
   stage: pipeline
-  image: python:3.8
+  image: python:3.10
   needs:
     - tarball
     - executables
