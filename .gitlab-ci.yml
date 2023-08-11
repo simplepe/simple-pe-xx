@@ -60,7 +60,7 @@ executables:
     - simple_pe_datafind --help
     - simple_pe_filter --help
     - simple_pe_pipe --help
-    - simple_pe_network_coverage --help
+    - simple_pe_sky_coverage --help
     - simple_pe_localization_ellipses --help
 
 .metric:
