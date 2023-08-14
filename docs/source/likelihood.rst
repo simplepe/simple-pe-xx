@@ -1,5 +1,5 @@
-simple_pe.likelihood package
-============================
+Likelihood package
+==================
 
 Submodules
 ----------

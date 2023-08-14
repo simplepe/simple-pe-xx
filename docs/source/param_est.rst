@@ -1,5 +1,5 @@
-simple_pe.param_est package
-============================
+Parameter Estimation (param_est) package
+========================================
 
 Submodules
 ----------
