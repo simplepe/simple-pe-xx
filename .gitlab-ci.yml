@@ -142,6 +142,7 @@ documentation:
     - tarball
     - GW150914
     - injections:zero-noise
+    - localization
   before_script:
     - python -m pip install .[docs]
     - python -m pip install simple-pe*.tar.*
