@@ -1,5 +1,5 @@
-simple_pe.fstat package
-=======================
+F-statistic (fstat) package
+===========================
 
 Submodules
 ----------
