@@ -1,5 +1,5 @@
-simple_pe.waveforms package
-===========================
+Waveforms package
+=================
 
 Submodules
 ----------

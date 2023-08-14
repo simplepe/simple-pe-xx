@@ -1,4 +1,4 @@
-simple_pe.detectors package
+Detectors package
 ===========================
 
 Submodules

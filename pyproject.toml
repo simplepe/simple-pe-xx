@@ -42,8 +42,12 @@ docs = [
 	"furo",
 	"sphinx",
 	"sphinx_rtd_theme",
+	"sphinxcontrib.programoutput",
+	"sphinx-design",
 	"sphinx_design",
 ]
+
+plotting = ["cartopy"]
 
 [project.scripts]
 simple_pe_analysis = "simple_pe.cli.simple_pe_analysis:main"
@@ -51,6 +55,9 @@ simple_pe_corner = "simple_pe.cli.simple_pe_corner:main"
 simple_pe_datafind = "simple_pe.cli.simple_pe_datafind:main"
 simple_pe_filter = "simple_pe.cli.simple_pe_filter:main"
 simple_pe_pipe = "simple_pe.cli.simple_pe_pipe:main"
+simple_pe_localization_ellipses = "simple_pe.cli.simple_pe_localization_ellipses:main"
+simple_pe_sky_coverage = "simple_pe.cli.simple_pe_sky_coverage:main"
+
 
 [project.urls]
 "Source code" = "https://git.ligo.org/stephen-fairhurst/simple-pe"

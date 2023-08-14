@@ -54,12 +54,15 @@ executables:
     - tarball
   before_script:
     - python -m pip install simple-pe*.tar.*
+    - python -m pip install .[plotting]
   script:
     - simple_pe_analysis --help
     - simple_pe_corner --help
     - simple_pe_datafind --help
     - simple_pe_filter --help
     - simple_pe_pipe --help
+    - simple_pe_sky_coverage --help
+    - simple_pe_localization_ellipses --help
 
 .metric:
   stage: pipeline
@@ -109,6 +112,29 @@ injections:zero-noise:
   <<: *parallel_wvf
   extends: .injections
 
+localization:
+  stage: pipeline
+  image: python:3.10
+  needs:
+    - tarball
+    - executables
+  before_script:
+    - python -m pip install .[plotting]
+    - python -m pip install simple-pe*.tar.*
+  script:
+    - cd examples
+    - simple_pe_localization_ellipses --outdir outdir
+    - simple_pe_sky_coverage --outdir outdir
+    - mv ./outdir/design_sky_ellipses_found.png ../design_sky_ellipses_found.png
+    - mv ./outdir/design_sky_sens.png  ../design_sky_sens.png
+    - mv ./outdir/design_2nd_pol.png ../design_2nd_pol.png
+    - cd ../..
+  artifacts:
+    paths:
+        - design_sky_ellipses_found.png
+        - design_sky_sens.png
+        - design_2nd_pol.png  
+
 documentation:
   stage: docs
   image: python:3.10
@@ -116,6 +142,7 @@ documentation:
     - tarball
     - GW150914
     - injections:zero-noise
+    - localization
   before_script:
     - python -m pip install .[docs]
     - python -m pip install simple-pe*.tar.*
@@ -125,6 +152,9 @@ documentation:
     - mv IMRPhenomTPHM_GW150914_corner.png docs/source/images
     - mv IMRPhenomXPHM_injection_corner.png docs/source/images
     - mv IMRPhenomTPHM_injection_corner.png docs/source/images
+    - mv design_sky_ellipses_found.png docs/source/images
+    - mv design_sky_sens.png docs/source/images
+    - mv design_2nd_pol.png docs/source/images
     - cd docs && make html
   artifacts:
     paths:
