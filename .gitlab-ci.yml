@@ -127,13 +127,13 @@ localization:
     - simple_pe_sky_coverage --outdir outdir
     - mv ./outdir/design_sky_ellipses_found.png ../design_sky_ellipses_found.png
     - mv ./outdir/design_sky_sens.png  ../design_sky_sens.png
-    - mv ./outdir/design_sky_second_pol.png ../design_sky_second_pol.png
+    - mv ./outdir/design_2nd_pol.png ../design_2nd_pol.png
     - cd ../..
   artifacts:
     paths:
         - design_sky_ellipses_found.png
         - design_sky_sens.png
-        - design_sky_second_pol.png  
+        - design_2nd_pol.png  
 
 documentation:
   stage: docs
@@ -153,7 +153,7 @@ documentation:
     - mv IMRPhenomTPHM_injection_corner.png docs/source/images
     - mv design_sky_ellipses_found.png docs/source/images
     - mv design_sky_sens.png docs/source/images
-    - mv design_sky_second_pol.png docs/source/images
+    - mv design_2nd_pol.png docs/source/images
     - cd docs && make html
   artifacts:
     paths:
