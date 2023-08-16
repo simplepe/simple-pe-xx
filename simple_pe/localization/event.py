@@ -20,7 +20,10 @@ def snr_projection(f_sig, method):
     :param f_sig: a Nx2 array of detector responses [F+, Fx] x sigma
     :param method: the way we project (one of "time", "coh", "left", "right")
     """
-    if method == "time":
+    if len(f_sig) == 1:
+        # single detector, so projection is identity
+        p = np.identity(len(f_sig))
+    elif method == "time":
         p = np.identity(len(f_sig))
     elif method == "coh":
         M = np.zeros((2, 2))
