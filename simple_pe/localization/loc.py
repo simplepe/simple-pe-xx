@@ -20,7 +20,8 @@ def evec_sigma(M):
     return evec, sigma
 
 
-def project_to_sky(x, y, event_xyz, gmst, evec, ellipse=False, sky_weight=False):
+def project_to_sky(x, y, event_xyz, gmst, evec, ellipse=False,
+                   sky_weight=False):
     """
      Project a set of points onto the sky.
 
@@ -51,7 +52,8 @@ def project_to_sky(x, y, event_xyz, gmst, evec, ellipse=False, sky_weight=False)
         weights /= weights.max()
         x, y, z = rejection_sampling(np.array([x, y, z]).T, weights).T
 
-    # if we hit the edge then the localization region is 2 parts, above and below z=0 surface
+    # if we hit the edge then the localization region is 2 parts,
+    # above and below z=0 surface
     if sum(bad.flatten()) > 0:
         x = np.append(np.concatenate((x, x[::-1])), x[0])
         y = np.append(np.concatenate((y, y[::-1])), y[0])
@@ -72,14 +74,16 @@ def project_to_sky(x, y, event_xyz, gmst, evec, ellipse=False, sky_weight=False)
 
 class Localization(object):
     """
-    class to hold the details and results of localization based on a given method
+    class to hold the details and results of localization based on a g
+    iven method
     """
 
     def __init__(self, method, event, mirror=False, p=0.9, d_max=1000, area=0):
         """
         Initialization
 
-        param method: how we do localization, one of "time", "coh", "left, "right", "marg"
+        param method: how we do localization, one of "time", "coh",
+            "left, "right", "marg"
         :param event: details of event
         :param mirror: are we looking in the mirror location
         :param p: probability
@@ -118,11 +122,12 @@ class Localization(object):
     def calculate_m(self):
         """
         Calculate the localization matrix as given in
-        "Localization of transient gravitational wave sources: beyond triangulation",
-        Class. Quantum Grav. 35 (2018) 105002
+        "Localization of transient gravitational wave sources:
+        beyond triangulation", Class. Quantum Grav. 35 (2018) 105002
         this is a generalization of the timing based localization
         """
-        A_i, C_ij, c_i, c = self.event.localization_factors(self.method, self.mirror)
+        A_i, C_ij, c_i, c = self.event.localization_factors(self.method,
+                                                            self.mirror)
         CC = 1. / 2 * (np.outer(c_i, c_i) / c - C_ij)
         # Calculate the Matrix M (given in the coherent localization paper)
         M = np.zeros([3, 3])
@@ -131,17 +136,19 @@ class Localization(object):
         for i1 in range(len(self.event.ifos)):
             for i2 in range(len(self.event.ifos)):
                 M += np.outer(locations[i1] - locations[i2],
-                           locations[i1] - locations[i2]) / 3e8 ** 2 \
+                              locations[i1] - locations[i2]) / 3e8 ** 2 \
                      * CC[i1, i2]
         self.M = M
 
     def calculate_max_snr(self):
         self.z = self.event.projected_snr(self.method, self.mirror)
-        A_i, C_ij, c_i, c = self.event.localization_factors(self.method, self.mirror)
+        A_i, C_ij, c_i, c = self.event.localization_factors(self.method,
+                                                            self.mirror)
         try:
             self.dt_i = 1. / 2 * np.inner(np.linalg.inv(C_ij), A_i)
         except:
-            print("for method %s: Unable to invert C, setting dt=0" % self.method)
+            print("for method %s: Unable to invert C, setting dt=0" %
+                  self.method)
             self.dt_i = np.zeros_like(A_i)
         z = self.event.projected_snr(self.method, self.mirror)
         f_band = self.event.get_data("f_band")
@@ -149,7 +156,8 @@ class Localization(object):
             extra_snr = np.inner(self.dt_i, np.inner(C_ij, self.dt_i))
             if extra_snr > 0:
                 # location of second peak is reasonable -- use it
-                z = self.event.projected_snr(self.method, self.mirror, self.dt_i)
+                z = self.event.projected_snr(self.method, self.mirror,
+                                             self.dt_i)
         self.z = z
         self.snr = np.linalg.norm(z)
 
@@ -159,7 +167,8 @@ class Localization(object):
         dt_i is an array of time offsets for the detectors
         Note: we maximize over the overall time offset dt_o
         """
-        A_i, C_ij, c_i, c = self.event.localization_factors(self.method, self.mirror)
+        A_i, C_ij, c_i, c = self.event.localization_factors(self.method,
+                                                            self.mirror)
         a = sum(A_i)
         dt0 = a / (2 * c) - np.inner(c_i, dt_i) / c
         return dt0
@@ -191,13 +200,14 @@ class Localization(object):
             cosf = min(cos_fac / np.sqrt(self.snr), 0.5)
             self.like += np.log((self.D / d_max) ** 3 / self.snr ** 2 * cosf)
         else:
-            self.like += np.log(32. * (self.D / d_max) ** 3 * self.D ** 4 / (Fp ** 2 * Fc ** 2)
-                                / (1 - self.cosi ** 2) ** 3)
+            self.like += np.log(32. * (self.D / d_max) ** 3 * self.D ** 4 /
+                                (Fp ** 2 * Fc ** 2) / (1 - self.cosi ** 2) ** 3)
 
     def sky_project(self):
         """
-        Project localization matrix to zero out components in direction of source
-        This is implementing equations 10 and 11 from the advanced localization paper
+        Project localization matrix to zero out components in direction of
+        source. This is implementing equations 10 and 11 from the advanced
+        localization paper
         """
         if self.mirror:
             source = self.event.mirror_xyz
@@ -215,7 +225,8 @@ class Localization(object):
         ellipse = - np.log(1. - self.p) * 2 * np.pi * (180 / np.pi) ** 2 * \
                   self.sigma[0] * self.sigma[1]
         # calculate the area of the band
-        band = 4 * np.pi * (180 / np.pi) ** 2 * np.sqrt(2) * special.erfinv(self.p) * self.sigma[0]
+        band = 4 * np.pi * (180 / np.pi) ** 2 * np.sqrt(2) * \
+               special.erfinv(self.p) * self.sigma[0]
         # use the minimum (that's not nan)
         self.area = np.nanmin((ellipse, band))
 
@@ -228,8 +239,8 @@ class Localization(object):
         """
         scale *= np.sqrt(- 2 * np.log(1 - self.p))
 
-        # check if the event is localized (in xyz), if so, use the projected matrix
-        # if not, don't project
+        # check if the event is localized (in xyz),
+        # if so, use the projected matrix, if not, don't project
         evec, sigma = evec_sigma(self.M)
         if sigma[2] < 1:
             evec = self.evec
@@ -255,7 +266,8 @@ class Localization(object):
 
         :param npts: number of points in each dimension of the grid
         :param scale: factor by which to scale grid
-        :return grid_dict: SimplePESamples with grid of points and match at each point
+        :return grid_dict: SimplePESamples with grid of points and
+            match at each point
         """
         scale *= np.sqrt(- 2 * np.log(1 - self.p))
 
@@ -280,7 +292,8 @@ class Localization(object):
 
     def generate_samples(self, npts=int(1e5), sky_weight=True):
         """
-        Generate a set of samples based on Gaussian distribution in localization eigendirections
+        Generate a set of samples based on Gaussian distribution in
+        localization eigendirections
 
         :param npts: number of points to generate
         :param sky_weight: weight points to be uniform on the sky
@@ -307,7 +320,8 @@ class Localization(object):
         x = np.inner(xyz, evec[:, 0]) + sigma[0] * pts[:, 0]
         y = np.inner(xyz, evec[:, 1]) + sigma[1] * pts[:, 1]
 
-        phi, theta = project_to_sky(x, y, xyz, self.event.gmst, evec, sky_weight)
+        phi, theta = project_to_sky(x, y, xyz, self.event.gmst, evec,
+                                    sky_weight)
 
         if len(theta) > npts:
             keep = np.random.choice(len(theta), npts)
