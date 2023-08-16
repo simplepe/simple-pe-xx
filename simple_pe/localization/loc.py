@@ -196,10 +196,14 @@ class Localization(object):
         Fp, Fc = self.event.get_f(self.mirror)
         self.like = self.snr ** 2 / 2
         if (self.method == "left") or (self.method == "right"):
-            cos_fac = np.sqrt((Fp ** 2 + Fc ** 2) / (Fp * Fc))
-            cosf = min(cos_fac / np.sqrt(self.snr), 0.5)
+            if Fc == 0:
+                cosf = 0.5
+            else:
+                cos_fac = np.sqrt((Fp ** 2 + Fc ** 2) / (Fp * Fc))
+                cosf = min(cos_fac / np.sqrt(self.snr), 0.5)
             self.like += np.log((self.D / d_max) ** 3 / self.snr ** 2 * cosf)
-        else:
+        elif Fc != 0:
+            # not sensitive to second polarization, so can't do integral
             self.like += np.log(32. * (self.D / d_max) ** 3 * self.D ** 4 /
                                 (Fp ** 2 * Fc ** 2) / (1 - self.cosi ** 2) ** 3)
 
