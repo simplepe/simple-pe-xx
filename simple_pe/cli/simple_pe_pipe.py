@@ -333,15 +333,18 @@ class FilterNode(Node):
         self._executable = self.get_executable("simple_pe_filter")
         self.opts.trigger_parameters = self._prepare_trigger_parameters(
             self.opts.sid, self.opts.trigger_parameters,
-            self.opts.use_bayestar_localization
         )
+        if self.opts.use_bayestar_localization:
+            self.opts.bayestar_localization = \
+                self._get_bayestar_localization(self.opts.sid)
         self.create_pycondor_job()
 
     @property
     def arguments(self):
         string_args = [
             "trigger_parameters", "approximant", "f_low", "f_high",
-            "minimum_data_length", "seed", "snr_threshold"
+            "minimum_data_length", "seed", "snr_threshold",
+            "bayestar_localization"
         ]
         dict_args = ["asd", "psd"]
         if "strain_cache" in self.opts.strain:
@@ -353,7 +356,7 @@ class FilterNode(Node):
         args += [["--outdir", f"{self.opts.outdir}/output"]]
         return " ".join([item for sublist in args for item in sublist])
 
-    def _prepare_trigger_parameters(self, sid, trigger_parameters, use_bayestar_localization):
+    def _prepare_trigger_parameters(self, sid, trigger_parameters):
         """
         """
         import json
@@ -388,46 +391,40 @@ class FilterNode(Node):
                 logger.debug(f"Saving template_parameters to {filename}")
                 with open(filename, "w") as f:
                     json.dump(json_data, f)
+
         if trigger_parameters is None and sid is None:
             raise ValueError(
                 "Please provide a file containing the trigger parameters "
                 "or a superevent ID to download the trigger parameters "
                 "from GraceDB"
             )
-        if not use_bayestar_localization:
-            return filename
-        elif sid is None:
+        return filename
+
+    def _get_bayestar_localization(self, sid):
+        if sid is None:
             raise ValueError(
                 "Unable to use --use_bayestar_localization when --sid "
                 "is not provided"
             )
+        from pesummary.gw.gracedb import get_gracedb_data
+        try:
+            gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
+        except AttributeError:
+            gid = get_gracedb_data(sid, superevent=True,
+                                   info="preferred_event_data")
+
         from ligo.gracedb.rest import GraceDb
         from ligo.gracedb.exceptions import HTTPError
-        from ligo.skymap.io.fits import read_sky_map
-        from ligo.skymap.postprocess.util import posterior_max
-        logger.info("Grabbing localization data from gracedb for trigger_parameters")
-        out_filename = f"{self.opts.outdir}/output/{gid}_bayestar.fits"
+        logger.info("Grabbing localization data from gracedb")
+        loc_filename = f"{self.opts.outdir}/output/{gid}_bayestar.fits"
         client = GraceDb("https://gracedb.ligo.org/api/")
-        with open(out_filename, "wb") as f:
+        with open(loc_filename, "wb") as f:
             try:
                 r = client.files(gid, "bayestar.fits")
             except HTTPError:
                 r = client.files(gid, "bayestar.multiorder.fits,0")
             f.write(r.read())
-        skymap, _ = read_sky_map(out_filename)
-        _max = posterior_max(skymap)
-        with open(filename, "r") as f:
-            template_parameters = json.load(f)
-        template_parameters["ra"] = np.radians(_max.ra.value)
-        template_parameters["dec"] = np.radians(_max.dec.value)
-        template_parameters["psi"] = np.random.uniform(0, np.pi, size=1)[0]
-        logger.info("Using the following localization parameters:")
-        for key in ["ra", "dec", "psi"]:
-            logger.info(f"{key} = {template_parameters[key]}")
-        logger.debug(f"Saving template_parameters to {filename}")
-        with open(filename, "w") as f:
-            json.dump(template_parameters, f)
-        return filename
+        return loc_filename
 
 
 class DataFindNode(Node):
@@ -498,7 +495,6 @@ class CornerNode(Node):
         if sp > 2:
             args[-1] += ["chi_p"]
         return " ".join([item for sublist in args for item in sublist])
-
 
 
 def main(args=None):
