@@ -6,18 +6,17 @@ import json
 import copy
 import numpy as np
 from gwpy.timeseries import TimeSeries
-from pesummary.core.command_line import CheckFilesExistAction, DictionaryAction
-from pesummary.gw.conversions.snr import _calculate_precessing_harmonics, _mode_array_map
+from pesummary.core.command_line import DictionaryAction
+from pesummary.gw.conversions.snr import _calculate_precessing_harmonics, \
+    _mode_array_map
 from pycbc.psd.analytical import aLIGOMidHighSensitivityP1200087
 import pycbc.psd.read
-from pycbc.filter.matchedfilter import sigmasq
-from pycbc.detector import Detector
+from pycbc.filter.matchedfilter import sigma
 from simple_pe.detectors import calc_reach_bandwidth, Network
 from simple_pe.localization import event
 from simple_pe.param_est import filter, pe
 from simple_pe.waveforms import make_waveform
 from simple_pe import waveforms
-from simple_pe.fstat import dominant_polarization
 import lalsimulation as ls
 
 # silence PESummary logger
@@ -143,6 +142,13 @@ def command_line():
         nargs="+",
         default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
     )
+    parser.add_argument(
+        "--bayestar_localization",
+        help="File containing details of Bayestar localization.  "
+             "Default=None",
+        default=None,
+        type=str
+    )
     return parser
 
 
@@ -192,6 +198,7 @@ def _load_trigger_parameters_from_file(path, approximant):
             data["chi_p2"] = 0.
     data["_precessing"] = _precessing
     return data
+
 
 
 def _estimate_data_length_from_template_parameters(
@@ -588,15 +595,16 @@ def calculate_precession_snr(
     return {"prec": prec_net_snr_perp['1']}
 
 
-def _calculate_dominant_polarisation(
-    peak_template, psd, approximant, f_low, delta_f, f_high
+def add_localisation_information(
+        peak_template, psd, approximant, f_low, delta_f, f_high,
+        event_snr, threshold, bayestar_localization=None
 ):
-    """Calculate the dominant polarisation
+    """Calculate the SNR in the second polarisation for the peak template
 
     Parameters
     ----------
-    peak_template: dict
-        dictionary of parameters correspond to peak template
+    peak_template: SimplePESamples
+        dictionary of parameters that correspond to peak template
     psd: dict
         dictionary of PSDs
     approximant: str
@@ -607,180 +615,126 @@ def _calculate_dominant_polarisation(
         difference between frequency samples to use for the analysis
     f_high: float
         high frequency cutoff to use for the analysis
+    event_snr: dict
+        dictionary of snrs of the candidate GW
+    threshold:
+        threshold for individual ifo to contribute to localization
+    bayestar_localization: string
+        name of file containing Bayestar localization information
     """
-    f_sig = []
-    f_cplx = {}
-
+    # calculate sensitivity, based on harmonic mean psd
     h = make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
     )
-    ifos = [key for key in psd if key != "hm"]
-    for ifo in ifos:
-        _fp, _fc = Detector(ifo).antenna_pattern(
-            peak_template['ra'], peak_template['dec'],
-            peak_template['psi'], peak_template['time'])
-        sigma = np.sqrt(
-            sigmasq(
-                h, psd[ifo], low_frequency_cutoff=f_low,
-                high_frequency_cutoff=f_high
-            )
-        )
-        f_cplx[ifo] = sigma * (_fp + 1j * _fc)
-        f_sig.append(sigma * np.array([_fp, _fc]))
+    sig = sigma(h, psd["hm"], low_frequency_cutoff=f_low,
+                high_frequency_cutoff=f_high)
+    peak_template.add_fixed('sigma', sig)
 
-    f_sig = np.array(f_sig)
-    fp, fc, _ = dominant_polarization(f_sig)
-    return fp, fc, f_cplx
+    psd.pop("hm")
 
-
-def calculate_second_polarization_snr(
-    peak_template, psd, approximant, strain_f, f_low, delta_f, f_high,
-    dominant_waveform
-):
-    """Calculate the SNR in the second polarisation for the peak template
-
-    Parameters
-    ----------
-    peak_template: dict
-        dictionary of parameters correspond to peak template
-    psd: dict
-        dictionary of PSDs
-    approximant: str
-        approximant to use for the analysis
-    strain_f: dict
-        dictionary of frequency domain strain data
-    f_low: float
-        low frequency cutoff to use for the analysis
-    delta_f: float
-        difference between frequency samples to use for the analysis
-    f_high: float
-        high frequency cutoff to use for the analysis
-    dominant_waveform: dict
-        dictionary containing the 22 waveform as seen in each of the detectors
-    """
-    ifos = [key for key in psd if key != "hm"]
-    fp, fc, f_cplx = _calculate_dominant_polarisation(
-        peak_template, psd, approximant, f_low, delta_f, f_high
-    )
-    alpha = fc / fp
-    z = [dominant_waveform[ifo] for ifo in ifos]
-    fs = np.array([f_cplx[ifo] for ifo in ifos])
-    fl = np.inner(z, fs.conj().T)
-    fr = np.inner(z, fs.T)
-    ff = np.linalg.norm(fs, axis=0)
-    rho_not_l = np.sqrt(np.linalg.norm(z)**2 - np.abs(fl / ff)**2)
-    rho_not_r = np.sqrt(np.linalg.norm(z)**2 - np.abs(fr / ff)**2)
-    peak_template.update(
-        {
-            "f_plus": np.array([fp]), "f_cross": np.array([fc]),
-            "net_alpha": np.array([alpha])
-        }
-    )
-    return {"not_left": rho_not_l[0], "not_right": rho_not_r[0]}
-
-
-def add_localisation_information(
-    peak_template, psd, approximant, strain_f, f_low, delta_f, f_high, event_snr,
-    dominant_waveform, trigger_parameters, threshold
-):
-    """Calculate the SNR in the second polarisation for the peak template
-
-    Parameters
-    ----------
-    peak_template: dict
-        dictionary of parameters correspond to peak template
-    psd: dict
-        dictionary of PSDs
-    approximant: str
-        approximant to use for the analysis
-    strain_f: dict
-        dictionary of frequency domain strain data
-    f_low: float
-        low frequency cutoff to use for the analysis
-    delta_f: float
-        difference between frequency samples to use for the analysis
-    f_high: float
-        high frequency cutoff to use for the analysis
-    network_snr: float
-        network snr of the candidate GW
-    """
-    snrs = {}
-    ifos = [key for key in psd if key != "hm"]
+    # generate network
+    ifos = [key for key in psd]
     net = Network(threshold=10.)
     for ifo in ifos:
         hor, f_mean, f_band = calc_reach_bandwidth(
-            peak_template['mass_1'], peak_template['mass_2'], peak_template["chi_align"],
+            peak_template['mass_1'], peak_template['mass_2'],
+            peak_template["chi_align"],
             approximant, psd[ifo], f_low
         )
-        net.add_ifo(ifo, hor, f_mean, f_band, bns_range=False, loc_thresh=threshold)
-    try:
-        ev = event.Event.from_snrs(
-            net, event_snr["ifo_snr"], event_snr["ifo_time"], peak_template['chirp_mass']
-        )
-        ev.calculate_mirror()
-        ev.localize_all()
-        if not all(_ in ev.mirror_loc for _ in ['left', 'right']):
-            raise KeyError(
-                f"Unable to localize event from SNRs. This could be because "
-                f"you are considering a network with less than 3 detectors, or "
-                f"because the IFO SNRs are < {threshold}. The recovered IFO SNRs "
-                f"are {', '.join([ifo + ':' + str(abs(event_snr['ifo_snr'][ifo])) for ifo in ifos])}"
-            )
-        for hand in ['left', 'right']:
-            snrs[hand] = max(ev.localization[hand].snr, ev.mirror_loc[hand].snr)
-            snrs[f"not_{hand}"] = np.sqrt(np.linalg.norm(ev.get_snr()) ** 2 - snrs[hand] ** 2)
-    except (KeyError, ValueError, np.linalg.LinAlgError):
-        # unable to find mirror location. Likely because there are only 2 detectors
-        # use alternative method
-        for param in ["ra", "dec", "psi", "time"]:
-            try:
-                peak_template[param] = trigger_parameters[param]
-            except KeyError:
-                continue
-        if not all(param in peak_template for param in ["ra", "dec", "psi", "time"]):
-            raise ValueError(
-                "Please provide an estimate for 'ra', 'dec', 'psi' and 'time' for "
-                "the best matching template"
-            )
-        out = calculate_second_polarization_snr(
-            peak_template, psd, approximant, strain_f, f_low, delta_f, f_high,
-            dominant_waveform
-        )
-        peak_template.update(
-            estimate_face_on_distance(
-                peak_template, event_snr, psd, approximant, f_low,
-                delta_f, f_high
-            )
-        )
-        return out
-    ra, dec = ev.localization['coh'].generate_samples(npts=int(1e3), sky_weight=True)
-    fp = np.zeros_like(ra)
-    fc = np.zeros_like(ra)
-    for i, (_ra, _dec) in enumerate(zip(ra, dec)):
-        ee = event.Event(
-            peak_template['distance'], _ra, _dec , ev.phi, ev.psi, ev.cosi, ev.mchirp,
-            ev.gps
-        )
+        net.add_ifo(ifo, hor, f_mean, f_band, bns_range=False,
+                    loc_thresh=threshold)
+
+    ev = event.Event.from_snrs(
+        net, event_snr["ifo_snr"], event_snr["ifo_time"],
+        peak_template['chirp_mass']
+    )
+    ev.calculate_mirror()
+    ev.localize_all()
+
+    # Calculate left/right circular SNRs
+    snrs = {}
+    for hand in ['left', 'right']:
+        if ev.mirror:
+            snrs[hand] = max(ev.localization[hand].snr,
+                             ev.mirror_loc[hand].snr)
+        else:
+            snrs[hand] = ev.localization[hand].snr
+        snrs[f"not_{hand}"] = np.sqrt(np.linalg.norm(ev.get_snr()) ** 2
+                                      - snrs[hand] ** 2)
+
+    if bayestar_localization:
+        # use ra, dec and distance from Bayestar
+        from ligo.skymap.io.fits import read_sky_map
+        from ligo.skymap.postprocess.util import posterior_max
+        from ligo.skymap.distance import parameters_to_marginal_moments
+
+        (probs, dmu, dsig, dnorm), _ = read_sky_map(
+            bayestar_localization, distances=True)
+        _max = posterior_max(probs)
+        # calculate sensitivity at max likelihood
+        ee = event.Event(peak_template['distance'],
+                         np.radians(_max.ra.value),
+                         np.radians(_max.dec.value),
+                         0, 0, 0,
+                         peak_template['chirp_mass'],
+                         ev.gps)
         ee.add_network(net)
-        fp[i], fc[i] = ee.get_f()
-    h = make_waveform(
-        peak_template, delta_f, f_low, len(list(psd.values())[0]),
-        approximant=approximant
-    )
-    sigma = np.sqrt(
-        sigmasq(h, psd["hm"], low_frequency_cutoff=f_low, high_frequency_cutoff=f_high)
-    )
-    f_net = np.sqrt(fp**2 + fc**2) / sigma
-    peak_template.add_fixed('f_net', np.mean(f_net))
-    peak_template.add_fixed('sigma', sigma)
+        ee.calculate_sensitivity()
+        peak_template.add_fixed('f_net', ee.sensitivity / sig)
+        peak_template.add_fixed("net_alpha", ee.alpha_net())
+
+        # use Bayestar estimate for distance uncertainty
+        dist, d_sig = parameters_to_marginal_moments(probs, dmu, dsig)
+        peak_template.add_fixed("response_sigma", d_sig/dist)
+
+    elif ev.localized >= 3:
+        # generate points from localization region to calculate F+ and Fx
+        coh = ev.localization['coh']
+        if ev.mirror and (ev.mirror_loc['coh'].snr >
+                          ev.localization['coh'].snr):
+            coh = ev.mirror_loc['coh']
+        ra, dec = coh.generate_samples(npts=int(1e3), sky_weight=True)
+        f_sig = np.zeros_like(ra)
+        alpha_net = np.zeros_like(ra)
+        for i, (_ra, _dec) in enumerate(zip(ra, dec)):
+            ee = event.Event(
+                peak_template['distance'], _ra, _dec, ev.phi, ev.psi, ev.cosi,
+                ev.mchirp,
+                ev.gps
+            )
+            ee.add_network(net)
+            ee.calculate_sensitivity()
+            f_sig[i] = ee.sensitivity
+            alpha_net[i] = ee.alpha_net()
+
+        peak_template.add_fixed('f_net', np.mean(f_sig)/sig)
+
+        peak_template.add_fixed("response_sigma",
+                                np.std(f_sig) / np.mean(f_sig))
+        peak_template.add_fixed("net_alpha", np.mean(alpha_net))
+
+    elif ev.localized == 1:
+        # can't do localization with one detector.  What we know:
+        peak_template.add_fixed('f_net', 0.78)
+        peak_template.add_fixed("net_alpha", 0.)
+        peak_template.add_fixed("response_sigma", 0.17)
+
+    else:
+        raise KeyError(
+            f"Unable to localize event from SNRs. This could be because "
+            f"you are considering a network with less than 3 detectors, or "
+            f"because the IFO SNRs are < {threshold}. The recovered IFO SNRs "
+            f"are {', '.join([ifo + ':' + str(abs(event_snr['ifo_snr'][ifo])) for ifo in ifos])}"
+        )
+
     peak_template.add_fixed(
         "distance_face_on", (
-            peak_template["distance"] * peak_template["f_net"] * peak_template['sigma'] / event_snr["network"]
+                peak_template["distance"] * peak_template["f_net"] *
+                peak_template['sigma'] / event_snr["network"]
         )
     )
-    peak_template.add_fixed("response_sigma", np.std(f_net) / np.mean(f_net))
-    peak_template.add_fixed("net_alpha", np.mean(fc / fp))
+
     return snrs
 
 
@@ -841,17 +795,16 @@ def estimate_face_on_distance(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
     )
-    sigma_hm = np.sqrt(
-        sigmasq(
-            h, psd["hm"], low_frequency_cutoff=f_low, high_frequency_cutoff=f_high
+    sigma_hm = sigma(
+        h, psd["hm"], low_frequency_cutoff=f_low,
+        high_frequency_cutoff=f_high
         )
-    )
     f_net = np.sqrt(
         peak_template["f_plus"]**2 + peak_template["f_cross"]**2
     ) / sigma_hm
     return {
         "distance_face_on": (
-            peak_template['distance'] * f_net * sigma_hm  / event_snr['network']
+            peak_template['distance'] * f_net * sigma_hm / event_snr['network']
         ),
         "sigma": sigma_hm
     }
@@ -893,10 +846,9 @@ def main(args=None):
     event_snr.update(_snrs)
     event_snr.update(
         add_localisation_information(
-            peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
+            peak_parameters, psd, opts.approximant, opts.f_low,
             delta_f, opts.f_high, event_snr,
-            {key: value['22'] for key, value in z_hm.items()},
-            trigger_parameters, opts.snr_threshold
+            opts.snr_threshold, opts.bayestar_localization
         )
     )
     peak_parameters.write(
@@ -910,6 +862,7 @@ def main(args=None):
         outdir=opts.outdir, filename="peak_snrs.json", overwrite=True,
         file_format="json"
     )
+
 
 if __name__ == "__main__":
     main()
