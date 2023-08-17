@@ -9,6 +9,7 @@ from gwpy.timeseries import TimeSeries
 from pesummary.core.command_line import DictionaryAction
 from pesummary.gw.conversions.snr import _calculate_precessing_harmonics, \
     _mode_array_map
+from pesummary.core.reweight import rejection_sampling
 from pycbc.psd.analytical import aLIGOMidHighSensitivityP1200087
 import pycbc.psd.read
 from pesummary.utils.samples_dict import SamplesDict
@@ -662,55 +663,61 @@ def add_localisation_information(
             snrs[hand] = ev.localization[hand].snr
         snrs[f"not_{hand}"] = np.sqrt(ev.snrsq - snrs[hand] ** 2)
 
-    if bayestar_localization or (ev.localized >= 3):
-        if bayestar_localization:
-            # use ra, dec and distance from Bayestar
-            from ligo.skymap.io.fits import read_sky_map
-            import astropy_healpix as ah
-            import healpy as hp
-            from pesummary.core.reweight import rejection_sampling
+    if bayestar_localization and any(param in peak_template
+                                     for param in ["ra", "dec"]):
+        raise ValueError(
+            "Please specify either 'bayestar_localization' or provide "
+            "an estimate of 'ra' and 'dec' but not both"
+        )
 
-            probs, _ = read_sky_map(bayestar_localization)
-            npix = len(probs)
-            nside = ah.npix_to_nside(npix)
-            dec, ra = hp.pix2ang(nside, np.arange(npix))
-            pts = SamplesDict({'ra': ra, 'dec': dec})
-            pts = rejection_sampling(pts, probs).downsample(int(1e3))
-            ra = pts['ra']
-            dec = pts['dec']
-
-        else:
-            # generate points from localization region to calculate F+ and Fx
-            coh = ev.localization['coh']
-            if ev.mirror and (ev.mirror_loc['coh'].snr >
-                              ev.localization['coh'].snr):
-                coh = ev.mirror_loc['coh']
-            ra, dec = coh.generate_samples(npts=int(1e3), sky_weight=True)
-
-        # calculate network sensitivity at points
-        f_sig = np.zeros_like(ra)
-        alpha_net = np.zeros_like(ra)
-        for i, (_ra, _dec) in enumerate(zip(ra, dec)):
-            ee = event.Event(
-                peak_template['distance'], _ra, _dec, ev.phi, ev.psi, ev.cosi,
-                ev.mchirp,
-                ev.gps
+    if any(param in peak_template for param in ["ra", "dec"]):
+        if not all(param in peak_template for param in
+                   ["ra", "dec"]):
+            raise ValueError(
+                "Please provide an estimate for both 'ra' and  'dec', "
+                "the best matching template"
             )
-            ee.add_network(net)
-            ee.calculate_sensitivity()
-            f_sig[i] = ee.sensitivity
-            alpha_net[i] = ee.alpha_net()
+        else:
+            ra = peak_template['ra']
+            dec = peak_template['dec']
 
-        peak_template.add_fixed('f_net', np.mean(f_sig)/sig)
-        peak_template.add_fixed("response_sigma",
-                                np.std(f_sig) / np.mean(f_sig))
-        peak_template.add_fixed("net_alpha", np.mean(alpha_net))
+    elif bayestar_localization:
+        # use ra, dec and distance from Bayestar
+        from ligo.skymap.io.fits import read_sky_map
+        import astropy_healpix as ah
+        import healpy as hp
+
+        probs, _ = read_sky_map(bayestar_localization)
+        npix = len(probs)
+        nside = ah.npix_to_nside(npix)
+        dec, ra = hp.pix2ang(nside, np.arange(npix))
+        pts = SamplesDict({'ra': ra, 'dec': dec})
+        pts = rejection_sampling(pts, probs).downsample(int(1e3))
+        ra = pts['ra']
+        dec = pts['dec']
+
+    elif ev.localized >= 3:
+        # generate points from localization region to calculate F+ and Fx
+        coh = ev.localization['coh']
+        if ev.mirror and (ev.mirror_loc['coh'].snr >
+                          ev.localization['coh'].snr):
+            coh = ev.mirror_loc['coh']
+        ra, dec = coh.generate_samples(npts=int(1e3), sky_weight=True)
 
     elif ev.localized == 1:
-        # can't do localization with one detector.  What we know:
-        peak_template.add_fixed('f_net', 0.78)
-        peak_template.add_fixed("net_alpha", 0.)
-        peak_template.add_fixed("response_sigma", 0.17)
+        # source is only localized by the antenna pattern
+        npts = int(1e4)
+        ra = np.random.uniform(0, 2 * np.pi, npts)
+        dec = np.pi/2 - np.arccos(np.random.uniform(-1, 1, npts))
+        f = np.zeros_like(ra)
+        det = ev.__getattribute__(ev.ifos[0])
+        for i, (r, d) in enumerate(zip(ra, dec)):
+            fp, fc = det.antenna_pattern(r, np.pi / 2 - d, ev.psi, ev.gps)
+            f[i] = np.sqrt(fp ** 2 + fc ** 2)
+        pts = SamplesDict({'ra': ra, 'dec': dec})
+        pts = rejection_sampling(pts, f ** 3).downsample(int(1e3))
+        ra = pts['ra']
+        dec = pts['dec']
 
     else:
         raise KeyError(
@@ -720,6 +727,24 @@ def add_localisation_information(
             f"are {', '.join([ifo + ':' + str(abs(event_snr['ifo_snr'][ifo])) for ifo in ifos])}"
         )
 
+    # calculate network sensitivity at points
+    f_sig = np.zeros_like(ra)
+    alpha_net = np.zeros_like(ra)
+    for i, (_ra, _dec) in enumerate(zip(ra, dec)):
+        ee = event.Event(
+            peak_template['distance'], _ra, _dec, ev.phi, ev.psi, ev.cosi,
+            ev.mchirp,
+            ev.gps
+        )
+        ee.add_network(net)
+        ee.calculate_sensitivity()
+        f_sig[i] = ee.sensitivity
+        alpha_net[i] = ee.alpha_net()
+
+    peak_template.add_fixed('f_net', np.mean(f_sig)/sig)
+    peak_template.add_fixed("response_sigma",
+                            np.std(f_sig) / np.mean(f_sig))
+    peak_template.add_fixed("net_alpha", np.mean(alpha_net))
     peak_template.add_fixed(
         "distance_face_on", (
                 peak_template["distance"] * peak_template["f_net"] *
