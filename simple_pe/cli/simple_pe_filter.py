@@ -730,7 +730,7 @@ def add_localisation_information(
         for hand in ['left', 'right']:
             snrs[hand] = max(ev.localization[hand].snr, ev.mirror_loc[hand].snr)
             snrs[f"not_{hand}"] = np.sqrt(np.linalg.norm(ev.get_snr()) ** 2 - snrs[hand] ** 2)
-    except (KeyError, ValueError):
+    except (KeyError, ValueError, np.linalg.LinAlgError):
         # unable to find mirror location. Likely because there are only 2 detectors
         # use alternative method
         for param in ["ra", "dec", "psi", "time"]:
