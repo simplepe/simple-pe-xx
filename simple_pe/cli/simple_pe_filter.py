@@ -11,6 +11,7 @@ from pesummary.gw.conversions.snr import _calculate_precessing_harmonics, \
     _mode_array_map
 from pycbc.psd.analytical import aLIGOMidHighSensitivityP1200087
 import pycbc.psd.read
+from pesummary.utils.samples_dict import SamplesDict
 from pycbc.filter.matchedfilter import sigma
 from simple_pe.detectors import calc_reach_bandwidth, Network
 from simple_pe.localization import event
@@ -198,7 +199,6 @@ def _load_trigger_parameters_from_file(path, approximant):
             data["chi_p2"] = 0.
     data["_precessing"] = _precessing
     return data
-
 
 
 def _estimate_data_length_from_template_parameters(
@@ -660,41 +660,34 @@ def add_localisation_information(
                              ev.mirror_loc[hand].snr)
         else:
             snrs[hand] = ev.localization[hand].snr
-        snrs[f"not_{hand}"] = np.sqrt(np.linalg.norm(ev.get_snr()) ** 2
-                                      - snrs[hand] ** 2)
+        snrs[f"not_{hand}"] = np.sqrt(ev.snrsq - snrs[hand] ** 2)
 
-    if bayestar_localization:
-        # use ra, dec and distance from Bayestar
-        from ligo.skymap.io.fits import read_sky_map
-        from ligo.skymap.postprocess.util import posterior_max
-        from ligo.skymap.distance import parameters_to_marginal_moments
+    if bayestar_localization or (ev.localized >= 3):
+        if bayestar_localization:
+            # use ra, dec and distance from Bayestar
+            from ligo.skymap.io.fits import read_sky_map
+            import astropy_healpix as ah
+            import healpy as hp
+            from pesummary.core.reweight import rejection_sampling
 
-        (probs, dmu, dsig, dnorm), _ = read_sky_map(
-            bayestar_localization, distances=True)
-        _max = posterior_max(probs)
-        # calculate sensitivity at max likelihood
-        ee = event.Event(peak_template['distance'],
-                         np.radians(_max.ra.value),
-                         np.radians(_max.dec.value),
-                         0, 0, 0,
-                         peak_template['chirp_mass'],
-                         ev.gps)
-        ee.add_network(net)
-        ee.calculate_sensitivity()
-        peak_template.add_fixed('f_net', ee.sensitivity / sig)
-        peak_template.add_fixed("net_alpha", ee.alpha_net())
+            probs, _ = read_sky_map(bayestar_localization)
+            npix = len(probs)
+            nside = ah.npix_to_nside(npix)
+            dec, ra = hp.pix2ang(nside, np.arange(npix))
+            pts = SamplesDict({'ra': ra, 'dec': dec})
+            pts = rejection_sampling(pts, probs).downsample(int(1e3))
+            ra = pts['ra']
+            dec = pts['dec']
 
-        # use Bayestar estimate for distance uncertainty
-        dist, d_sig = parameters_to_marginal_moments(probs, dmu, dsig)
-        peak_template.add_fixed("response_sigma", d_sig/dist)
+        else:
+            # generate points from localization region to calculate F+ and Fx
+            coh = ev.localization['coh']
+            if ev.mirror and (ev.mirror_loc['coh'].snr >
+                              ev.localization['coh'].snr):
+                coh = ev.mirror_loc['coh']
+            ra, dec = coh.generate_samples(npts=int(1e3), sky_weight=True)
 
-    elif ev.localized >= 3:
-        # generate points from localization region to calculate F+ and Fx
-        coh = ev.localization['coh']
-        if ev.mirror and (ev.mirror_loc['coh'].snr >
-                          ev.localization['coh'].snr):
-            coh = ev.mirror_loc['coh']
-        ra, dec = coh.generate_samples(npts=int(1e3), sky_weight=True)
+        # calculate network sensitivity at points
         f_sig = np.zeros_like(ra)
         alpha_net = np.zeros_like(ra)
         for i, (_ra, _dec) in enumerate(zip(ra, dec)):
@@ -709,7 +702,6 @@ def add_localisation_information(
             alpha_net[i] = ee.alpha_net()
 
         peak_template.add_fixed('f_net', np.mean(f_sig)/sig)
-
         peak_template.add_fixed("response_sigma",
                                 np.std(f_sig) / np.mean(f_sig))
         peak_template.add_fixed("net_alpha", np.mean(alpha_net))
