@@ -598,7 +598,7 @@ def calculate_precession_snr(
 
 def add_localisation_information(
         peak_template, psd, approximant, f_low, delta_f, f_high,
-        event_snr, threshold, bayestar_localization=None
+        event_snr, threshold, trigger_parameters, bayestar_localization=None
 ):
     """Calculate the SNR in the second polarisation for the peak template
 
@@ -620,6 +620,8 @@ def add_localisation_information(
         dictionary of snrs of the candidate GW
     threshold:
         threshold for individual ifo to contribute to localization
+    trigger_parameters: dict
+        dictionary of trigger parameters to use as starting point
     bayestar_localization: string
         name of file containing Bayestar localization information
     """
@@ -663,23 +665,24 @@ def add_localisation_information(
             snrs[hand] = ev.localization[hand].snr
         snrs[f"not_{hand}"] = np.sqrt(ev.snrsq - snrs[hand] ** 2)
 
-    if bayestar_localization and any(param in peak_template
+    if bayestar_localization and any(param in trigger_parameters
                                      for param in ["ra", "dec"]):
         raise ValueError(
             "Please specify either 'bayestar_localization' or provide "
             "an estimate of 'ra' and 'dec' but not both"
         )
 
-    if any(param in peak_template for param in ["ra", "dec"]):
-        if not all(param in peak_template for param in
+    if any(param in trigger_parameters for param in ["ra", "dec"]):
+        print(trigger_parameters)
+        if not all(param in trigger_parameters for param in
                    ["ra", "dec"]):
             raise ValueError(
                 "Please provide an estimate for both 'ra' and  'dec', "
                 "the best matching template"
             )
         else:
-            ra = peak_template['ra']
-            dec = peak_template['dec']
+            ra = trigger_parameters['ra']
+            dec = trigger_parameters['dec']
 
     elif bayestar_localization:
         # use ra, dec and distance from Bayestar
@@ -865,7 +868,8 @@ def main(args=None):
         add_localisation_information(
             peak_parameters, psd, opts.approximant, opts.f_low,
             delta_f, opts.f_high, event_snr,
-            opts.snr_threshold, opts.bayestar_localization
+            opts.snr_threshold, trigger_parameters,
+            opts.bayestar_localization
         )
     )
     peak_parameters.write(
