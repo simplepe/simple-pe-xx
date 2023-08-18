@@ -673,7 +673,6 @@ def add_localisation_information(
         )
 
     if any(param in trigger_parameters for param in ["ra", "dec"]):
-        print(trigger_parameters)
         if not all(param in trigger_parameters for param in
                    ["ra", "dec"]):
             raise ValueError(
