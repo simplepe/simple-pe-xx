@@ -681,8 +681,8 @@ def add_localisation_information(
                 "the best matching template"
             )
         else:
-            ra = trigger_parameters['ra']
-            dec = trigger_parameters['dec']
+            ra = [trigger_parameters['ra']]
+            dec = [trigger_parameters['dec']]
 
     elif bayestar_localization:
         # use ra, dec and distance from Bayestar
