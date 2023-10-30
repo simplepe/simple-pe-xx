@@ -20,7 +20,10 @@ def snr_projection(f_sig, method):
     :param f_sig: a Nx2 array of detector responses [F+, Fx] x sigma
     :param method: the way we project (one of "time", "coh", "left", "right")
     """
-    if method == "time":
+    if len(f_sig) == 1:
+        # single detector, so projection is identity
+        p = np.identity(len(f_sig))
+    elif method == "time":
         p = np.identity(len(f_sig))
     elif method == "coh":
         M = np.zeros((2, 2))
@@ -218,9 +221,15 @@ class Event(object):
         :return length 2 array containing F_+, F_x response
         """
         m = np.zeros((2, 2))
-        for f in self.get_fsig(mirror):
+        fsig = self.get_fsig(mirror)
+        for f in fsig:
             m += np.outer(f, f)
-        f_pc = np.sqrt(np.linalg.eig(m)[0])
+        eigs = np.linalg.eig(m)[0]
+        if len(fsig) == 1:
+            # with 1-detector have no sensitivity to x
+            # numerically can get negative
+            eigs[eigs < 0] = 0
+        f_pc = np.sqrt(eigs)
         f_pc.sort()
         return f_pc[::-1]
 
