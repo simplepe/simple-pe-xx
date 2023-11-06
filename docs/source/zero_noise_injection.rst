@@ -12,9 +12,8 @@ those parameters.  Full posteriors for masses, spins, distance and
 orientation are generated using this information and also the measured SNR in
 additional waveform features: the second GW polarization, higher order
 multipoles and precession harmonics.  Details are given in
-`Fast inference of binary merger properties using the information
-encoded in the gravitational-wave signal <https://doi.org/10.48550/arXiv
-.2304.03731>`_
+`Simple parameter estimation using observable features of gravitational-wave
+signals <https://doi.org/10.1103/PhysRevD.108.082006>`_.
 
 Example: Simulated signal
 -------------------------

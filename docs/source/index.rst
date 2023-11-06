@@ -52,8 +52,9 @@ interpretable results.
     :link-type: ref
 
     An analysis of simulated signal to produce parameter estimation results
-    using the methods described in `arXiv:2304.03731
-    <https://arxiv.org/abs/2304.03731>`_.
+    using the methods described in `Simple parameter estimation using observable
+    features of gravitational-wave signals <https://doi.org/10.1103/PhysRevD
+    .108.082006>`_.
 
 
 .. card:: Perform parameter estimation on GW events
