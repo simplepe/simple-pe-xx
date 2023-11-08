@@ -24,7 +24,8 @@ def like_equal_d_cosi(a_hat, f, d, cosi):
     ar = (d0 / d) * (1 + cosi) ** 2 / 4
     like = np.exp(- f ** 2 * (al - al_hat) ** 2) * \
            np.exp(- f ** 2 * (ar - ar_hat) ** 2) * \
-           np.special.i0e(2 * f ** 2 * al * al_hat) * np.special.i0e(2 * f ** 2 * ar * ar_hat)
+           np.special.i0e(2 * f ** 2 * al * al_hat) * \
+           np.special.i0e(2 * f ** 2 * ar * ar_hat)
     return like
 
 
@@ -95,10 +96,10 @@ def like_parts_d_cosi_psi(a_hat, f_plus, f_cross, x, psi):
                 + a_hat[2] * f_cross ** 2 * x * c2p \
                 - a_hat[3] * f_plus ** 2 * x2 * c2p \
                 - a_hat[4] * f_cross ** 2 * x2 * s2p
-    f = sqrt(c2phi_fac ** 2 + s2phi_fac ** 2)
+    f = np.sqrt(c2phi_fac ** 2 + s2phi_fac ** 2)
     g = f_plus ** 2 * x2 ** 2 * c2p ** 2 + f_cross ** 2 * x2 ** 2 * s2p ** 2 \
         + f_plus ** 2 * x ** 2 * s2p ** 2 + f_cross ** 2 * x ** 2 * c2p ** 2
-    f_resp = array([0, f_plus, f_cross, f_plus, f_cross])
+    f_resp = np.array([0, f_plus, f_cross, f_plus, f_cross])
     ahat2 = sum(f_resp ** 2 * a_hat ** 2)
     return ahat2, f, g
 
@@ -114,7 +115,8 @@ def like_d_cosi_psi(a_hat, f_plus, f_cross, d, x, psi, marg=True):
     :param x: cos(inclination)
     :param psi: polarization
     :param marg: do or don't do the marginalization
-    :returns: the marginalization factor.  I don't think it includes the exp(rho^2/2) term.
+    :returns: the marginalization factor.
+        I don't think it includes the exp(rho^2/2) term.
     """
     ahat2, f, g = like_parts_d_cosi_psi(a_hat, f_plus, f_cross, x, psi)
     d0 = a_hat[0]
@@ -137,8 +139,9 @@ def like_d_cosi(a_hat, f_plus, f_cross, d, x):
     :param d: distance
     :param x: cos(inclination)
     """
-    l = 2 / pi * quad(lambda p: like_d_cosi_psi(a_hat, f_plus, f_cross, d, x, p),
-                      0, pi / 2)[0]
+    l = 2 / np.pi * quad(lambda p: like_d_cosi_psi(a_hat, f_plus, f_cross,
+                                                   d, x, p),
+                      0, np.pi / 2)[0]
     return l
 
 
@@ -158,9 +161,10 @@ def like_cosi_psi(a_hat, f_plus, f_cross, x, psi, d_max=1000.):
     d0 = a_hat[0]
     # Marginalizing over phi gives:
     # 2 pi  i0e(a f) exp(-1/2(ahat^2 - 2 f a + g a^2))
-    like = lambda a: 3 * d0 ** 2 / d_max ** 3 * a ** (-4) * np.special.i0e(f * a) * \
+    like = lambda a: 3 * d0 ** 2 / d_max ** 3 * a ** (-4) * \
+                     np.special.i0e(f * a) * \
                      np.exp(f * a - 0.5 * (ahat2 + g * a ** 2))
-    l_psix = quad(like, max(0, f / g - 5 / sqrt(g)), f / g + 5 / sqrt(g))
+    l_psix = quad(like, max(0, f / g - 5 / np.sqrt(g)), f / g + 5 / np.sqrt(g))
     return l_psix[0]
 
 
@@ -176,8 +180,9 @@ def like_cosi(a_hat, f_plus, f_cross, x, d_max=1000.):
     :param x: cos(inclination)
     :param d_max: maximum distance for marginalization
     """
-    l_x = 2 / pi * quad(lambda p: like_cosi_psi(a_hat, f_plus, f_cross, x, p, d_max),
-                        0, math.pi / 2, epsabs=1e-8, epsrel=1e-8)[0]
+    l_x = 2 / np.pi * quad(lambda p: like_cosi_psi(a_hat, f_plus, f_cross,
+                                                   x, p, d_max),
+                           0, np.pi / 2, epsabs=1e-8, epsrel=1e-8)[0]
     return l_x
 
 
@@ -202,12 +207,17 @@ def loglike_approx(a_hat, f_plus, f_cross, d_max=1000., method="coh",
     """
     Calculate the approximate likelihood. This works for three cases:
     left and right circularly polarized and the standard coherent analysis.
+    This reproduces the equations (A.18) and (A.29) from "Localization of
+    transient gravitational wave sources: beyond triangulation", Class.
+    Quantum Grav. 35 (2018) 105002
 
     :param a_hat: the F-stat A parameters
     :param f_plus: F_plus sensitivity
     :param f_cross: F_cross sensitivity
     :param d_max: maximum distance for marginalization
-    :param method: approximation for calculating likelihood, one of "coh", "left", "right"
+    :param method: approximation for calculating likelihood, one of "coh",
+        "left", "right"
+    :param correction: scale the approx likelihood to improve fit
     """
     if (method == "left") or (method == "right"):
         a_hat = fstat.circ_project(a_hat, f_plus, f_cross, method)
@@ -217,14 +227,17 @@ def loglike_approx(a_hat, f_plus, f_cross, d_max=1000., method="coh",
     if snr == 0:
         loglike = 0
     elif method == "coh":
-        loglike = log(24 * (d_hat / d_max) ** 3 * d_hat ** 4 /
-                      (f_plus ** 2 * f_cross ** 2) / (1 - cosi_hat ** 2) ** 3)
+        loglike = np.log(24 * (d_hat / d_max) ** 3 * d_hat ** 4 /
+                         (f_plus ** 2 * f_cross ** 2) /
+                         (1 - cosi_hat ** 2) ** 3)
     else:
         # the width in cos iota:
-        cos_fac = np.sqrt(np.sqrt(2) * (f_cross ** 2 + f_plus ** 2) / (f_plus * f_cross))
+        cos_fac = np.sqrt(np.sqrt(2) * (f_cross ** 2 + f_plus ** 2) /
+                          (f_plus * f_cross))
         cos_width = np.minimum(cos_fac / snr ** 0.5, 1)
         cos_int = 1 - (1 - cos_width) ** 4
-        loglike = np.log(3) - np.log(8) + 3 * np.log(d_hat / d_max) - 2 * np.log(snr) + np.log(cos_int)
+        loglike = np.log(3) - np.log(8) + 3 * np.log(d_hat / d_max) - \
+                  2 * np.log(snr) + np.log(cos_int)
     if correction:
         factor = 1 - 75. / (2 * snr ** 2)
         loglike += np.log(factor) + 0.2
@@ -235,12 +248,19 @@ def loglike_approx(a_hat, f_plus, f_cross, d_max=1000., method="coh",
 def like_approx(a_hat, f_plus, f_cross, d_max=1000., correction=False):
     """
     Calculate the approximate likelihood summed over left, right and coherent.
+
+    :param a_hat: the F-stat A parameters
+    :param f_plus: F_plus sensitivity
+    :param f_cross: F_cross sensitivity
+    :param d_max: maximum distance for marginalization
+    :param correction: scale the approx likelihood to improve fit
     """
     loglike = {}
     snr = {}
     like = {}
     for method in ["left", "right", "coh"]:
-        loglike[method], snr[method] = loglike_approx(a_hat, f_plus, f_cross, d_max, method=method,
+        loglike[method], snr[method] = loglike_approx(a_hat, f_plus, f_cross,
+                                                      d_max, method=method,
                                                       correction=correction)
         like[method] = snr[method] ** 2 / 2 + loglike[method]
         if snr[method] < 6:
@@ -250,6 +270,7 @@ def like_approx(a_hat, f_plus, f_cross, d_max=1000., correction=False):
             ((snr["coh"] ** 2 - snr["left"] ** 2) < 2):
         like["coh"] = 0
 
-    like_approx = logaddexp(logaddexp(like["left"], like["right"]), like["coh"])
+    like_approx = np.logaddexp(np.logaddexp(like["left"], like["right"]),
+                               like["coh"])
 
     return like_approx, like
