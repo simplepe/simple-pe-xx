@@ -3,7 +3,7 @@ Simple-PE publications
 ======================
 .. _papers:
 
-There are numerous papers which describes the analyses availabe in the
+There are numerous papers which describe the analyses available in the
 Simple-PE repository.
 
 Localization
@@ -39,9 +39,8 @@ Parameter Estimation
 --------------------
 
 The simple-pe analysis is described in the paper
-  * `Fast inference of binary merger properties using the information
-    encoded in the gravitational-wave signal <https://doi.org/10.48550/arXiv
-    .2304.03731>`_
+  * `Simple parameter estimation using observable features of
+    gravitational-wave signals <https://doi.org/10.1103/PhysRevD.108.082006>`_
 
 The method brings together insights developed in earlier papers, including
 the localization work above and also:
