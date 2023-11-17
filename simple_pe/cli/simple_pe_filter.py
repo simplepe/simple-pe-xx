@@ -293,7 +293,7 @@ def _load_strain_data_from_file(
 
 
 def _load_psd_from_file(
-    psd_data, asd_data, length, data_length, delta_f, f_low
+    psd_data, asd_data, delta_f, f_low, f_high,
 ):
     """Load a dictionary of PSDs or ASDs
 
@@ -323,16 +323,27 @@ def _load_psd_from_file(
         _psd_kwargs = {"is_asd_file": True}
     elif len(psd_data):
         _psd_kwargs = {"is_asd_file": False}
+    length = int(f_high / delta_f + 1)
+
     psd = {}
-    psa = aLIGOMidHighSensitivityP1200087(length, delta_f, f_low)
+    psa = None
+
     for ifo, path in psd_data.items():
         p = pycbc.psd.read.from_txt(
             path, length, delta_f, f_low, **_psd_kwargs
         )
-        psd[ifo] = copy.deepcopy(psa)
-        psd[ifo][0:len(p)] = p[:]
-    hm_psd = len(psd) / sum([1. / item for item in psd.values()])
-    psd["hm"] = hm_psd
+        if p.sample_frequencies[-1] < f_high:
+            # need to extend the PSD to the desired high frequency,
+            # use arbitrary PSD for only needed for finer time sampling
+            if not psa:
+                psa = aLIGOMidHighSensitivityP1200087(length, delta_f, f_low)
+            psd[ifo] = copy.deepcopy(psa)
+            psd[ifo][0:len(p)] = p[:]
+        else:
+            psd[ifo] = p
+
+    # calculate harmonic mean PSD
+    psd["hm"] = len(psd) / sum([1. / item for item in psd.values()])
     return psd
 
 
@@ -855,8 +866,7 @@ def main(args=None):
     delta_f = list(strain_f.values())[0].delta_f
 
     psd = _load_psd_from_file(
-        opts.psd, opts.asd, int(opts.f_high * 2 / (delta_f * 2) + 1),
-        int(len(list(strain.values())[0]) / 2.) + 1, delta_f, opts.f_low,
+        opts.psd, opts.asd, delta_f, opts.f_low, opts.f_high
     )
     t_start = trigger_parameters["time"] - 0.1 # this time window should be an option
     t_end = trigger_parameters["time"] + 0.1
