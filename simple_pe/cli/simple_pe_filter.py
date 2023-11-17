@@ -256,7 +256,7 @@ def _load_strain_data_from_file(
     f_high: float
         high frequency cut off to use for the analysis
     fudge_length: float, optional
-        factor to multiple the rough time estimate of the waveform by to ensure
+        factor to multiply the rough time estimate of the waveform by to ensure
         that it is a conservative value. Default 1.1
     fudge_min: float, optional
         the minimum that the rough time estimate of the waveform can be.
@@ -384,8 +384,9 @@ def find_peak(
     )
     x_peak = pe.convert(x_peak, disable_remnant=True)
     print("Found dominant harmonic peak with SNR = %.4f" % snr_peak)
-    for k,v in x_peak.items():
-        print("%s = %.4f" % (k,v))
+    for k, v in x_peak.items():
+        print("%s = %.4f" % (k, v))
+
     if trigger_parameters["_precessing"]:
         # find two-harmonic peak
         event_info = {
@@ -411,14 +412,17 @@ def find_peak(
         x_peak['chi_eff'] = x_peak['chi'] * np.cos(x_peak['tilt'])
         x_peak['chi_p'] = x_peak['chi'] * np.sin(x_peak['tilt'])
         print("Found two harmonic peak with SNR = %.4f" % snr_peak)
-        for k,v in x_peak.items():
-            print("%s = %.4f" % (k,v))
+        for k, v in x_peak.items():
+            print("%s = %.4f" % (k, v))
+
     peak_template = pe.SimplePESamples(x_peak)
     peak_template.add_fixed('phase', 0.)
     peak_template.add_fixed('f_ref', f_low)
     peak_template.add_fixed('theta_jn', 0.)
     peak_template.generate_prec_spin()
-    peak_template.generate_all_posterior_samples(f_low=f_low, f_ref=f_low, delta_f=delta_f, disable_remnant=True)
+    peak_template.generate_all_posterior_samples(f_low=f_low, f_ref=f_low,
+                                                 delta_f=delta_f,
+                                                 disable_remnant=True)
     ifos = [key for key in psd.keys() if key != "hm"]
     if not all(_ in peak_template.keys() for _ in ["spin_1z", "spin_2z"]):
         if "chi_align" in peak_template.keys():
@@ -600,7 +604,9 @@ def add_localisation_information(
         peak_template, psd, approximant, f_low, delta_f, f_high,
         event_snr, threshold, trigger_parameters, bayestar_localization=None
 ):
-    """Calculate the SNR in the second polarisation for the peak template
+    """Calculate the localization information for the event and use this
+    to provide the network sensitivity, the sensitivity to the second
+    polarization and the SNR in the second polarization for the peak template
 
     Parameters
     ----------
