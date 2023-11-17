@@ -342,9 +342,18 @@ def _load_psd_from_file(
         else:
             psd[ifo] = p
 
-    # calculate harmonic mean PSD
-    psd["hm"] = len(psd) / sum([1. / item for item in psd.values()])
     return psd
+
+
+def _calculate_harmonic_mean_psd(psd):
+    """
+    Calculate the harmonic mean of the PSDs
+    psd: dict
+        dictionary of PSDs
+    """
+    psd_hm = len(psd) / sum([1. / item for item in psd.values()])
+
+    return psd_hm
 
 
 def find_peak(
@@ -381,7 +390,6 @@ def find_peak(
         'scipy'
     """
     _psd = psd.copy()
-    _psd.pop("hm", None)
     if not trigger_parameters["_precessing"] and "chi_p" in fixed_directions:
         fixed_directions.remove("chi_p")
     event_info = {
@@ -434,7 +442,7 @@ def find_peak(
     peak_template.generate_all_posterior_samples(f_low=f_low, f_ref=f_low,
                                                  delta_f=delta_f,
                                                  disable_remnant=True)
-    ifos = [key for key in psd.keys() if key != "hm"]
+    ifos = [key for key in psd.keys()]
     if not all(_ in peak_template.keys() for _ in ["spin_1z", "spin_2z"]):
         if "chi_align" in peak_template.keys():
             peak_template["spin_1z"] = peak_template["chi_align"]
@@ -486,10 +494,11 @@ def calculate_subdominant_snr(
     """
     z_hm = {}
     z_hm_perp = {}
-    ifos = [key for key in psd if key != "hm"]
+    ifos = [key for key in psd]
     h_hm, h_hm_perp, sigmas, zetas = waveforms.calculate_hm_multipoles(
         peak_template["mass_1"], peak_template["mass_2"],
-        peak_template["spin_1z"], peak_template["spin_2z"], psd["hm"],
+        peak_template["spin_1z"], peak_template["spin_2z"],
+        _calculate_harmonic_mean_psd(psd),
         f_low, approximant, multipoles, '22',
         peak_template["spin_1x"], peak_template["spin_1y"],
         peak_template["spin_2x"], peak_template["spin_2y"]
@@ -596,7 +605,7 @@ def calculate_precession_snr(
     hprec = {'0': hp[0], '1': hp[1]}
     z_prec = {}
     z_prec_perp = {}
-    ifos = [key for key in psd if key != "hm"]
+    ifos = [key for key in psd]
     for ifo in ifos:
         h_perp, sigma, zeta = waveforms.orthonormalize_modes(
             hprec, psd[ifo], f_low, harmonics, dominant_mode='0'
@@ -647,11 +656,10 @@ def add_localisation_information(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
         approximant=approximant
     )
-    sig = sigma(h, psd["hm"], low_frequency_cutoff=f_low,
+    sig = sigma(h, _calculate_harmonic_mean_psd(psd),
+                low_frequency_cutoff=f_low,
                 high_frequency_cutoff=f_high)
     peak_template.add_fixed('sigma', sig)
-
-    psd.pop("hm")
 
     # generate network
     ifos = [key for key in psd]
@@ -832,7 +840,7 @@ def estimate_face_on_distance(
         approximant=approximant
     )
     sigma_hm = sigma(
-        h, psd["hm"], low_frequency_cutoff=f_low,
+        h, _calculate_harmonic_mean_psd(psd), low_frequency_cutoff=f_low,
         high_frequency_cutoff=f_high
         )
     f_net = np.sqrt(
