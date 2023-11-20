@@ -8,6 +8,11 @@ from simple_pe import io
 from simple_pe.param_est import result
 import numpy as np
 
+import logging
+_logger = logging.getLogger('PESummary')
+_logger.setLevel(logging.CRITICAL + 10)
+
+# silence PESummary logger
 __author__ = [
     "Charlie Hoy <charlie.hoy@ligo.org>",
     "Stephen Fairhurst <stephen.fairhurst@ligo.org>"
@@ -147,7 +152,8 @@ def main(args=None):
         "sigma": peak_parameters['sigma'][0]
     }
     pe_result = result.Result(
-        f_low=opts.f_low, psd=psd["hm"], approximant=opts.approximant,
+        f_low=opts.f_low, psd=io.calculate_harmonic_mean_psd(psd),
+        approximant=opts.approximant,
         data_from_matched_filter=data_from_matched_filter
     )
     _ = pe_result.generate_samples_from_aligned_spin_template_parameters(
