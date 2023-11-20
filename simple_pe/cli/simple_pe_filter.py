@@ -64,6 +64,7 @@ def command_line():
             "Time domain strain data to analyse. Must be provided as a space "
             "separated dictionary with keys giving the ifo and items giving "
             "the path to the strain data you wish to analyse, e.g. "
+            
             "H1:/path/to/file or a single json file giving the path to file "
             "and channel name for each ifo, e.g. {H1: {strain: /path/to/file,"
             "channel: channel}}. Strain data must be a gwf file"
@@ -184,8 +185,8 @@ def _load_trigger_parameters_from_file(path, approximant):
     if "distance" in data.keys():
         data["distance"] /= data["distance"]
     else:
-        data["distance"] = 1.0
-    data = pe.convert(data, disable_remnant=True)
+        data.add_fixed("distance", 1.0)
+    data.generate_all_posterior_samples()
     if not all(param in data.keys() for param in required_params):
         raise ValueError(
             f"{path} does not include all required parameters: "
