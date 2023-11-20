@@ -4,9 +4,7 @@ import os
 from argparse import ArgumentParser
 from pesummary.io import read
 from pesummary.core.command_line import DictionaryAction
-from .simple_pe_filter import (
-    _load_psd_from_file, _estimate_data_length_from_template_parameters
-)
+from simple_pe import io
 from simple_pe.param_est import result
 import numpy as np
 
@@ -134,10 +132,10 @@ def main(args=None):
         os.mkdir(opts.outdir)
     peak_parameters = read(opts.peak_parameters).samples_dict
     snrs = read(opts.peak_snrs).samples_dict
-    data_len = _estimate_data_length_from_template_parameters(
+    data_len = io.estimate_data_length_from_template_parameters(
         peak_parameters, opts.f_low, minimum_data_length=opts.minimum_data_length
     )
-    psd = _load_psd_from_file(
+    psd = io.load_psd_from_file(
         opts.psd, opts.asd, int(opts.f_high * 2 / (opts.delta_f * 2) + 1),
         data_len, opts.delta_f, opts.f_low,
     )
