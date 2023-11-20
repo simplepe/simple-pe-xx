@@ -132,12 +132,8 @@ def main(args=None):
         os.mkdir(opts.outdir)
     peak_parameters = read(opts.peak_parameters).samples_dict
     snrs = read(opts.peak_snrs).samples_dict
-    data_len = io.estimate_data_length_from_template_parameters(
-        peak_parameters, opts.f_low, minimum_data_length=opts.minimum_data_length
-    )
     psd = io.load_psd_from_file(
-        opts.psd, opts.asd, int(opts.f_high * 2 / (opts.delta_f * 2) + 1),
-        data_len, opts.delta_f, opts.f_low,
+        opts.psd, opts.asd, opts.delta_f, opts.f_low, opts.f_high
     )
     if 'chi_p2' in opts.metric_directions and 'chi_p2' not in peak_parameters:
         peak_parameters['chi_p2'] = peak_parameters['chi_p']**2
@@ -155,8 +151,8 @@ def main(args=None):
         data_from_matched_filter=data_from_matched_filter
     )
     _ = pe_result.generate_samples_from_aligned_spin_template_parameters(
-        opts.metric_directions, opts.precession_directions, opts.multipole_directions,
-        opts.distance_directions, interp_points=5
+        opts.metric_directions, opts.precession_directions,
+        opts.multipole_directions, opts.distance_directions, interp_points=5
     )
     pe_result.samples_dict.write(
         outdir=opts.outdir, filename="posterior_samples.dat", overwrite=True,
