@@ -67,6 +67,8 @@ def load_strain_data_from_file(
     trigger_parameters: dict
         dictionary containing trigger parameters
     strain_data: str/dict
+    channels: dict
+        dictionary containing the channel name in each ifo
     f_low: float
         low frequency cut off to use for the analysis
     f_high: float
