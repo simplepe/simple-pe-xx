@@ -413,7 +413,7 @@ def find_peak(
         ifos, strain_f, psd, t_start, t_end, event_info,
         dx_directions, f_low, approximant, method=method,
         harm2=trigger_parameters["_precessing"]
-    ) # Harm2 should probably be False here -- we do the 2-harm peak later
+    )  # Harm2 should probably be False here -- we do the 2-harm peak later
 
     x_peak = pe.convert(x_peak, disable_remnant=True)
     print("Found dominant harmonic peak with SNR = %.4f" % snr_peak)
@@ -425,7 +425,7 @@ def find_peak(
         event_info = {
             k: x_peak[k] for k in dx_directions + fixed_directions
         }
-        x_2h_peak, snr_2h_peak = filter.find_peak_snr(
+        x_2h_peak, snr_peak = filter.find_peak_snr(
             ifos, strain_f, psd, t_start, t_end, event_info,
             dx_directions, f_low, approximant, method=method, harm2=True
         )
@@ -449,8 +449,33 @@ def find_peak(
                                                  delta_f=delta_f,
                                                  disable_remnant=True)
 
-    # Store event SNR
-    event_snr = {"network": snr_peak}
+    return peak_template, snr_peak
+
+
+def calculate_ifo_and_net_snr(
+        peak_template, psd, approximant, strain_f, f_low, t_start, t_end):
+    """Calculate the individual ifo SNRs and times as well as network SNR
+
+    Parameters
+    ----------
+    peak_template: dict
+        dictionary of parameters correspond to peak template
+    psd: dict
+        dictionary of PSDs
+    approximant: approximant
+
+    strain_f: dict
+        dictionary of frequency domain strain data
+    f_low: float
+        low frequency cutoff to use for the analysis
+    t_start: float
+        time to start the analysis.
+    t_end: float
+        time to end the analysis.
+    """
+    ifos = list(psd.keys())
+    delta_f = list(psd.values())[0].delta_f
+    f_high = list(psd.values())[0].sample_frequencies[-1]
 
     h = make_waveform(
         peak_template, delta_f, f_low, len(list(psd.values())[0]),
@@ -459,10 +484,17 @@ def find_peak(
     net_snr, ifo_snr, ifo_time = filter.matched_filter_network(
         ifos, strain_f, psd, t_start, t_end, h, f_low
     )
-    event_snr.update(
-        {"ifo_snr": ifo_snr, "ifo_time": ifo_time}
-    )
-    return peak_template, event_snr
+    _snr = {"ifo_snr": ifo_snr,
+            "ifo_time": ifo_time,
+            "network": net_snr}
+
+    sig = sigma(h, _calculate_harmonic_mean_psd(psd),
+                low_frequency_cutoff=f_low,
+                high_frequency_cutoff=f_high)
+
+    peak_template["sigma"] = sig
+
+    return _snr
 
 
 def calculate_subdominant_snr(
@@ -863,17 +895,23 @@ def main(args=None):
         opts.f_low, opts.time_window, dx_directions=opts.metric_directions
     )
 
+    trig_start = trigger_parameters["time"] - opts.time_window
+    trig_end = trigger_parameters["time"] + opts.time_window
+
+    event_snr = calculate_ifo_and_net_snr(
+        peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
+        trig_start, trig_end
+    )
+
     _snrs = calculate_subdominant_snr(
         peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
-        trigger_parameters["time"] - opts.time_window,
-        trigger_parameters["time"] - opts.time_window
+        trig_start, trig_end
     )
     event_snr.update(_snrs)
 
     _snrs = calculate_precession_snr(
         peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
-        trigger_parameters["time"] - opts.time_window,
-        trigger_parameters["time"] - opts.time_window
+        trig_start, trig_end
     )
     event_snr.update(_snrs)
 
