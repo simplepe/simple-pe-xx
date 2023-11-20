@@ -161,6 +161,17 @@ def load_psd_from_file(
     return psd
 
 
+def calculate_harmonic_mean_psd(psd):
+    """
+    Calculate the harmonic mean of the PSDs
+    psd: dict
+        dictionary of PSDs
+    """
+    psd_hm = len(psd) / sum([1. / item for item in psd.values()])
+
+    return psd_hm
+
+
 def _estimate_data_length_from_template_parameters(
     template_parameters, f_low, fudge_length=1.1, fudge_min=0.02,
     minimum_data_length=16

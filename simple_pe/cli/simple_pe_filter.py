@@ -156,17 +156,6 @@ def command_line():
     return parser
 
 
-def _calculate_harmonic_mean_psd(psd):
-    """
-    Calculate the harmonic mean of the PSDs
-    psd: dict
-        dictionary of PSDs
-    """
-    psd_hm = len(psd) / sum([1. / item for item in psd.values()])
-
-    return psd_hm
-
-
 def find_peak(
     trigger_parameters, strain_f, psd, approximant, f_low,
     time_window, dx_directions=None,
@@ -288,7 +277,7 @@ def calculate_snrs_and_sigma(
         approximant=approximant
     )
 
-    _sig = sigma(h, _calculate_harmonic_mean_psd(psd),
+    _sig = sigma(h, io.calculate_harmonic_mean_psd(psd),
                  low_frequency_cutoff=f_low,
                  high_frequency_cutoff=f_high)
 
@@ -345,7 +334,7 @@ def calculate_subdominant_snr(
     h_hm, h_hm_perp, sigmas, zetas = waveforms.calculate_hm_multipoles(
         peak_template["mass_1"], peak_template["mass_2"],
         peak_template["spin_1z"], peak_template["spin_2z"],
-        _calculate_harmonic_mean_psd(psd),
+        io.calculate_harmonic_mean_psd(psd),
         f_low, approximant, multipoles, '22',
         peak_template["spin_1x"], peak_template["spin_1y"],
         peak_template["spin_2x"], peak_template["spin_2y"]
@@ -646,7 +635,7 @@ def estimate_face_on_distance(
         approximant=approximant
     )
     sigma_hm = sigma(
-        h, _calculate_harmonic_mean_psd(psd), low_frequency_cutoff=f_low,
+        h, io.calculate_harmonic_mean_psd(psd), low_frequency_cutoff=f_low,
         high_frequency_cutoff=f_high
         )
     f_net = np.sqrt(
