@@ -140,7 +140,7 @@ class Event(object):
             getattr(net, i).time = times[i]
         f_band = {i: getattr(net, i).f_band for i in net.ifos}
 
-        if not ra and not dec:
+        if (ra is None) and (dec is None):
             ra, dec = sky_loc.localization_from_timing(net.ifos, times, f_band)
         elif ra and dec:
             pass
