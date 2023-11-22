@@ -123,7 +123,7 @@ class Event(object):
                    )
 
     @classmethod
-    def from_snrs(cls, net, snrs, times, mchirp):
+    def from_snrs(cls, net, snrs, times, mchirp, ra=None, dec=None):
         """
         Give a network with SNR and time in each detector and use this
         to populate the event information
@@ -132,13 +132,20 @@ class Event(object):
         :param snrs: the complex snr in each detector
         :param times: the time in each detector
         :param mchirp: the chirp mass of the event
+        :param ra: the right ascenscion of the source
+        :param dec: the declination of the source
         """
         for i in net.ifos:
             getattr(net, i).snr = snrs[i]
             getattr(net, i).time = times[i]
         f_band = {i: getattr(net, i).f_band for i in net.ifos}
 
-        ra, dec = sky_loc.localization_from_timing(net.ifos, times, f_band)
+        if (ra is None) and (dec is None):
+            ra, dec = sky_loc.localization_from_timing(net.ifos, times, f_band)
+        elif ra and dec:
+            pass
+        else:
+            print("must provide either both RA and Dec or neither.")
 
         ev = cls(dist=0.,
                  ra=ra,
