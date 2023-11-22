@@ -378,6 +378,10 @@ class FilterNode(Node):
                 json.dump(_trigger_parameters, f)
         elif trigger_parameters is not None:
             filename = trigger_parameters
+        if sid is not None and gid is not None:
+            raise ValueError(
+                "SID and GID both specified. Please provide either an SID or a GID"
+            )
         if sid is not None and gid is None:
             from pesummary.gw.gracedb import get_gracedb_data
             try:
