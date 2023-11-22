@@ -53,10 +53,20 @@ def command_line():
         )
     )
     parser.add_argument(
+        "--gid",
+        help=(
+            "GraceDB ID for the event you wish to analyse. If "
+            "provided, and --trigger_parameters is not provided, the "
+            "trigger parameters are downloaded from the best matching "
+            "search template on GraceDB. There is no need to provide both "
+            "--sid and --gid; --gid will be used if provided."
+        )
+    )
+    parser.add_argument(
         "--use_bayestar_localization",
         action="store_true",
         default=False,
-        help="use the bayestar localization. --sid must also be provided"
+        help="use the bayestar localization. --sid/--gid must also be provided"
     )
     parser.add_argument(
         "--truth",
@@ -332,11 +342,11 @@ class FilterNode(Node):
         super().__init__(*args, **kwargs)
         self._executable = self.get_executable("simple_pe_filter")
         self.opts.trigger_parameters = self._prepare_trigger_parameters(
-            self.opts.sid, self.opts.trigger_parameters,
+            self.opts.sid, self.opts.gid, self.opts.trigger_parameters,
         )
         if self.opts.use_bayestar_localization:
             self.opts.bayestar_localization = \
-                self._get_bayestar_localization(self.opts.sid)
+                self._get_bayestar_localization(self.opts.sid, self.opts.gid)
         self.create_pycondor_job()
 
     @property
@@ -356,7 +366,7 @@ class FilterNode(Node):
         args += [["--outdir", f"{self.opts.outdir}/output"]]
         return " ".join([item for sublist in args for item in sublist])
 
-    def _prepare_trigger_parameters(self, sid, trigger_parameters):
+    def _prepare_trigger_parameters(self, sid, gid, trigger_parameters):
         """
         """
         import json
@@ -368,12 +378,17 @@ class FilterNode(Node):
                 json.dump(_trigger_parameters, f)
         elif trigger_parameters is not None:
             filename = trigger_parameters
-        if sid is not None:
+        if sid is not None and gid is not None:
+            raise ValueError(
+                "SID and GID both specified. Please provide either an SID or a GID"
+            )
+        if sid is not None and gid is None:
             from pesummary.gw.gracedb import get_gracedb_data
             try:
                 gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
             except AttributeError:
                 gid = get_gracedb_data(sid, superevent=True, info="preferred_event_data")
+        if gid is not None:
             if trigger_parameters is None:
                 logger.info("Grabbing search data from gracedb for trigger_parameters")
                 data = get_gracedb_data(gid)
@@ -392,7 +407,7 @@ class FilterNode(Node):
                 with open(filename, "w") as f:
                     json.dump(json_data, f)
 
-        if trigger_parameters is None and sid is None:
+        if trigger_parameters is None and sid is None and gid is None:
             raise ValueError(
                 "Please provide a file containing the trigger parameters "
                 "or a superevent ID to download the trigger parameters "
@@ -400,18 +415,19 @@ class FilterNode(Node):
             )
         return filename
 
-    def _get_bayestar_localization(self, sid):
-        if sid is None:
+    def _get_bayestar_localization(self, sid, gid):
+        if sid is None and gid is None:
             raise ValueError(
-                "Unable to use --use_bayestar_localization when --sid "
+                "Unable to use --use_bayestar_localization when --sid/--gid "
                 "is not provided"
             )
         from pesummary.gw.gracedb import get_gracedb_data
-        try:
-            gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
-        except AttributeError:
-            gid = get_gracedb_data(sid, superevent=True,
-                                   info="preferred_event_data")
+        if gid is None:
+            try:
+                gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
+            except AttributeError:
+                gid = get_gracedb_data(sid, superevent=True,
+                                       info="preferred_event_data")
 
         from ligo.gracedb.rest import GraceDb
         from ligo.gracedb.exceptions import HTTPError
@@ -422,7 +438,10 @@ class FilterNode(Node):
             try:
                 r = client.files(gid, "bayestar.fits")
             except HTTPError:
-                r = client.files(gid, "bayestar.multiorder.fits,0")
+                try:
+                    r = client.files(gid, "bayestar.multiorder.fits,0")
+                except HTTPError:
+                    r = client.files(gid, "bayestar_pycbc_C01.fits.gz")
             f.write(r.read())
         return loc_filename
 
