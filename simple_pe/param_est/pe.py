@@ -339,7 +339,7 @@ class SimplePESamples(SamplesDict):
 
     def generate_spin_z(self, overwrite=False):
         """
-        Generate z-component spins from chi_eff
+        Generate z-component spins from chi_eff or chi_align
 
         :param overwrite: if True, then overwrite existing values, 
             otherwise don't
