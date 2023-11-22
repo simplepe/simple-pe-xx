@@ -377,7 +377,7 @@ def calculate_precession_snr(
     harmonics: list, optional
         precession harmonics to calculate. Default ['0', '1']
     """
-    if not harmonics:
+    if harmonics is None:
         harmonics = [0, 1]
 
     delta_f = list(strain_f.values())[0].delta_f
