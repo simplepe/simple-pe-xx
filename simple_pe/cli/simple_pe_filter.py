@@ -318,7 +318,7 @@ def calculate_subdominant_snr(
         list of multipoles to calculate the SNR for. Default
         ['22', '33', '44']
     """
-    if not multipoles:
+    if multipoles is None:
         multipoles = ['22', '33', '44']
 
     ifos = list(strain_f.keys())
