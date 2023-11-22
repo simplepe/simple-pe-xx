@@ -497,8 +497,8 @@ def calculate_localisation_information(
         probs, _ = read_sky_map(bayestar_localization)
         npix = len(probs)
         nside = ah.npix_to_nside(npix)
-        dec, ra = hp.pix2ang(nside, np.arange(npix))
-        pts = SamplesDict({'ra': ra, 'dec': dec})
+        codec, ra = hp.pix2ang(nside, np.arange(npix))
+        pts = SamplesDict({'ra': ra, 'dec': np.pi/2 - codec})
         pts = rejection_sampling(pts, probs).downsample(int(1e3))
         ra = pts['ra']
         dec = pts['dec']
