@@ -2,18 +2,15 @@ import numpy as np
 from simple_pe import detectors
 from simple_pe.detectors import Det
 
-##################################################################
-# Class to store network information
-##################################################################
-
 
 class Network(object):
     """
-    class to hold the details of the network.
+    Class to hold the details of the network.
 
     Parameters
     ----------
-    threshold: detection threshold for the network
+    threshold: float
+        detection threshold for the network
     """
 
     def __init__(self, threshold=12.0):
@@ -28,14 +25,23 @@ class Network(object):
 
         Parameters
         ----------
-        ifo: name of ifo
-        horizon: the BNS range of the detector
-        f_mean: float, mean frequency
-        f_band: float, frequency bandwidth
-        found_thresh: threshold for declaring an event found
-        loc_thresh: threshold for declaring an event localized
-        duty_cycle: fraction of time the detector is operational
-        bns_range: is the given range for BNS (if yes, then rescale SNR with chirp_mass^5/6)
+        ifo: str
+            name of ifo
+        horizon: float
+            the BNS range of the detector
+        f_mean: float
+            mean frequency
+        f_band: float
+            frequency bandwidth
+        found_thresh: float
+            threshold for declaring an event found
+        loc_thresh: float
+            threshold for declaring an event localized
+        duty_cycle: float
+            fraction of time the detector is operational
+        bns_range: float
+            is the given range for BNS (if yes, then rescale SNR with
+            chirp_mass^5/6)
         """
         d = Det(ifo, horizon, f_mean, f_band,
                 found_thresh, loc_thresh, duty_cycle, bns_range)
@@ -50,10 +56,14 @@ class Network(object):
 
         Parameters
         ----------
-        configuration: name of configuration
-        found_thresh: threshold for single ifo detection
-        loc_thresh: threshold for single ifo localization
-        duty_cycle: fraction of time detectors are operational
+        configuration: str
+            name of configuration
+        found_thresh: float
+            threshold for single ifo detection
+        loc_thresh: float
+            threshold for single ifo localization
+        duty_cycle: float
+            fraction of time detectors are operational
         """
         ranges = detectors.range_8(configuration)
         ifos = ranges.keys()
@@ -68,20 +78,27 @@ class Network(object):
                                    found_thresh=5.0, loc_thresh=4.0,
                                    duty_cycle=1.0, bns_range=True):
         """
-        Generate a network from a list of ifos, with associated PSDs
-         and f_lows
+        Generate a network from a list of ifos, with associated PSDs and f_lows
 
         Parameters
         ----------
-        ifos: list of ifos
-        psds: dictionary of psds associated with the ifos
-        f_lows: dictionary of low frequency cutoffs for each ifo
-        approximant: approximant to use in waveform generation
-        found_thresh: threshold for declaring an event found
-        loc_thresh: threshold for declaring an event localized
-        duty_cycle: fraction of time the detector is operational
-        bns_range: is the given range for BNS
-            (if yes, then rescale SNR with chirp_mass^5/6)
+        ifos: list
+            A list of ifos
+        psds: dict
+            Dictionary of psds associated with the ifos
+        f_lows: dict
+            Dictionary of low frequency cutoffs for each ifo
+        approximant: str
+            approximant to use in waveform generation
+        found_thresh: float
+            threshold for declaring an event found
+        loc_thresh: float
+            threshold for declaring an event localized
+        duty_cycle: float
+            fraction of time the detector is operational
+        bns_range: bool
+            is the given range for BNS (if yes, then rescale SNR with
+            chirp_mass^5/6)
         """
         for ifo in ifos:
             horizon, f_mean, f_band = \
@@ -100,10 +117,12 @@ class Network(object):
 
         Parameters
         ----------
-        data: name of data to return from a detector
+        data: str
+            name of data to return from a detector
 
         Returns
         -------
-        data_array: array containing requested data
+        data_array: np.array
+            containing requested data
         """
         return np.array([getattr(getattr(self, i), data) for i in self.ifos])

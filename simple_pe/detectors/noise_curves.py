@@ -412,8 +412,10 @@ def calc_amp_info(amp, probs=None):
 
     Parameters
     ----------
-    amp = array of reported amplitudes
-    probs = list of probabilities at which to calculate relative amplitude
+    amp: np.array
+        Array of reported amplitudes
+    probs: list
+        A list of probabilities at which to calculate relative amplitude
 
     Returns
     -------
