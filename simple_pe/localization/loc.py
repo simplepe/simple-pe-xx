@@ -205,7 +205,7 @@ class Localization(object):
         self.z = z
         self.snr = np.linalg.norm(z)
 
-    def calculate_dt0(self, dt_i):
+    def calculate_dt_0(self, dt_i):
         """
         Calculate the overall time offset at a point offset from the source
         point by dt_i that maximizes the overall SNR
@@ -223,14 +223,14 @@ class Localization(object):
         a_i, c_ij, c_i, c = self.event.localization_factors(self.method,
                                                             self.mirror)
         a = sum(a_i)
-        dt0 = a / (2 * c) - np.inner(c_i, dt_i) / c
-        return dt0
+        dt_0 = a / (2 * c) - np.inner(c_i, dt_i) / c
+        return dt_0
 
     def calculate_snr(self, dt_i):
         """
         Calculate the SNR at a point offset from the source point
         dt_i is an array of time offsets for the detectors
-        Note: we maximize over the overall time offset dt_o.
+        Note: we maximize over the overall time offset dt_0.
         If the time offsets are too large to trust the leading order
         approximation, then return the original SNR
 
@@ -249,9 +249,9 @@ class Localization(object):
         """
         # See if the calculation is valid:
         f_band = self.event.get_data("f_band")
-        if max(abs(dt * (2 * np.pi * f_band))) > 1. / np.sqrt(2):
+        if max(abs(dt_i * (2 * np.pi * f_band))) > 1. / np.sqrt(2):
             # location of second peak is outside linear regime, return zero
-            z = np.zeros_like(dt)
+            z = np.zeros_like(dt_i)
         else:
             z = self.event.projected_snr(self.method, self.mirror, dt_i)
         snr = np.linalg.norm(z)
