@@ -542,6 +542,7 @@ class DataFindNode(Node):
         super().__init__(*args, **kwargs)
         self._executable = self.get_executable("simple_pe_datafind")
         if not self.opts.injection and not self.opts.trigger_time:
+            logger.info("Setting analysis time from supplied SID/GID")
             trigger_params = get_trigger_parameters(self.opts.sid,
                                                     self.opts.gid)
             self.opts.trigger_time = trigger_params["time"]
