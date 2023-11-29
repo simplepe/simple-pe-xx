@@ -347,6 +347,8 @@ class FilterNode(Node):
         if self.opts.use_bayestar_localization:
             self.opts.bayestar_localization = \
                 self._get_bayestar_localization(self.opts.sid, self.opts.gid)
+        if not len(self.opts.psd) and not len(self.opts.asd):
+            self.opts.psd = self._get_search_psd(self.opts.sid, self.opts.gid)
         self.create_pycondor_job()
 
     @property
@@ -383,11 +385,7 @@ class FilterNode(Node):
                 "SID and GID both specified. Please provide either an SID or a GID"
             )
         if sid is not None and gid is None:
-            from pesummary.gw.gracedb import get_gracedb_data
-            try:
-                gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
-            except AttributeError:
-                gid = get_gracedb_data(sid, superevent=True, info="preferred_event_data")
+            gid = self._gid_from_sid(sid)
         if gid is not None:
             if trigger_parameters is None:
                 logger.info("Grabbing search data from gracedb for trigger_parameters")
@@ -415,6 +413,13 @@ class FilterNode(Node):
             )
         return filename
 
+    def _gid_from_sid(self, sid):
+        from pesummary.gw.gracedb import get_gracedb_data
+        try:
+            return get_gracedb_data(sid, superevent=True, info="preferred_event")
+        except AttributeError:
+            return get_gracedb_data(sid, superevent=True, info="preferred_event_data")
+
     def _get_bayestar_localization(self, sid, gid):
         if sid is None and gid is None:
             raise ValueError(
@@ -423,11 +428,7 @@ class FilterNode(Node):
             )
         from pesummary.gw.gracedb import get_gracedb_data
         if gid is None:
-            try:
-                gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
-            except AttributeError:
-                gid = get_gracedb_data(sid, superevent=True,
-                                       info="preferred_event_data")
+            gid = self._gid_from_sid(sid)
 
         from ligo.gracedb.rest import GraceDb
         from ligo.gracedb.exceptions import HTTPError
@@ -444,6 +445,38 @@ class FilterNode(Node):
                     r = client.files(gid, "bayestar_pycbc_C01.fits.gz")
             f.write(r.read())
         return loc_filename
+
+    def _get_search_psd(self, sid, gid):
+        if sid is None and gid is None:
+            raise ValueError(
+                "No PSD/ASD provided and unable to grab one from GraceDB because "
+                "no SID/GID has been provided. Please either provide PSD/ASDs via "
+                "the --psd/--asd flags or a SID/GID via the --sid/--gid flags"
+            )
+        if sid is not None and gid is None:
+            gid = self._gid_from_sid(sid)
+        logger.info("Grabbing PSD/ASD data from coinc.xml file")
+        from ligo.gracedb.rest import GraceDb
+        from gwpy.frequencyseries import FrequencySeries
+        client = GraceDb("https://gracedb.ligo.org/api/")
+        coinc_filename = f"{self.opts.outdir}/output/{gid}_coinc.xml"
+        client = GraceDb("https://gracedb.ligo.org/api/")
+        with open(coinc_filename, "wb") as f:
+            r = client.files(gid, filename="coinc.xml")
+            f.write(r.read())
+        psd_dict = {}
+        for ifo in ["H1", "L1", "V1"]:
+            try:
+                psd = FrequencySeries.read(coinc_filename, instrument=ifo)
+                psd_filename = f"{self.opts.outdir}/output/{ifo}_psd.txt"
+                psd.write(target=psd_filename, format="txt")
+                psd_dict[ifo] = psd_filename
+                logger.info(f"Found PSD for {ifo}")
+            except ValueError:
+                continue
+        if not len(psd_dict):
+            raise ValueError(f"Unable to extract PSD from {coinc_filename}")
+        return psd_dict
 
 
 class DataFindNode(Node):
