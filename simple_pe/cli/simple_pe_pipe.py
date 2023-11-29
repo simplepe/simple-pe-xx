@@ -443,8 +443,8 @@ class FilterNode(Node):
             )
 
         if trigger_parameters is None:
-            # read parameters from graceDB using gid/sid
-            trigger_parameters = get_trigger_parameters(gid, sid)
+            # read parameters from graceDB using sid/gid
+            trigger_parameters = get_trigger_parameters(sid, gid)
 
         if isinstance(trigger_parameters, dict):
             filename = f"{self.opts.outdir}/output/trigger_parameters.json"
