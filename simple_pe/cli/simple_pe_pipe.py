@@ -552,7 +552,6 @@ class DataFindNode(Node):
     def universe(self):
         return "local"
 
-
     @property
     def arguments(self):
         string_args = ["outdir", "trigger_time", "injection"]
