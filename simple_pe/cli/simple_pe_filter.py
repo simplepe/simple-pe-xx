@@ -455,7 +455,7 @@ def calculate_localisation_information(
         name of file containing Bayestar localization information
     """
 
-    # generate network
+    # generate network and sensitivity
     ifos = list(psd.keys())
     net = Network(threshold=10.)
 
@@ -468,41 +468,61 @@ def calculate_localisation_information(
         net.add_ifo(ifo, hor, f_mean, f_band, bns_range=False,
                     loc_thresh=threshold)
 
-    # Add localization
-    if bayestar_localization and any(param in trigger_parameters
-                                     for param in ["ra", "dec"]):
-        raise ValueError(
-            "Please specify either 'bayestar_localization' or provide "
-            "an estimate of 'ra' and 'dec' but not both"
-        )
-
-    # Fixed RA-dec
-    if any(param in trigger_parameters for param in ["ra", "dec"]):
-        if not all(param in trigger_parameters for param in
-                   ["ra", "dec"]):
+    if bayestar_localization or any(param in trigger_parameters
+                                    for param in ["ra", "dec"]):
+        # Use the localization that has been provided
+        if bayestar_localization and any(param in trigger_parameters
+                                         for param in ["ra", "dec"]):
             raise ValueError(
-                "Please provide an estimate for both 'ra' and  'dec', "
-                "the best matching template"
+                "Please specify either 'bayestar_localization' or provide "
+                "an estimate of 'ra' and 'dec' but not both"
             )
-        else:
+
+        # Fixed RA-dec
+        if any(param in trigger_parameters for param in ["ra", "dec"]):
+            if not all(param in trigger_parameters for param in
+                       ["ra", "dec"]):
+                raise ValueError(
+                    "Please provide an estimate for both 'ra' and  'dec', "
+                    "the best matching template"
+                )
+
             ra = [trigger_parameters['ra']]
             dec = [trigger_parameters['dec']]
 
-    # use ra, dec and distance from Bayestar
-    elif bayestar_localization:
-        from ligo.skymap.io.fits import read_sky_map
-        import astropy_healpix as ah
-        import healpy as hp
+        # use ra, dec and distance from Bayestar
+        else:
+            from ligo.skymap.io.fits import read_sky_map
+            import astropy_healpix as ah
+            import healpy as hp
 
-        probs, _ = read_sky_map(bayestar_localization)
-        npix = len(probs)
-        nside = ah.npix_to_nside(npix)
-        codec, ra = hp.pix2ang(nside, np.arange(npix))
-        pts = SamplesDict({'ra': ra, 'dec': np.pi/2 - codec})
-        pts = rejection_sampling(pts, probs).downsample(int(1e3))
-        ra = pts['ra']
-        dec = pts['dec']
-        # should add distance??
+            probs, _ = read_sky_map(bayestar_localization)
+            npix = len(probs)
+            nside = ah.npix_to_nside(npix)
+            codec, ra = hp.pix2ang(nside, np.arange(npix))
+            pts = SamplesDict({'ra': ra, 'dec': np.pi/2 - codec})
+            pts = rejection_sampling(pts, probs).downsample(int(1e3))
+            ra = pts['ra']
+            dec = pts['dec']
+            # should add distance??
+
+        # calculate network sensitivity at points
+        f_sig = np.zeros_like(ra)
+        alpha_net = np.zeros_like(ra)
+        snr_left = np.zeros_like(ra)
+        snr_right = np.zeros_like(ra)
+
+        for i, (_ra, _dec) in enumerate(zip(ra, dec)):
+            ee = event.Event.from_snrs(
+                net, event_snr["ifo_snr"], event_snr["ifo_time"],
+                peak_template['chirp_mass'], _ra, _dec
+            )
+            ee.calculate_sensitivity()
+            f_sig[i] = ee.sensitivity
+            alpha_net[i] = ee.alpha_net()
+            # need to account for time offsets in calculating SNRs
+            snr_left[i] = np.linalg.norm(ee.projected_snr('left'))
+            snr_right[i] = np.linalg.norm(ee.projected_snr('right'))
 
     else:
         ev = event.Event.from_snrs(
@@ -510,7 +530,7 @@ def calculate_localisation_information(
             peak_template['chirp_mass']
         )
         ev.calculate_mirror()
-        ev.localize_all()
+        ev.localize_all(methods=['coh', 'left', 'right'])
 
         if ev.localized >= 3:
             # generate points from localization region to calculate F+ and Fx
@@ -518,9 +538,17 @@ def calculate_localisation_information(
             if ev.mirror and (ev.mirror_loc['coh'].snr >
                               ev.localization['coh'].snr):
                 coh = ev.mirror_loc['coh']
+            # calculate max left/right SNR, allowing offset from central point
+            # to maximize SNR
+            snr_left = ev.localization['left'].calculate_max_snr()
+            snr_right = ev.localization['right'].calculate_max_snr()
+
             ra, dec = coh.generate_samples(npts=int(1e3), sky_weight=True)
 
         elif ev.localized == 1:
+            # one detector so no sensitivity to second polarization
+            snr_left = 0.
+            snr_right = 0.
             # source is only localized by the antenna pattern
             npts = int(1e4)
             ra = np.random.uniform(0, 2 * np.pi, npts)
@@ -543,23 +571,20 @@ def calculate_localisation_information(
                 f"SNRs are {', '.join([ifo + ':' + str(abs(event_snr['ifo_snr'][ifo])) for ifo in ifos])}"
             )
 
-    # calculate network sensitivity at points
-    f_sig = np.zeros_like(ra)
-    alpha_net = np.zeros_like(ra)
-    snr_left = np.zeros_like(ra)
-    snr_right = np.zeros_like(ra)
+        # calculate network sensitivity at points
+        f_sig = np.zeros_like(ra)
+        alpha_net = np.zeros_like(ra)
 
-    for i, (_ra, _dec) in enumerate(zip(ra, dec)):
-        ee = event.Event.from_snrs(
-            net, event_snr["ifo_snr"], event_snr["ifo_time"],
-            peak_template['chirp_mass'], _ra, _dec
-        )
-        ee.calculate_sensitivity()
-        f_sig[i] = ee.sensitivity
-        alpha_net[i] = ee.alpha_net()
-        snr_left[i] = np.linalg.norm(ee.projected_snr('left'))
-        snr_right[i] = np.linalg.norm(ee.projected_snr('right'))
+        for i, (_ra, _dec) in enumerate(zip(ra, dec)):
+            ee = event.Event.from_snrs(
+                net, event_snr["ifo_snr"], event_snr["ifo_time"],
+                peak_template['chirp_mass'], _ra, _dec
+            )
+            ee.calculate_sensitivity()
+            f_sig[i] = ee.sensitivity
+            alpha_net[i] = ee.alpha_net()
 
+    # add information to peak template:
     peak_template.add_fixed('f_net', np.mean(f_sig) / peak_template['sigma'])
     peak_template.add_fixed("response_sigma",
                             np.std(f_sig) / np.mean(f_sig))
@@ -606,47 +631,6 @@ def _calculate_mode_snr(
         strain_f, psd, h_perp, t_start, t_end, f_low, harmonics, **kwargs
     )
     return aligned, perp
-
-
-def estimate_face_on_distance(
-    peak_template, event_snr, psd, approximant, f_low, delta_f, f_high
-):
-    """Estimate the face-on distance for the peak template
-
-    Parameters
-    ----------
-    peak_template: dict
-        dictionary of parameters correspond to peak template
-    event_snr: dict
-        dictionary containing the SNRs associated with the peak template
-    psd: dict
-        dictionary of PSDs
-    approximant: str
-        approximant to use for the analysis
-    f_low: float
-        low frequency cutoff to use for the analysis
-    delta_f: float
-        difference between frequency samples to use for the analysis
-    f_high: float
-        high frequency cutoff to use for the analysis
-    """
-    h = make_waveform(
-        peak_template, delta_f, f_low, len(list(psd.values())[0]),
-        approximant=approximant
-    )
-    sigma_hm = sigma(
-        h, io.calculate_harmonic_mean_psd(psd), low_frequency_cutoff=f_low,
-        high_frequency_cutoff=f_high
-        )
-    f_net = np.sqrt(
-        peak_template["f_plus"]**2 + peak_template["f_cross"]**2
-    ) / sigma_hm
-    return {
-        "distance_face_on": (
-            peak_template['distance'] * f_net * sigma_hm / event_snr['network']
-        ),
-        "sigma": sigma_hm
-    }
 
 
 def main(args=None):
