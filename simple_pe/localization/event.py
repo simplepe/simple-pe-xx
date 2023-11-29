@@ -17,8 +17,17 @@ def snr_projection(f_sig, method):
     Function to calculate the SNR projection matrix p for a given set
     of detector responses, f_sig
 
-    :param f_sig: a Nx2 array of detector responses [F+, Fx] x sigma
-    :param method: the way we project (one of "time", "coh", "left", "right")
+    Parameters
+    ----------
+     f_sig: array
+        a Nx2 array of detector responses [F+, Fx] x sigma
+     method: str
+        the way we project (one of "time", "coh", "left", "right")
+
+    Returns
+    -------
+    p: array
+        SNR projection matrix
     """
     if len(f_sig) == 1:
         # single detector, so projection is identity
@@ -46,12 +55,33 @@ def snr_projection(f_sig, method):
 ##################################################################
 class Event(object):
     """
-    class to hold the details of the event
+    Class to hold the details of the event.  This contains the sky location,
+    orientation, mass of the event.  The Event class can also have details of
+    the active GW network, including the detectors, sensivitities and SNRs
+    added.  These can be used to calculate the localization of the event.
     """
-
     def __init__(self, dist, ra, dec, phi, psi, cosi, mchirp, t_gps):
         """
         Initialize event.
+
+    Parameters
+    ----------
+     dist: float
+        distance to event
+     ra: float
+        right ascension
+     dec: float
+        declination
+     phi: float
+        coalescence phase
+     psi: float
+        polarization
+     cosi: float
+        cos of inclination angle
+     mchirp: float
+        chirp mass
+     t_gps: float
+        GPS time of event (coalescence time)
         """
         self.D = float(dist)
         self.ra = float(ra)
@@ -86,7 +116,11 @@ class Event(object):
         """
         Give a set of parameters, as used in the first 2 years paper,
         and use these to initialize an event
-        :param params: parameters in form used by first 2 years paper
+
+        Parameters
+        ----------
+        params: dict
+            parameters in form used by first 2 years paper
         """
         try:
             t = Time(params['gps'], format='gps')
@@ -108,9 +142,15 @@ class Event(object):
         """
         Generate an event with random distance, orientation at given time and
         mass
-        :param d_max: maximum distance
-        :param mass: component mass (assumed equal mass)
-        :param t_gps: GPS time of event
+
+        Parameters
+        ----------
+         d_max: float
+            maximum distance
+         mass: float
+            component mass (assumed equal mass)
+         t_gps: float
+            GPS time of event
         """
         return cls(dist=rnd.uniform(0, 1) ** (1. / 3) * d_max,
                    ra=rnd.uniform(0, 2 * np.pi),
@@ -126,14 +166,25 @@ class Event(object):
     def from_snrs(cls, net, snrs, times, mchirp, ra=None, dec=None):
         """
         Give a network with SNR and time in each detector and use this
-        to populate the event information
+        to populate the event information.  If ra and dec are provided,
+        they are used.  If not, then sky location is inferred from the time
+        of arrival in different detectors.  For fewer than 3 detectors,
+        sky location is chosen arbitrarily among possible points.
 
-        :param net: a network with SNR and time for each detector
-        :param snrs: the complex snr in each detector
-        :param times: the time in each detector
-        :param mchirp: the chirp mass of the event
-        :param ra: the right ascenscion of the source
-        :param dec: the declination of the source
+        Parameters
+        ----------
+        net: network.Network
+            a network with SNR and time for each detector
+        snrs: dict
+            the complex snr in each detector
+        times: dict
+            the time in each detector
+        mchirp: float
+            the chirp mass of the event
+        ra: float
+            the right ascenscion of the source (optional)
+        dec: float
+            the declination of the source (optional)
         """
         for i in net.ifos:
             getattr(net, i).snr = snrs[i]
@@ -145,8 +196,10 @@ class Event(object):
         elif ra and dec:
             pass
         else:
-            print("must provide either both RA and Dec or neither.")
-
+            raise ValueError(
+                "Please either provide an estimate for both 'ra' and  'dec', "
+                "or neither."
+            )
         ev = cls(dist=0.,
                  ra=ra,
                  dec=dec,
@@ -163,10 +216,13 @@ class Event(object):
 
     def add_network(self, network):
         """
-        calculate the sensitivities and SNRs for the various detectors in
+        Calculate the sensitivities and SNRs for the various detectors in
         network
 
-        :param network: structure containing details of the network
+        Parameters
+        ----------
+        network: network.Network
+            an object containing details of the network
         """
         self.threshold = network.threshold
         self.found = 0
@@ -202,30 +258,49 @@ class Event(object):
 
     def get_data(self, data):
         """
-        get the relevant data for each detector and return it as an array
+        Get the relevant data for each detector and return it as an array
 
-        :param data: string describing required data
-        :returns: array with the data (for all ifos)
+        Parameters
+        ----------
+        data: str
+            string giving name of data field
+
+        Returns
+        -------
+        np.array
+            with the data (for all ifos)
         """
         return np.array([getattr(getattr(self, i), data) for i in self.ifos])
 
     def get_fsig(self, mirror=False):
         """
-        get the F_plus/cross times sigma for each detector
+        Get F_plus/F_cross multiplied by sigma (sensitivity) for each detector
 
-        :param mirror: boolean indicating whether we are considering the
-            mirror location
-        :return array with the sensitivities of the detectors
+        Parameters
+        ----------
+        mirror: boolean
+            indicating whether we are considering the mirror location
+
+        Returns
+        -------
+        np.array
+            with the sensitivities of the detectors
         """
         return np.array([getattr(self, i).get_fsig(mirror) for i in self.ifos])
 
     def get_f(self, mirror=False):
         """
-        get the network sensitivity to plus and cross in dominant polarization
+        Get the network sensitivity to plus and cross in dominant polarization
 
-        :param mirror: boolean indicating whether we are considering the
-            mirror location
-        :return length 2 array containing F_+, F_x response
+        Parameters
+        ----------
+        mirror: boolean
+            indicating whether we are considering the mirror location
+
+        Returns
+        -------
+        np.array
+            length 2 array containing F_+, F_x response
         """
         m = np.zeros((2, 2))
         fsig = self.get_fsig(mirror)
@@ -242,11 +317,17 @@ class Event(object):
 
     def alpha_net(self, mirror=False):
         """
-        get the relative network sensitivity to the second polarization
+        Get the relative network sensitivity to the second polarization
 
-        :param mirror: boolean indicating whether we are considering the
-            mirror location
-        :return value of alpha_network
+        Parameters
+        ----------
+         mirror: boolean
+            indicating whether we are considering the mirror location
+
+        Returns
+        -------
+        float
+            value of alpha_network
         """
         fp, fc = self.get_f(mirror)
 
@@ -254,10 +335,17 @@ class Event(object):
 
     def get_snr(self, dt_i=None):
         """
-        get the relevant data for each detector and return it as an array
+        Calculate the snr for each detector at the requested time offset
 
-        :param dt_i: time shift to be applied in each detector
-        :return the complex snr for each detector
+        Parameters
+        ----------
+        dt_i: np.array
+            time shift to be applied in each detector
+            
+        Returns
+        -------           
+        np.array
+            the complex snr for each detector
         """
         z = np.array([getattr(self, i).snr for i in self.ifos])
         if dt_i is not None:
@@ -272,11 +360,18 @@ class Event(object):
         Calculate the projected SNR for a given method at either original or
         mirror sky location
 
-        :param method: localization method to use
-        :param mirror: boolean indicating whether we are considering the
-            mirror location
-        :param dt_i: time shift to be applied in each detector
-        :return the projected complex snr for each detector
+        Parameters
+        ----------
+        method: str
+            localization method to use
+        mirror: boolean 
+            indicating whether we are considering the mirror location
+        dt_i: time shift to be applied in each detector
+        
+        Returns
+        -------           
+        np.array
+            the complex snr for each detector
         """
         f_sig = self.get_fsig(mirror)
         p = snr_projection(f_sig, method)
@@ -285,12 +380,12 @@ class Event(object):
 
     def calculate_mirror(self):
         """
-        calculate the mirror location and detector sensitivity there
+        Calculate the mirror location and detector sensitivity there
         """
         if len(self.ifos) == 3:
-            l = self.get_data("location")
-            x = l[1] - l[0]
-            y = l[2] - l[0]
+            location = self.get_data("location")
+            x = location[1] - location[0]
+            y = location[2] - location[0]
             normal = np.cross(x, y)
             normal /= np.linalg.norm(normal)
             self.mirror_xyz = self.xyz - 2 * np.inner(self.xyz, normal) * normal
@@ -304,7 +399,8 @@ class Event(object):
 
     def calculate_sensitivity(self):
         """
-        calculate the network sensitivity
+        Calculate the network sensitivity to the event, given the sky
+        location and masses.
         """
         self.sensitivity = np.linalg.norm(self.get_fsig())
         if self.mirror:
@@ -313,16 +409,30 @@ class Event(object):
     def localization_factors(self, method, mirror=False):
         """
         Calculate all the localization factors for a given source
-        and network of detectors, given the
-        complex snr, sensitivity, bandwidth, mean frequency, location
-        of the detectors.
-        Here, we keep all the projection operators -- required if Z is not
-        compatible with being a signal from the given sky location
+        and network of detectors, given the complex snr, sensitivity,
+        bandwidth, mean frequency, location of the detectors.
+        Definition of terms given in equations (B.5) and (B.6) of
+        "Localization of transient gravitational
+        wave sources: beyond triangulation", Class. Quantum Grav. 35 (2018)
+        105002.
 
-        :param method: localization method to use
-        :param mirror: boolean indicating whether we are considering the
-            mirror location
-        :return localization factors A_i, C_ij, c_i, c
+        Parameters
+        ----------
+        method: string
+            localization method to use
+        mirror: boolean
+            indicating whether we are considering the mirror location
+            
+        Returns
+        -------
+        b_i: np.array
+            the localization factor B_i (equation (B.5))
+        c_ij: np.array
+            the localization matrix C_ij (equation (B.6))
+        c_i: np.array
+            the localization factor c_i (equation (B.17))
+        c: float
+            the localization factor c (equation (B.17))
         """
         f_mean = self.get_data("f_mean")
         f_band = self.get_data("f_band")
@@ -336,28 +446,32 @@ class Event(object):
         p = snr_projection(f_sig, method)
 
         # work out the localization factors
-        B_i = 4 * np.pi ** 2 * np.real(np.sum(np.outer(f_sq * z.conjugate(), z)
+        k_i = 4 * np.pi ** 2 * np.real(np.sum(np.outer(f_sq * z.conjugate(), z)
                                               * p, axis=1))
-        c_ij = 4 * np.pi ** 2 * np.real(np.outer(f_mean * z.conjugate(),
+        k_ij = 4 * np.pi ** 2 * np.real(np.outer(f_mean * z.conjugate(),
                                                  f_mean * z) * p)
-        C_ij = B_i * np.eye(len(B_i)) - c_ij
-        c_i = np.sum(C_ij, axis=1)
+        c_ij = k_i * np.eye(len(k_i)) - k_ij
+        c_i = np.sum(c_ij, axis=1)
         c = np.sum(c_i)
 
-        A_i = 4 * np.pi * np.imag(np.sum(np.outer(f_mean * z.conjugate(), z)
+        b_i = 4 * np.pi * np.imag(np.sum(np.outer(f_mean * z.conjugate(), z)
                                          * p, axis=1))
 
-        return A_i, C_ij, c_i, c
+        return b_i, c_ij, c_i, c
 
     def localize(self, method, mirror=False, p=0.9):
         """
         Calculate localization of source at given probability with
         chosen method
 
-        :param method: localization method to use
-        :param mirror: boolean indicating whether we are considering the
-            mirror location
-        :param p: probability region to calculate
+        Parameters
+        ----------
+        method: str
+            localization method to use
+        mirror: boolean
+            indicating whether we are considering the mirror location
+        p: float
+        probability region to calculate (default 0.9)
         """
         if mirror:
             self.mirror_loc[method] = loc.Localization(method, self,
@@ -371,7 +485,10 @@ class Event(object):
         Calculate the area from original and mirror locations for the given
         method
 
-        :param method: localization method to use
+        Parameters
+        ----------
+        method: str
+            localization method to use
         """
         patches = 1
         p = self.localization[method].p
@@ -410,40 +527,57 @@ class Event(object):
 
     def marg_loc(self, mirror=False, p=0.9):
         """
-        Calculate the marginalized localization.
+        Calculate the marginalized localization.  Method described
+        in "Localization of transient gravitational
+        wave sources: beyond triangulation", Class. Quantum Grav. 35 (2018).
 
-        :param mirror: boolean indicating whether we are considering the
-            mirror location
-        :param p: probability region to calculate
+        Parameters
+        ----------
+        mirror: boolean
+            indicating whether we are considering the mirror location
+        p: float
+            probability region to calculate (default=0.9)
         """
         if mirror:
             localize = "mirror_loc"
         else:
             localize = "localization"
-        l = getattr(self, localize)
-        # set coherent to zero if we don't trust it:
-        if (l["coh"].snr ** 2 - l["right"].snr ** 2 < 2) or \
-                (l["coh"].snr ** 2 - l["left"].snr ** 2 < 2):
-            l["coh"].like = 0
+
+        localization = getattr(self, localize)
+        if (localization["coh"].snr ** 2 - localization["right"].snr ** 2 < 2) \
+                or (localization["coh"].snr ** 2 - localization["left"].snr **
+                    2 < 2):
+            # set coherent to zero if we don't trust it:
+            localization["coh"].like = 0
+
         keys = ["left", "right", "coh"]
-        r_max = 1.1 * np.sqrt(np.nanmax([l[k].area for k in keys]) / np.pi)
-        r_min = 0.9 * np.sqrt(np.nanmin([l[k].area for k in keys]) / np.pi)
-        r = brentq(f, r_min, r_max, (keys, l, p))
-        l["marg"] = loc.Localization("marg", self, mirror, p,
-                                     area=np.pi * r ** 2)
-        l["marg"].like = logsumexp([l[k].like + np.log(l[k].area) -
-                                    np.log(-2 * np.pi * np.log(1 - l[k].p))
-                                    for k in keys])
-        l["marg"].like -= np.log(l["marg"].area) - \
-                          np.log(-2 * np.pi * np.log(1 - p))
+        r_max = 1.1 * np.sqrt(np.nanmax([localization[k].area for k in keys])
+                              / np.pi)
+        r_min = 0.9 * np.sqrt(np.nanmin([localization[k].area for k in keys])
+                              / np.pi)
+        r = brentq(f, r_min, r_max, (keys, localization, p))
+        localization["marg"] = loc.Localization("marg", self, mirror, p,
+                                                area=np.pi * r ** 2)
+        localization["marg"].like = logsumexp([localization[k].like +
+                                               np.log(localization[k].area) -
+                                               np.log(-2 * np.pi *
+                                                      np.log(1 -
+                                                             localization[
+                                                                 k].p)) for k in keys])
+        localization["marg"].like -= np.log(localization["marg"].area) - \
+                                     np.log(-2 * np.pi * np.log(1 - p))
 
     def localize_all(self, p=0.9, methods=None):
         """
-        Calculate all localizations
+        Calculate localization with given set of methods.
 
-        :param p: probability region to calculate
-        :param methods: methods to use
-            (out of 'time', 'coh', 'left', 'right', 'marg')
+        Parameters
+        ----------
+        p: float
+            probability region to calculate
+        methods: list
+            A list of localization methods to use from 'time', 'coh', 'left',
+            'right', 'marg'.  Default is to calculate all.
         """
         if methods is None:
             methods = ["time", "coh", "left", "right", "marg"]
@@ -471,19 +605,31 @@ class Event(object):
             self.combined_loc(method)
 
 
-def f(r, keys, l, p):
+def f(r, keys, localization, p):
     """
     Function used in marginalization of localizations
+    TODO: Fix documentation, and check if this function is used
 
-    :param r: radius
-    :param keys: the different localization methods to consider
-    :param l: localization object
-    :param p: probability
+    Parameters
+    ----------
+     r: float
+        radius
+     keys: list
+        the different localization methods to consider
+     localization: loc.Localization
+        object storing localization information
+     p: float
+        probability
+
+    Returns
+    -------
+    float
+        f
     """
     f = 0
-    lmax = max([l[k].like for k in keys])
+    lmax = max([localization[k].like for k in keys])
     for k in keys:
-        s2 = l[k].area / (-2 * np.pi * np.log(1 - l[k].p))
-        f += np.exp(l[k].like - lmax) * s2 * \
+        s2 = localization[k].area / (-2 * np.pi * np.log(1 - localization[k].p))
+        f += np.exp(localization[k].like - lmax) * s2 * \
              (1 - p - np.exp(-r ** 2 / (2 * s2)))
     return f
