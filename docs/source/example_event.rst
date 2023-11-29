@@ -43,7 +43,7 @@ reducing the minimum data length speeds up the analysis.
 
 In order to run the analysis, you require the PSDs for the operating
 detectors at the time of the event.  These can be obtained from an online
-parameter estimation run on the event.  Alternatively, you could you
+parameter estimation run on the event.  Alternatively, you could use
 representative E15 (or O4) noise curves, but that will likely lead to some
 systematic effects in the parameter recovery.  [Work is ongoing
 to enable simple-pe to generate its own PSDs from the available data round
