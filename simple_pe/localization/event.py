@@ -409,25 +409,26 @@ class Event(object):
     def localization_factors(self, method, mirror=False):
         """
         Calculate all the localization factors for a given source
-        and network of detectors, given the complex snr, sensitivity, 
+        and network of detectors, given the complex snr, sensitivity,
         bandwidth, mean frequency, location of the detectors.
-        Definition of terms given in "Localization of transient gravitational 
-        wave sources: beyond triangulation", Class. Quantum Grav. 35 (2018) 
-        105002.  
+        Definition of terms given in equations (B.5) and (B.6) of
+        "Localization of transient gravitational
+        wave sources: beyond triangulation", Class. Quantum Grav. 35 (2018)
+        105002.
 
         Parameters
         ----------
         method: string
             localization method to use
-        mirror: boolean 
+        mirror: boolean
             indicating whether we are considering the mirror location
             
         Returns
-        ------- 
-        a_i: np.array
-            the localization factor A_i
+        -------
+        b_i: np.array
+            the localization factor B_i (equation (B.5))
         c_ij: np.array
-            the localization matrix C_ij
+            the localization matrix C_ij (equation (B.6))
         c_i: np.array
             the localization factor C_i
         c: float
@@ -445,18 +446,18 @@ class Event(object):
         p = snr_projection(f_sig, method)
 
         # work out the localization factors
-        b_i = 4 * np.pi ** 2 * np.real(np.sum(np.outer(f_sq * z.conjugate(), z)
+        k_i = 4 * np.pi ** 2 * np.real(np.sum(np.outer(f_sq * z.conjugate(), z)
                                               * p, axis=1))
-        c_ij = 4 * np.pi ** 2 * np.real(np.outer(f_mean * z.conjugate(),
+        k_ij = 4 * np.pi ** 2 * np.real(np.outer(f_mean * z.conjugate(),
                                                  f_mean * z) * p)
-        c_ij = b_i * np.eye(len(b_i)) - c_ij
+        c_ij = k_i * np.eye(len(k_i)) - k_ij
         c_i = np.sum(c_ij, axis=1)
         c = np.sum(c_i)
 
-        a_i = 4 * np.pi * np.imag(np.sum(np.outer(f_mean * z.conjugate(), z)
+        b_i = 4 * np.pi * np.imag(np.sum(np.outer(f_mean * z.conjugate(), z)
                                          * p, axis=1))
 
-        return a_i, c_ij, c_i, c
+        return b_i, c_ij, c_i, c
 
     def localize(self, method, mirror=False, p=0.9):
         """
