@@ -163,7 +163,7 @@ class Localization(object):
         beyond triangulation", Class. Quantum Grav. 35 (2018) 105002
         this is a generalization of the timing based localization
         """
-        a_i, c_ij, c_i, c = self.event.localization_factors(self.method,
+        b_i, c_ij, c_i, c = self.event.localization_factors(self.method,
                                                             self.mirror)
         cc = 1. / 2 * (np.outer(c_i, c_i) / c - c_ij)
         # Calculate the Matrix M (given in the coherent localization paper)
@@ -186,14 +186,14 @@ class Localization(object):
         coherent or left/right circular polarizations, the peak can be offset.
         """
         self.z = self.event.projected_snr(self.method, self.mirror)
-        a_i, c_ij, c_i, c = self.event.localization_factors(self.method,
+        b_i, c_ij, c_i, c = self.event.localization_factors(self.method,
                                                             self.mirror)
         try:
-            self.dt_i = 1. / 2 * np.inner(np.linalg.inv(c_ij), a_i)
+            self.dt_i = 1. / 2 * np.inner(np.linalg.inv(c_ij), b_i)
         except:
             print("for method %s: Unable to invert C, setting dt=0" %
                   self.method)
-            self.dt_i = np.zeros_like(a_i)
+            self.dt_i = np.zeros_like(b_i)
         z = self.event.projected_snr(self.method, self.mirror)
         f_band = self.event.get_data("f_band")
         if max(abs(self.dt_i * (2 * np.pi * f_band))) < 1. / np.sqrt(2):
@@ -220,10 +220,10 @@ class Localization(object):
         dt_0: float
             The overall time offset that maximizes the SNR
         """
-        a_i, c_ij, c_i, c = self.event.localization_factors(self.method,
+        b_i, c_ij, c_i, c = self.event.localization_factors(self.method,
                                                             self.mirror)
-        a = sum(a_i)
-        dt_0 = a / (2 * c) - np.inner(c_i, dt_i) / c
+        b = sum(b_i)
+        dt_0 = b / (2 * c) - np.inner(c_i, dt_i) / c
         return dt_0
 
     def calculate_snr(self, dt_i):
