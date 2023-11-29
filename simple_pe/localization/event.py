@@ -430,9 +430,9 @@ class Event(object):
         c_ij: np.array
             the localization matrix C_ij (equation (B.6))
         c_i: np.array
-            the localization factor C_i
+            the localization factor c_i (equation (B.17))
         c: float
-            the localization factor C
+            the localization factor c (equation (B.17))
         """
         f_mean = self.get_data("f_mean")
         f_band = self.get_data("f_band")
