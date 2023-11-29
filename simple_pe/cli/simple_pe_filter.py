@@ -318,7 +318,7 @@ def calculate_subdominant_snr(
         list of multipoles to calculate the SNR for. Default
         ['22', '33', '44']
     """
-    if not multipoles:
+    if multipoles is None:
         multipoles = ['22', '33', '44']
 
     ifos = list(strain_f.keys())
@@ -377,7 +377,7 @@ def calculate_precession_snr(
     harmonics: list, optional
         precession harmonics to calculate. Default ['0', '1']
     """
-    if not harmonics:
+    if harmonics is None:
         harmonics = [0, 1]
 
     delta_f = list(strain_f.values())[0].delta_f
