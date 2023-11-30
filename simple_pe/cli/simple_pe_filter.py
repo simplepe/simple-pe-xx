@@ -546,9 +546,9 @@ def calculate_localisation_information(
             ra, dec = coh.generate_samples(npts=int(1e3), sky_weight=True)
 
         elif ev.localized == 1:
-            # one detector so no sensitivity to second polarization
-            snr_left = 0.
-            snr_right = 0.
+            # one detector so snr is consistent with left/right polarization
+            snr_left = event_snr['network']
+            snr_right = event_snr['network']
             # source is only localized by the antenna pattern
             npts = int(1e4)
             ra = np.random.uniform(0, 2 * np.pi, npts)
@@ -593,10 +593,10 @@ def calculate_localisation_information(
                             peak_template["distance"] * peak_template["f_net"] *
                             peak_template['sigma'] / event_snr["network"]
                             )
-    _snrs = {"not_left": np.sqrt(np.mean(event_snr['network']**2 -
-                                         snr_left ** 2)),
-             "not_right": np.sqrt(np.mean(event_snr['network']**2 -
-                                          snr_right ** 2))
+    _snrs = {"not_left": np.sqrt(np.min(event_snr['network']**2 -
+                                        snr_left ** 2)),
+             "not_right": np.sqrt(np.min(event_snr['network']**2 -
+                                         snr_right ** 2))
              }
 
     return _snrs
