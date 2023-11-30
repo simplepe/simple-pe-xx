@@ -371,6 +371,7 @@ class FilterNode(Node):
     def _prepare_trigger_parameters(self, sid, gid, trigger_parameters):
         """
         """
+        from pesummary.gw.gracedb import get_gracedb_data
         import json
         os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
         if trigger_parameters is not None and isinstance(trigger_parameters, dict):
@@ -436,14 +437,16 @@ class FilterNode(Node):
         loc_filename = f"{self.opts.outdir}/output/{gid}_bayestar.fits"
         client = GraceDb("https://gracedb.ligo.org/api/")
         with open(loc_filename, "wb") as f:
-            try:
-                r = client.files(gid, "bayestar.fits")
-            except HTTPError:
+            options = ["bayestar.fits", "bayestar.fits.gz", "bayestar.multiorder.fits,0", "bayestar_pycbc_C01.fits.gz"]
+            for opt in options:
                 try:
-                    r = client.files(gid, "bayestar.multiorder.fits,0")
+                    r = client.files(gid, opt)
                 except HTTPError:
-                    r = client.files(gid, "bayestar_pycbc_C01.fits.gz")
-            f.write(r.read())
+                    continue
+            try:
+                f.write(r.read())
+            except Exception:
+                raise
         return loc_filename
 
     def _get_search_psd(self, sid, gid):

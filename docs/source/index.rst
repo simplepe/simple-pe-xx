@@ -30,6 +30,7 @@ interpretable results.
 
     zero_noise_injection
     GW150914
+    example_event
     localization
 
 
