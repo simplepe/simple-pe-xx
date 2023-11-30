@@ -698,12 +698,12 @@ def main(args=None):
     )
     event_snr.update(_snrs)
 
-    _snrs = calculate_localisation_information(
-        peak_parameters, psd, opts.approximant, opts.f_low,
-        event_snr, opts.snr_threshold, trigger_parameters,
-        opts.bayestar_localization
-    )
-    event_snr.update(_snrs)
+    #_snrs = calculate_localisation_information(
+    #    peak_parameters, psd, opts.approximant, opts.f_low,
+    #    event_snr, opts.snr_threshold, trigger_parameters,
+    #    opts.bayestar_localization
+    #)
+    #event_snr.update(_snrs)
 
     peak_parameters.write(
         outdir=opts.outdir, filename="peak_parameters.json", overwrite=True,

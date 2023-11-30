@@ -18,15 +18,15 @@ class Result(GWSingleAnalysisRead):
         self._snrs = data_from_matched_filter.get(
             "snrs", {}
         )
-        self._alpha_net = data_from_matched_filter.get(
-            "alpha_net", None
-        )
-        self._f_net = data_from_matched_filter.get(
-            "f_net", None
-        )
-        self._distance_face_on = data_from_matched_filter.get(
-            "distance_face_on", None
-        )
+        #self._alpha_net = data_from_matched_filter.get(
+        #    "alpha_net", None
+        #)
+        #self._f_net = data_from_matched_filter.get(
+        #    "f_net", None
+        #)
+        #self._distance_face_on = data_from_matched_filter.get(
+        #    "distance_face_on", None
+        #)
         self._sigma = data_from_matched_filter.get(
             "sigma", None
         )
