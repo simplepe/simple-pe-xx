@@ -453,14 +453,13 @@ class FilterNode(Node):
                 "no SID/GID has been provided. Please either provide PSD/ASDs via "
                 "the --psd/--asd flags or a SID/GID via the --sid/--gid flags"
             )
-        if sid is not None and gid is None:
+        elif gid is None:
             gid = self._gid_from_sid(sid)
         logger.info("Grabbing PSD/ASD data from coinc.xml file")
         from ligo.gracedb.rest import GraceDb
         from gwpy.frequencyseries import FrequencySeries
         client = GraceDb("https://gracedb.ligo.org/api/")
         coinc_filename = f"{self.opts.outdir}/output/{gid}_coinc.xml"
-        client = GraceDb("https://gracedb.ligo.org/api/")
         with open(coinc_filename, "wb") as f:
             r = client.files(gid, filename="coinc.xml")
             f.write(r.read())
