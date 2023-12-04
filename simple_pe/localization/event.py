@@ -193,7 +193,7 @@ class Event(object):
 
         if (ra is None) and (dec is None):
             ra, dec = sky_loc.localization_from_timing(net.ifos, times, f_band)
-        elif ra and dec:
+        elif (ra is not None) and (dec is not None):
             pass
         else:
             raise ValueError(
