@@ -254,7 +254,7 @@ def calculate_snrs_and_sigma(
     Parameters
     ----------
     peak_template: dict
-        dictionary of parameters correspond to peak template
+        dictionary of parameters corresponding to peak template
     psd: dict
         dictionary of PSDs
     approximant: approximant
