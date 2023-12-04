@@ -122,7 +122,7 @@ def get_trigger_parameters(sid, gid):
         gid = _gid_from_sid(sid)
 
     logger.info("Grabbing search data from gracedb for trigger_parameters")
-    logger.info("Using the gid: %s" % gid)
+    logger.info(f"Using the gid: {gid}")
     data = get_gracedb_data(gid)
     template_data = data["extra_attributes"]["SingleInspiral"][0]
     trigger_params = {
