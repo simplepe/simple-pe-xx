@@ -454,6 +454,16 @@ def calculate_localisation_information(
     bayestar_localization: string
         name of file containing Bayestar localization information
     """
+    # Check consistency of localization request:
+    single_sky_point = all(param in trigger_parameters for
+                           param in ["ra", "dec"])
+    if any(param in trigger_parameters for param in ["ra", "dec"]) and \
+            not single_sky_point:
+        raise ValueError("Please provide samples for both ra and dec")
+    elif bayestar_localization and single_sky_point:
+        raise ValueError(
+            "Please specify either 'bayestar_localization' or provide "
+            "an estimate of 'ra' and 'dec' but not both")
 
     # generate network and sensitivity
     ifos = list(psd.keys())
@@ -468,29 +478,12 @@ def calculate_localisation_information(
         net.add_ifo(ifo, hor, f_mean, f_band, bns_range=False,
                     loc_thresh=threshold)
 
-    if bayestar_localization or any(param in trigger_parameters
-                                    for param in ["ra", "dec"]):
-        # Use the localization that has been provided
-        if bayestar_localization and any(param in trigger_parameters
-                                         for param in ["ra", "dec"]):
-            raise ValueError(
-                "Please specify either 'bayestar_localization' or provide "
-                "an estimate of 'ra' and 'dec' but not both"
-            )
-
-        # Fixed RA-dec
-        if any(param in trigger_parameters for param in ["ra", "dec"]):
-            if not all(param in trigger_parameters for param in
-                       ["ra", "dec"]):
-                raise ValueError(
-                    "Please provide an estimate for both 'ra' and  'dec', "
-                    "the best matching template"
-                )
-
+    if bayestar_localization or single_sky_point:
+        # Use the localization information provided
+        if single_sky_point:
             ra = [trigger_parameters['ra']]
             dec = [trigger_parameters['dec']]
 
-        # use ra, dec and distance from Bayestar
         else:
             from ligo.skymap.io.fits import read_sky_map
             import astropy_healpix as ah
@@ -525,6 +518,7 @@ def calculate_localisation_information(
             snr_right[i] = np.linalg.norm(ee.projected_snr('right'))
 
     else:
+        # Localize based upon measured SNRs and times
         ev = event.Event.from_snrs(
             net, event_snr["ifo_snr"], event_snr["ifo_time"],
             peak_template['chirp_mass']
