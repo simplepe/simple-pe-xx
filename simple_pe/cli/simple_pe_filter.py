@@ -350,6 +350,7 @@ def calculate_subdominant_snr(
     _snr = {}
     for lm in multipoles:
         _snr[lm] = hm_net_snr_perp[lm]
+        _snr['overlap_{lm}'] = abs(zetas[lm])
 
     return _snr
 
@@ -423,7 +424,9 @@ def calculate_precession_snr(
     _, prec_net_snr_perp = waveforms.network_mode_snr(
         z_prec_perp, ifos, [0, 1], 0
     )
-    _snr = {"prec": prec_net_snr_perp[1]}
+    _snr = {"prec": prec_net_snr_perp[1],
+            "overlap_prec": abs(zeta[1])}
+
     return _snr
 
 
