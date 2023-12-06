@@ -344,8 +344,8 @@ def calculate_subdominant_snr(
             strain_f[ifo], psd[ifo], t_start, t_end, f_low, multipoles,
             h_hm, h_hm_perp
         )
-    _, _, _, hm_net_snr_perp = waveforms.network_mode_snr(
-        z_hm, z_hm_perp, ifos, multipoles, dominant_mode='22'
+    _, hm_net_snr_perp = waveforms.network_mode_snr(
+        z_hm_perp, ifos, multipoles, dominant_mode='22'
     )
     _snr = {}
     for lm in multipoles:
@@ -420,8 +420,8 @@ def calculate_precession_snr(
             strain_f[ifo], psd[ifo], t_start, t_end, f_low, [0, 1], hp, h_perp,
             dominant_mode=0
         )
-    _, _, _, prec_net_snr_perp = waveforms.network_mode_snr(
-        z_prec, z_prec_perp, ifos, [0, 1], 0
+    _, prec_net_snr_perp = waveforms.network_mode_snr(
+        z_prec_perp, ifos, [0, 1], 0
     )
     _snr = {"prec": prec_net_snr_perp[1]}
     return _snr
