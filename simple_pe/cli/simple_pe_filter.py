@@ -409,14 +409,14 @@ def calculate_precession_snr(
             f_lower=f_low, f_final=f_high
         )
 
+    h_perp, sig, zeta = waveforms.orthonormalize_modes(
+        hp, io.calculate_harmonic_mean_psd(psd), f_low, [0, 1],
+        dominant_mode=0
+        )
+
     z_prec = {}
     z_prec_perp = {}
-    overlap_prec = {}
     for ifo in ifos:
-        h_perp, sig, zeta = waveforms.orthonormalize_modes(
-            hp, psd[ifo], f_low, [0, 1], dominant_mode=0
-        )
-        overlap_prec[ifo] = zeta[1]
         z_prec[ifo], z_prec_perp[ifo] = _calculate_mode_snr(
             strain_f[ifo], psd[ifo], t_start, t_end, f_low, [0, 1], hp, h_perp,
             dominant_mode=0
