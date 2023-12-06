@@ -350,7 +350,7 @@ def calculate_subdominant_snr(
     _snr = {}
     for lm in multipoles:
         _snr[lm] = hm_net_snr_perp[lm]
-        _snr['overlap_{lm}'] = abs(zetas[lm])
+        _snr[f'overlap_{lm}'] = abs(zetas[lm])
 
     return _snr
 
