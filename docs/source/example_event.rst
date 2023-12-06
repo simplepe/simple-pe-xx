@@ -26,36 +26,36 @@ To set up the analysis, run :code:`simple_pe_pipe` with the following arguments
 .. code-block:: bash
 
     simple_pe_pipe --sid S230518h \
-                   --trigger_time 1368449966.167 \
                    --outdir ./outdir \
                    --approximant IMRPhenomXPHM \
                    --f_low 20 --f_high 1024 \
                    --minimum_data_length 256 \
+                   --use_bayestar_localization \
                    --channels H1:GDS-CALIB_STRAIN_CLEAN \
                                L1:GDS-CALIB_STRAIN_CLEAN \
-                   --psd H1:H1_psd.txt L1:L1_psd.txt
 
-Note: Minimum data length is set to be long enough to handle any
+The analysis locates the trigger information from the GraceDB identifier, and
+also obtains the power spectra from the same location.  The additional
+arguments specify the location of the output, details of the
+analysis: the waveform to be used, low and high frequency
+cutoffs), the length of data required for filtering and the channel name.
+Finally, we indicate that the Bayestar localization associated with the event
+should be used to provide sky location information.
+
+
+Minimum data length must be set to be long enough to handle any
 type of signal without truncation of the waveform.  In optimizing the SNR,
 the code explores the parameter space and may generate BNS waveforms.  If the
 event you are running is definitely a BBH merger, then you may find that
 reducing the minimum data length speeds up the analysis.
-
-In order to run the analysis, you require the PSDs for the operating
-detectors at the time of the event.  These can be obtained from an online
-parameter estimation run on the event.  Alternatively, you could use
-representative E15 (or O4) noise curves, but that will likely lead to some
-systematic effects in the parameter recovery.  [Work is ongoing
-to enable simple-pe to generate its own PSDs from the available data round
-the event.]
 
 Note: if you wish to submit this job on the LIGO data grid, you will also
 need to specify the arguments
 
 .. code-block:: bash
 
-                   --accounting_group
-                   --accounting_group_user
+                   --accounting_group UNKNOWN
+                   --accounting_group_user albert.einstein
 
 Alternatively, you can run from the command line, using the bash script that
 is generated and this does not require the specification of the accounting
@@ -79,16 +79,18 @@ To set up the analysis, run :code:`simple_pe_pipe` with the following arguments
 .. code-block:: bash
 
     simple_pe_pipe --sid S230522a  \
-                   --trigger_time 1368783503.135 \
                    --outdir ./outdir \
                    --approximant IMRPhenomXPHM \
                    --f_low 20 --f_high 1024 \
                    --minimum_data_length 256 \
-                   --channels L1:GDS-CALIB_STRAIN_CLEAN \
-                   --psd L1:L1_psd.txt
+                   --channels L1:GDS-CALIB_STRAIN_CLEAN
 
-The sid and trigger time are taken from the gracedb page for `S230522a <https://gracedb.ligo
-.org/superevents/S230522a/view/>`_.
+The sid is taken from the gracedb page for `S230522a <https://gracedb
+.ligo
+.org/superevents/S230522a/view/>`_.  Since this is a single detector event,
+the source is only localized
+probabilistically, based upon the instrumental sensitivity.  Consequently,
+localization information is not required.
 
 As before, if you wish to submit the job to run on the LIGO data grid, then
 specify the accounting information.  Otherwise, run on the command line with
@@ -97,8 +99,5 @@ specify the accounting information.  Otherwise, run on the command line with
 
     bash ./outdir/submit/bash_simple_pe.sh
 
-Since this is a single detector event, the source is only localized
-probabilistically, based upon the instrumental sensitivity.  Consequently,
-localization information is not required.  In addition the SNR in the second
-polarization is zero by definition.
+
 
