@@ -295,8 +295,9 @@ def calculate_alpha_lm_and_overlaps(mass1, mass2, spin1z, spin2z, ifo_psd,
 def calculate_mode_snr(strain_data, ifo_psd, waveform_modes, t_start, t_end,
                        f_low, modes, dominant_mode='22'):
     """
-    Calculate the SNR in each of the modes, and also the orthogonal SNR
-    strain_data: time series data from ifo
+    Calculate the SNR in each of the modes.  This is done by finding time of
+    the peak SNR for the dominant mode, and then calculating the SNR of other
+    modes at that time.
 
     Parameters
     ----------
@@ -349,22 +350,22 @@ def calculate_mode_snr(strain_data, ifo_psd, waveform_modes, t_start, t_end,
     return z, t_max
 
 
-def network_mode_snr(z, z_perp, ifos, modes, dominant_mode='22'):
+def network_mode_snr(z, ifos, modes, dominant_mode='22'):
     """
-    Calculate the SNR in each of the modes for the network and also project
-    onto space proportional to dominant mode
+    Calculate the Network SNR in each of the specified modes.  For the
+    dominant mode, this is simply the root sum square of the snrs in each
+    ifo.  For the other modes, we calculate both the rss SNR and the network
+    SNR which requires the relative phase between ifos is consistent with
+    the dominant.
 
     Parameters
     ----------
     z: dict
         dictionary of dictionaries of SNRs in each mode (in each ifo)
-    z_perp: dict
-        dictionary of dictionaries of perpendicular SNRs in each mode (
-        in each ifo)
     ifos: list
-        list of ifos
+        A list of ifos to use
     modes: list
-        list of modes
+        A list of modes to use
     dominant_mode: str
         the mode with most power (for orthogonalization)
 
@@ -372,37 +373,24 @@ def network_mode_snr(z, z_perp, ifos, modes, dominant_mode='22'):
     -------
     rss_snr: dict
         the root sum squared SNR in each mode
-    rss_snr_perp: dict
-        the root sum squared SNR orthogonal to the dominant mode
     net_snr: dict
         the SNR in each mode that is consistent (in amplitude and
         phase) with the dominant mode SNR
-    net_perp_snr: dict
-        the orthogonal SNR in each mode consistent with the dominant mode
     """
 
     z_array = {}
-    z_perp_array = {}
 
     rss_snr = {}
-    rss_snr_perp = {}
 
     for mode in modes:
         z_array[mode] = np.array([z[ifo][mode] for ifo in ifos])
-        z_perp_array[mode] = np.array([z_perp[ifo][mode] for ifo in ifos])
         rss_snr[mode] = np.linalg.norm(z_array[mode])
-        rss_snr_perp[mode] = np.linalg.norm(z_perp_array[mode])
 
     net_snr = {}
-    net_snr_perp = {}
 
     for mode in modes:
         net_snr[mode] = np.abs(np.inner(z_array[dominant_mode],
                                         z_array[mode].conjugate())) / \
                         rss_snr[dominant_mode]
-        net_snr_perp[mode] = \
-            np.abs(np.inner(z_perp_array[dominant_mode],
-                            z_perp_array[mode].conjugate())) / \
-            rss_snr_perp[dominant_mode]
 
-    return rss_snr, rss_snr_perp, net_snr, net_snr_perp
+    return rss_snr, net_snr
