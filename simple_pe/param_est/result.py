@@ -1,13 +1,13 @@
 import numpy as np
 from simple_pe.param_est import pe, metric
-from pesummary.utils.samples_dict import SamplesDict
 from pesummary.gw.file.formats.base_read import GWSingleAnalysisRead
 
 
 class Result(GWSingleAnalysisRead):
     """
     """
-    def __init__(self, f_low=None, psd=None, approximant=None, data_from_matched_filter={}):
+    def __init__(self, f_low=None, psd=None, approximant=None,
+                 data_from_matched_filter={}):
 
         self.f_low = f_low
         self.psd = psd
@@ -131,7 +131,8 @@ class Result(GWSingleAnalysisRead):
         )
         if reweight_to_isotropic_spin_prior:
             self.reweight_samples(
-                pe.isotropic_spin_prior_weight, dx_directions=self.metric.dx_directions
+                pe.isotropic_spin_prior_weight,
+                dx_directions=self.metric.dx_directions
             )
         self.generate_all_posterior_samples(
             function=pe.calculate_interpolated_snrs,
@@ -156,7 +157,8 @@ class Result(GWSingleAnalysisRead):
             hm_snr={'33': self.snrs['33']},
             prec_snr=self.snrs['prec'],
             snr_2pol={
-                "not_right": self.snrs['not_right'], "not_left": self.snrs["not_left"]
+                "not_right": self.snrs['not_right'],
+                "not_left": self.snrs["not_left"]
             }, ignore_debug_params=['p_', 'weight']
         )
         print(f"Total time taken: {time.time() - t0:.2f}s")
