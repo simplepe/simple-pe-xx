@@ -268,7 +268,7 @@ def calculate_snrs_and_sigma(
     t_end: float
         time to end the analysis.
     """
-    ifos = list(psd.keys())
+    ifos = list(strain_f.keys())
     delta_f = list(psd.values())[0].delta_f
     f_high = list(psd.values())[0].sample_frequencies[-1]
 
@@ -466,7 +466,7 @@ def calculate_localisation_information(
             "an estimate of 'ra' and 'dec' but not both")
 
     # generate network and sensitivity
-    ifos = list(psd.keys())
+    ifos = list(event_snr['ifo_snr'].keys())
     net = Network(threshold=10.)
 
     for ifo in ifos:
