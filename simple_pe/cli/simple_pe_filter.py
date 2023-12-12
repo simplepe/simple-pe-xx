@@ -700,8 +700,8 @@ def main(args=None):
         event_snr['ifo_snr_phase'][k] = np.angle(v)
 
     # add the overlaps of event_snr
-    event_snr.update(overlaps)
-
+    event_snr["overlaps"] = overlaps
+    
     pe.SimplePESamples(
         {key: [value] for key, value in event_snr.items()}
     ).write(
