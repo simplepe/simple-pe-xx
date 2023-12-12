@@ -59,7 +59,11 @@ class Result(GWSingleAnalysisRead):
     @property
     def right_snr(self):
         return self._snrs.get("right", None)
-    
+
+    @property
+    def overlaps(self):
+        return self._snrs.get("overlaps", None)
+
     @property
     def alpha_net(self):
         return self._alpha_net
@@ -159,7 +163,9 @@ class Result(GWSingleAnalysisRead):
             snr_2pol={
                 "not_right": self.snrs['not_right'],
                 "not_left": self.snrs["not_left"]
-            }, ignore_debug_params=['p_', 'weight']
+            },
+            overlaps=self.overlaps,
+            ignore_debug_params=['p_', 'weight']
         )
         print(f"Total time taken: {time.time() - t0:.2f}s")
         return self.samples_dict

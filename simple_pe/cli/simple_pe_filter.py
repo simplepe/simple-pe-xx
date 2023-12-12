@@ -701,7 +701,7 @@ def main(args=None):
 
     # add the overlaps of event_snr
     event_snr["overlaps"] = overlaps
-    
+
     pe.SimplePESamples(
         {key: [value] for key, value in event_snr.items()}
     ).write(

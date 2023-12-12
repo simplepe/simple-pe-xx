@@ -554,13 +554,14 @@ class SimplePESamples(SamplesDict):
                         np.tan(t_over_2)
 
     def calculate_hm_prec_probs(self, hm_snr=None, prec_snr=None, 
-                                snr_2pol=None):
+                                snr_2pol=None, overlaps=None):
         """
         Calculate the precession SNR
 
         :param hm_snr: dictionary of measured SNRs in higher modes
         :param prec_snr: measured precession SNR
         :param snr_2pol: the SNR in the second polarization
+        :param overlaps: dictionary of the measured overlaps between modes
         """
         weights = np.ones(self.number_of_samples)
 
@@ -568,14 +569,22 @@ class SimplePESamples(SamplesDict):
             hm_snr = np.nan_to_num(hm_snr, 0.)
             for lm, snr in hm_snr.items():
                 rv = ncx2(2, snr ** 2)
-                p = rv.pdf(self['rho_' + lm] ** 2)
+                if overlaps is not None:
+                    over = overlaps['lm']
+                else:
+                    over = 0.
+                p = rv.pdf(self['rho_' + lm] ** 2 * (1 - over ** 2))
                 self['p_' + lm] = p/p.max()
                 weights *= self['p_' + lm]
 
         if prec_snr is not None:
             prec_snr = np.nan_to_num(prec_snr, 0.)
             rv = ncx2(2, prec_snr ** 2)
-            p = rv.pdf(self['rho_p'] ** 2)
+            if overlaps is not None:
+                over = overlaps['prec']
+            else:
+                over = 0.
+            p = rv.pdf(self['rho_p'] ** 2 * (1 - over ** 2))
             self['p_p'] = p / p.max()
             weights *= self['p_p']
 
