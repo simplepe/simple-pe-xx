@@ -348,11 +348,12 @@ def calculate_subdominant_snr(
         z_hm_perp, ifos, multipoles, dominant_mode='22'
     )
     _snr = {}
+    _overlap = {}
     for lm in multipoles:
         _snr[lm] = hm_net_snr_perp[lm]
-        _snr[f'overlap_{lm}'] = abs(zetas[lm])
+        _overlap[lm] = abs(zetas[lm])
 
-    return _snr
+    return _snr, _overlap
 
 
 def calculate_precession_snr(
@@ -424,10 +425,10 @@ def calculate_precession_snr(
     _, prec_net_snr_perp = waveforms.network_mode_snr(
         z_prec_perp, ifos, [0, 1], 0
     )
-    _snr = {"prec": prec_net_snr_perp[1],
-            "overlap_prec": abs(zeta[1])}
+    _snr = {"prec": prec_net_snr_perp[1]}
+    _overlap = {"prec": abs(zeta[1])}
 
-    return _snr
+    return _snr, _overlap
 
 
 def calculate_localisation_information(
@@ -667,16 +668,17 @@ def main(args=None):
     )
     peak_parameters.add_fixed("sigma", _sigma)
 
-    _snrs = calculate_subdominant_snr(
+    _snrs, overlaps = calculate_subdominant_snr(
         peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
         trig_start, trig_end
     )
     event_snr.update(_snrs)
 
-    _snrs = calculate_precession_snr(
+    _snrs, _overlaps = calculate_precession_snr(
         peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
         trig_start, trig_end
     )
+    overlaps.update(_overlaps)
     event_snr.update(_snrs)
 
     _snrs = calculate_localisation_information(
@@ -696,6 +698,9 @@ def main(args=None):
     for k, v in event_snr['ifo_snr'].items():
         event_snr['ifo_snr'][k] = abs(v)
         event_snr['ifo_snr_phase'][k] = np.angle(v)
+
+    # add the overlaps of event_snr
+    event_snr.update(overlaps)
 
     pe.SimplePESamples(
         {key: [value] for key, value in event_snr.items()}
