@@ -146,6 +146,48 @@ class SimplePESamples(SamplesDict):
         except TypeError:
             self[name] = value 
 
+    def generate_snrs(self, psd, f_low, approximant, template_parameters, snrs):
+        from simple_pe.detectors import calc_reach_bandwidth, Network
+        from simple_pe.localization.event import Event
+        net = Network(threshold=10.)
+        if "mass_1" not in template_parameters:
+            from pycbc.conversions import mass1_from_mchirp_eta
+            template_parameters["mass_1"] = mass1_from_mchirp_eta(
+                template_parameters["chirp_mass"], template_parameters["symmetric_mass_ratio"]
+            )
+        if "mass_2" not in template_parameters:
+            from pycbc.conversions import mass2_from_mchirp_eta
+            template_parameters["mass_2"] = mass2_from_mchirp_eta(
+                template_parameters["chirp_mass"], template_parameters["symmetric_mass_ratio"]
+            )
+        for ifo, p in psd.items():
+            hor, f_mean, f_band = calc_reach_bandwidth(
+                template_parameters['mass_1'], template_parameters['mass_2'],
+                template_parameters["chi_align"], approximant, p, f_low
+            )
+            net.add_ifo(ifo, hor, f_mean, f_band, bns_range=False,
+                        loc_thresh=4.)
+        f_sig = np.zeros_like(self["ra"])
+        alpha_net = np.zeros_like(self["ra"])
+        snr_left = np.zeros_like(self["ra"])
+        snr_right = np.zeros_like(self["ra"])
+        for i, (_ra, _dec) in tqdm.tqdm(enumerate(zip(self["ra"], self["dec"])), total=self.number_of_samples):
+            ee = Event.from_snrs(
+                net, snrs["ifo_snr"], snrs["ifo_time"],
+                self["chirp_mass"][i], _ra, _dec
+            )
+            ee.calculate_sensitivity()
+            f_sig[i] = ee.sensitivity
+            alpha_net[i] = ee.alpha_net()
+            snr_left[i] = np.linalg.norm(ee.projected_snr('left'))
+            snr_right[i] = np.linalg.norm(ee.projected_snr('right'))
+        self["left_snr"] = snr_left
+        self["right_snr"] = snr_right
+        self["not_left"] = np.sqrt(snrs["network"]**2 - snr_left**2)
+        self["not_right"] = np.sqrt(snrs["network"]**2 - snr_right**2)
+        self["f_sig"] = f_sig
+        self["alpha_net"] = alpha_net
+
     def generate_theta_jn(self, theta_dist='uniform', snr_left=0., 
                           snr_right=0., overwrite=False):
         """
@@ -741,8 +783,8 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low,
 
 
 def calculate_interpolated_snrs(
-        samples, psd, f_low, dominant_snr, modes, alpha_net, response_sigma,
-        fiducial_distance, fiducial_sigma, dist_interp_dirs,
+        samples, psd, f_low, dominant_snr, modes, response_sigma,
+        fiducial_sigma, dist_interp_dirs,
         hm_interp_dirs, prec_interp_dirs, interp_points, approximant, **kwargs
 ):
     """Wrapper function to calculate the SNR in the (l,m) multipoles,
@@ -782,9 +824,16 @@ def calculate_interpolated_snrs(
     approximant: str
         approximant to use when calculating the SNRs
     """
+    from simple_pe import io
     if not isinstance(samples, SimplePESamples):
         samples = SimplePESamples(samples)
+    hm_psd = io.calculate_harmonic_mean_psd(psd)
     # generate required parameters if necessary
+    template_parameters = kwargs.get("template_parameters", None)
+    snrs = kwargs.get("snrs", None)
+    if any(kwargs.get(f"{_}_snr", None) is None for _ in ["left", "right"]):
+        samples.generate_snrs(psd=psd, f_low=f_low, approximant=approximant, template_parameters=template_parameters, snrs=snrs)
+    
     if "theta_jn" not in samples.keys() and \
             kwargs.get("left_snr", None) is not None:
         samples.generate_theta_jn(
@@ -793,8 +842,9 @@ def calculate_interpolated_snrs(
         )
     elif "theta_jn" not in samples.keys():
         samples.generate_theta_jn('uniform')
+    samples["distance_face_on"] = samples["f_sig"] / snrs["network"]
     if "distance" not in samples.keys():
-        samples.generate_distance(fiducial_distance, fiducial_sigma, psd, f_low,
+        samples.generate_distance(samples["distance_face_on"], fiducial_sigma, hm_psd, f_low,
                                   dist_interp_dirs, interp_points, approximant)
         samples.jitter_distance(dominant_snr, response_sigma)
     if "chi_p" not in samples.keys() and "chi_p2" not in samples.keys():
@@ -803,15 +853,15 @@ def calculate_interpolated_snrs(
         else:
             samples["chi_p"] = np.zeros_like(samples["theta_jn"])
     samples.calculate_rho_lm(
-        psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points,
+        hm_psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points,
         approximant
     )
-    samples.calculate_rho_2nd_pol(alpha_net, dominant_snr)
+    samples.calculate_rho_2nd_pol(samples["alpha_net"], dominant_snr)
     if ("chi_p" in prec_interp_dirs) and ("chi_p" not in samples.keys()):
         samples['chi_p'] = samples['chi_p2']**0.5
     if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) > 2:
         samples.calculate_rho_p(
-            psd, f_low, dominant_snr, prec_interp_dirs, interp_points,
+            hm_psd, f_low, dominant_snr, prec_interp_dirs, interp_points,
             approximant
         )
     else:

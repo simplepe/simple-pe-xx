@@ -146,13 +146,6 @@ def command_line():
         nargs="+",
         default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
     )
-    parser.add_argument(
-        "--bayestar_localization",
-        help="File containing details of Bayestar localization.  "
-             "Default=None",
-        default=None,
-        type=str
-    )
     return parser
 
 

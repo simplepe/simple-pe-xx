@@ -7,6 +7,7 @@ from pesummary.core.command_line import DictionaryAction
 from simple_pe import io
 from simple_pe.param_est import result
 import numpy as np
+import json
 
 import logging
 _logger = logging.getLogger('PESummary')
@@ -124,6 +125,13 @@ def command_line():
         nargs="+",
         default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
     )
+    parser.add_argument(
+        "--bayestar_localization",
+        help="File containing details of Bayestar localization.  "
+             "Default=None",
+        default=None,
+        type=str
+    )
     return parser
 
 
@@ -136,7 +144,13 @@ def main(args=None):
     if not os.path.isdir(opts.outdir):
         os.mkdir(opts.outdir)
     peak_parameters = read(opts.peak_parameters).samples_dict
-    snrs = read(opts.peak_snrs).samples_dict
+    with open(opts.peak_snrs, "r") as f:
+        snrs = json.load(f)["posterior_samples"]
+        for key in snrs.keys():
+            if "ifo" not in key:
+                snrs[key] = np.array(snrs[key])
+            else:
+                snrs[key] = snrs[key][0]
     psd = io.load_psd_from_file(
         opts.psd, opts.asd, opts.delta_f, opts.f_low, opts.f_high
     )
@@ -152,8 +166,8 @@ def main(args=None):
         "sigma": peak_parameters['sigma'][0]
     }
     pe_result = result.Result(
-        f_low=opts.f_low, psd=io.calculate_harmonic_mean_psd(psd),
-        approximant=opts.approximant,
+        f_low=opts.f_low, psd=psd,
+        approximant=opts.approximant, bayestar_localization=opts.bayestar_localization,
         data_from_matched_filter=data_from_matched_filter
     )
     _ = pe_result.generate_samples_from_aligned_spin_template_parameters(

@@ -307,13 +307,16 @@ class AnalysisNode(Node):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._executable = self.get_executable("simple_pe_analysis")
+        if self.opts.use_bayestar_localization:
+            self.opts.bayestar_localization = \
+                self._get_bayestar_localization(self.opts.sid, self.opts.gid)
         self.create_pycondor_job()
 
     @property
     def arguments(self):
         string_args = [
             "approximant", "f_low", "delta_f", "f_high", "minimum_data_length",
-            "seed"
+            "seed", "bayestar_localization"
         ]
         dict_args = ["asd", "psd"]
         list_args = ["metric_directions", "precession_directions"]
@@ -324,6 +327,38 @@ class AnalysisNode(Node):
             ["--peak_snrs", f"{self.opts.outdir}/output/peak_snrs.json"]
         ]
         return " ".join([item for sublist in args for item in sublist])
+
+    def _get_bayestar_localization(self, sid, gid):
+        if sid is None and gid is None:
+            raise ValueError(
+                "Unable to use --use_bayestar_localization when --sid/--gid "
+                "is not provided"
+            )
+        from pesummary.gw.gracedb import get_gracedb_data
+        if gid is None:
+            try:
+                gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
+            except AttributeError:
+                gid = get_gracedb_data(sid, superevent=True,
+                                       info="preferred_event_data")
+
+        from ligo.gracedb.rest import GraceDb
+        from ligo.gracedb.exceptions import HTTPError
+        logger.info("Grabbing localization data from gracedb")
+        loc_filename = f"{self.opts.outdir}/output/{gid}_bayestar.fits"
+        client = GraceDb("https://gracedb.ligo.org/api/")
+        with open(loc_filename, "wb") as f:
+            options = ["bayestar.fits", "bayestar.fits.gz", "bayestar.multiorder.fits,0", "bayestar_pycbc_C01.fits.gz"]
+            for opt in options:
+                try:
+                    r = client.files(gid, opt)
+                except HTTPError:
+                    continue
+            try:
+                f.write(r.read())
+            except Exception:
+                raise
+        return loc_filename
 
 
 class FilterNode(Node):
@@ -344,9 +379,6 @@ class FilterNode(Node):
         self.opts.trigger_parameters = self._prepare_trigger_parameters(
             self.opts.sid, self.opts.gid, self.opts.trigger_parameters,
         )
-        if self.opts.use_bayestar_localization:
-            self.opts.bayestar_localization = \
-                self._get_bayestar_localization(self.opts.sid, self.opts.gid)
         self.create_pycondor_job()
 
     @property
@@ -354,7 +386,6 @@ class FilterNode(Node):
         string_args = [
             "trigger_parameters", "approximant", "f_low", "f_high",
             "minimum_data_length", "seed", "snr_threshold",
-            "bayestar_localization"
         ]
         dict_args = ["asd", "psd"]
         if "strain_cache" in self.opts.strain:
@@ -390,6 +421,7 @@ class FilterNode(Node):
                 gid = get_gracedb_data(sid, superevent=True, info="preferred_event_data")
         if gid is not None:
             if trigger_parameters is None:
+                from pesummary.gw.gracedb import get_gracedb_data
                 logger.info("Grabbing search data from gracedb for trigger_parameters")
                 data = get_gracedb_data(gid)
                 template_data = data["extra_attributes"]["SingleInspiral"][0]
@@ -414,36 +446,6 @@ class FilterNode(Node):
                 "from GraceDB"
             )
         return filename
-
-    def _get_bayestar_localization(self, sid, gid):
-        if sid is None and gid is None:
-            raise ValueError(
-                "Unable to use --use_bayestar_localization when --sid/--gid "
-                "is not provided"
-            )
-        from pesummary.gw.gracedb import get_gracedb_data
-        if gid is None:
-            try:
-                gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
-            except AttributeError:
-                gid = get_gracedb_data(sid, superevent=True,
-                                       info="preferred_event_data")
-
-        from ligo.gracedb.rest import GraceDb
-        from ligo.gracedb.exceptions import HTTPError
-        logger.info("Grabbing localization data from gracedb")
-        loc_filename = f"{self.opts.outdir}/output/{gid}_bayestar.fits"
-        client = GraceDb("https://gracedb.ligo.org/api/")
-        with open(loc_filename, "wb") as f:
-            try:
-                r = client.files(gid, "bayestar.fits")
-            except HTTPError:
-                try:
-                    r = client.files(gid, "bayestar.multiorder.fits,0")
-                except HTTPError:
-                    r = client.files(gid, "bayestar_pycbc_C01.fits.gz")
-            f.write(r.read())
-        return loc_filename
 
 
 class DataFindNode(Node):
