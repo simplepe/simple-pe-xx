@@ -31,6 +31,12 @@ def command_line():
         type=int
     )
     parser.add_argument(
+        "--snr_threshold",
+        help="SNR threshold to use for localization. Default 4",
+        default=4,
+        type=float
+    )
+    parser.add_argument(
         "--peak_parameters",
         help=(
             "JSON file containing peak parameters generated with "
@@ -156,10 +162,12 @@ def main(args=None):
     )
     if 'chi_p2' in opts.metric_directions and 'chi_p2' not in peak_parameters:
         peak_parameters['chi_p2'] = peak_parameters['chi_p']**2
+    template_parameters = {k: peak_parameters[k][0] for k in opts.metric_directions}
+    for k in ["ra", "dec"]:
+        if k in peak_parameters.keys():
+            template_parameters[k] = peak_parameters[k][0]
     data_from_matched_filter = {
-        "template_parameters": {
-            k: peak_parameters[k][0] for k in opts.metric_directions
-        },
+        "template_parameters": template_parameters,
         "snrs": snrs,
         #"alpha_net": peak_parameters['net_alpha'][0],
         #"distance_face_on": peak_parameters['distance_face_on'][0],
@@ -168,7 +176,7 @@ def main(args=None):
     pe_result = result.Result(
         f_low=opts.f_low, psd=psd,
         approximant=opts.approximant, bayestar_localization=opts.bayestar_localization,
-        data_from_matched_filter=data_from_matched_filter
+        snr_threshold=opts.snr_threshold, data_from_matched_filter=data_from_matched_filter
     )
     _ = pe_result.generate_samples_from_aligned_spin_template_parameters(
         opts.metric_directions, opts.precession_directions,

@@ -9,12 +9,15 @@ from pesummary.gw.file.formats.base_read import GWSingleAnalysisRead
 class Result(GWSingleAnalysisRead):
     """
     """
-    def __init__(self, f_low=None, psd=None, approximant=None, bayestar_localization=None, data_from_matched_filter={}):
-
+    def __init__(
+        self, f_low=None, psd=None, approximant=None, snr_threshold=4., bayestar_localization=None,
+        data_from_matched_filter={}
+    ):
         self.f_low = f_low
         self.psd = psd
         self.hm_psd = io.calculate_harmonic_mean_psd(self.psd)
         self.approximant = approximant
+        self.snr_threshold = snr_threshold
         self.bayestar_localization = bayestar_localization
         self._template_parameters = data_from_matched_filter.get(
             "template_parameters", None
@@ -119,8 +122,8 @@ class Result(GWSingleAnalysisRead):
                 "an estimate of 'ra' and 'dec' but not both"
             )
         if single_point:
-            ra = np.ones(npts) * self.template_parameters["ra"][0]
-            dec = np.ones(npts) * self.template_parameters["dec"][0]
+            ra = np.ones(npts) * self.template_parameters["ra"]
+            dec = np.ones(npts) * self.template_parameters["dec"]
         elif bayestar_localization:
             from ligo.skymap.io.fits import read_sky_map
             import astropy_healpix as ah
@@ -140,18 +143,36 @@ class Result(GWSingleAnalysisRead):
             ra = pts['ra']
             dec = pts['dec']
         else:
+            from simple_pe.detectors import calc_reach_bandwidth, Network
+            net = Network(threshold=10.)
+            for ifo, p in self.psd.items():
+                hor, f_mean, f_band = calc_reach_bandwidth(
+                    [
+                        self.template_parameters['chirp_mass'],
+                        self.template_parameters['symmetric_mass_ratio']
+                    ], self.template_parameters["chi_align"],
+                    self.approximant, p, self.f_low,
+                    mass_configuration="chirp"
+                )
+                net.add_ifo(ifo, hor, f_mean, f_band, bns_range=False,
+                            loc_thresh=self.snr_threshold)
             ev = Event.from_snrs(
                 net, self.snrs["ifo_snr"], self.snrs["ifo_time"],
                 self.template_parameters['chirp_mass']
             )
             ev.calculate_mirror()
-            ev.localize_all()
+            ev.localize_all(methods=['coh', 'left', 'right'])
             if ev.localized >= 3:
-                # generate points from localization region to calculate F+ and Fx
                 coh = ev.localization['coh']
-                if ev.mirror and (ev.mirror_loc['coh'].snr > ev.localization['coh'].snr):
+                if ev.mirror and (ev.mirror_loc['coh'].snr >
+                                  ev.localization['coh'].snr):
                     coh = ev.mirror_loc['coh']
-                ra, dec = coh.generate_samples(npts=npts, sky_weight=True)
+                # calculate max left/right SNR, allowing offset from central point
+                # to maximize SNR
+                snr_left = ev.localization['left'].calculate_max_snr()
+                snr_right = ev.localization['right'].calculate_max_snr()
+
+                ra, dec = coh.generate_samples(npts=int(1e3), sky_weight=True)
             elif ev.localized == 1:
                 # source is only localized by the antenna pattern
                 ra = np.random.uniform(0, 2 * np.pi, npts * 100)
@@ -169,8 +190,9 @@ class Result(GWSingleAnalysisRead):
                 raise KeyError(
                     f"Unable to localize event from SNRs. This could be because "
                     f"you are considering a network with less than 3 detectors, or "
-                    f"because the IFO SNRs are <{threshold}. The recovered IFO "
-                    f"SNRs are {', '.join([ifo + ':' + str(abs(event_snr['ifo_snr'][ifo])) for ifo in ifos])}"
+                    f"because the IFO SNRs are <{self.snr_threshold}. The recovered IFO "
+                    f"SNRs are "
+                    f"{', '.join([ifo + ':' + str(abs(self.snrs['ifo_snr'][ifo])) for ifo in self.psd.keys()])}"
                 )
         self.samples = np.vstack([self.samples.T, ra, dec]).T
         self.parameters = self.parameters + ["ra", "dec"]

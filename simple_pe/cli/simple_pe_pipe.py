@@ -372,7 +372,7 @@ class AnalysisNode(Node):
     def arguments(self):
         string_args = [
             "approximant", "f_low", "delta_f", "f_high", "minimum_data_length",
-            "seed", "bayestar_localization"
+            "seed", "bayestar_localization", "snr_threshold"
         ]
         dict_args = ["asd", "psd"]
         list_args = ["metric_directions", "precession_directions"]
@@ -440,7 +440,7 @@ class FilterNode(Node):
     def arguments(self):
         string_args = [
             "trigger_parameters", "approximant", "f_low", "f_high",
-            "minimum_data_length", "seed", "snr_threshold",
+            "minimum_data_length", "seed",
         ]
         dict_args = ["asd", "psd"]
         if "strain_cache" in self.opts.strain:

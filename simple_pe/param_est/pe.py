@@ -150,28 +150,21 @@ class SimplePESamples(SamplesDict):
         from simple_pe.detectors import calc_reach_bandwidth, Network
         from simple_pe.localization.event import Event
         net = Network(threshold=10.)
-        if "mass_1" not in template_parameters:
-            from pycbc.conversions import mass1_from_mchirp_eta
-            template_parameters["mass_1"] = mass1_from_mchirp_eta(
-                template_parameters["chirp_mass"], template_parameters["symmetric_mass_ratio"]
-            )
-        if "mass_2" not in template_parameters:
-            from pycbc.conversions import mass2_from_mchirp_eta
-            template_parameters["mass_2"] = mass2_from_mchirp_eta(
-                template_parameters["chirp_mass"], template_parameters["symmetric_mass_ratio"]
-            )
         for ifo, p in psd.items():
             hor, f_mean, f_band = calc_reach_bandwidth(
-                template_parameters['mass_1'], template_parameters['mass_2'],
-                template_parameters["chi_align"], approximant, p, f_low
+                [
+                    template_parameters['chirp_mass'],
+                    template_parameters['symmetric_mass_ratio']
+                ], template_parameters["chi_align"], approximant, p, f_low,
+                mass_configuration="chirp"
             )
             net.add_ifo(ifo, hor, f_mean, f_band, bns_range=False,
                         loc_thresh=4.)
-        f_sig = np.zeros_like(self["ra"])
-        alpha_net = np.zeros_like(self["ra"])
-        snr_left = np.zeros_like(self["ra"])
-        snr_right = np.zeros_like(self["ra"])
-        if all(len(np.unique(self[_]) == 1 for _ in ["ra", "dec"])):
+        f_sig = np.zeros_like(self["chirp_mass"])
+        alpha_net = np.zeros_like(self["chirp_mass"])
+        snr_left = np.zeros_like(self["chirp_mass"])
+        snr_right = np.zeros_like(self["chirp_mass"])
+        if all(len(np.unique(self[_])) == 1 for _ in ["ra", "dec"]):
             _ra = self["ra"][:1]
             _dec = self["dec"][:1]
         else:
@@ -686,11 +679,10 @@ def interpolate_opening(param_max, param_min, fixed_pars, psd, f_low,
                        desc="calculating opening angle on grid"):
         sample = grid_samples[i:i+1]
         param = "chi_eff" if "chi_eff" in sample.keys() else "chi_align"
-        _, f_mean, _ = noise_curves.calc_reach_bandwidth(sample["mass_1"], 
-                                                         sample["mass_2"],
-                                                         sample[param],
-                                                         approximant, psd, 
-                                                         f_low, thresh=8.)
+        _, f_mean, _ = noise_curves.calc_reach_bandwidth(
+            [sample["mass_1"], sample["mass_2"]], sample[param], approximant,
+            psd, f_low, thresh=8., mass_configuration="component"
+        )
         beta[i] = opening_angle(
             sample["mass_1"], sample["mass_2"], sample["phi_jl"], 
             sample["tilt_1"], sample["tilt_2"], sample["phi_12"], 
