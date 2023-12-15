@@ -171,16 +171,28 @@ class SimplePESamples(SamplesDict):
         alpha_net = np.zeros_like(self["ra"])
         snr_left = np.zeros_like(self["ra"])
         snr_right = np.zeros_like(self["ra"])
-        for i, (_ra, _dec) in tqdm.tqdm(enumerate(zip(self["ra"], self["dec"])), total=self.number_of_samples):
+        if all(len(np.unique(self[_]) == 1 for _ in ["ra", "dec"])):
+            _ra = self["ra"][:1]
+            _dec = self["dec"][:1]
+        else:
+            _ra = self["ra"]
+            _dec = self["dec"]
+        total = len(_ra)
+        for i, (_r, _d) in tqdm.tqdm(enumerate(zip(_ra, _dec)), total=total):
             ee = Event.from_snrs(
                 net, snrs["ifo_snr"], snrs["ifo_time"],
-                self["chirp_mass"][i], _ra, _dec
+                self["chirp_mass"][i], _r, _d
             )
             ee.calculate_sensitivity()
             f_sig[i] = ee.sensitivity
             alpha_net[i] = ee.alpha_net()
             snr_left[i] = np.linalg.norm(ee.projected_snr('left'))
             snr_right[i] = np.linalg.norm(ee.projected_snr('right'))
+        if total == 1:
+            f_sig[1:] = f_sig[0]
+            alpha_net[1:] = alpha_net[0]
+            snr_left[1:] = snr_left[0]
+            snr_right[1:] = snr_right[0]
         self["left_snr"] = snr_left
         self["right_snr"] = snr_right
         self["not_left"] = np.sqrt(snrs["network"]**2 - snr_left**2)

@@ -1,11 +1,10 @@
 #! /usr/bin/env python
 
 from argparse import ArgumentParser
-from pesummary.core.command_line import DictionaryAction, ConfigAction as _ConfigAction
+from pesummary.core.command_line import ConfigAction as _ConfigAction
 import lalsimulation as ls
 import pycondor
 import os
-import numpy as np
 from . import logger
 
 __authors__ = [
@@ -30,7 +29,8 @@ def command_line():
     from .simple_pe_filter import command_line as _filter_command_line
     from .simple_pe_datafind import command_line as _datafind_command_line
     parser = ArgumentParser(
-        parents=[_analysis_command_line(), _filter_command_line(), _datafind_command_line()],
+        parents=[_analysis_command_line(), _filter_command_line(),
+                 _datafind_command_line()],
         conflict_handler='resolve'
     )
     remove = ["--peak_parameters", "--peak_snrs"]
@@ -85,6 +85,61 @@ def command_line():
     return parser
 
 
+def _gid_from_sid(sid):
+    from pesummary.gw.gracedb import get_gracedb_data
+    try:
+        return get_gracedb_data(sid, superevent=True, info="preferred_event")
+    except AttributeError:
+        return get_gracedb_data(sid, superevent=True,
+                                info="preferred_event_data")
+
+
+def get_trigger_parameters(sid, gid):
+    """
+    Obtain the trigger parameters either from the trigger_parameters file
+    or by reading them from GraceDB using the sid/gid
+
+    Parameters
+    ----------
+    sid: str
+        GraceDB ID for the event you wish to analyse
+    gid: str
+        Superevent GraceDB ID for the event you wish to analyse
+    """
+    from pesummary.gw.gracedb import get_gracedb_data
+
+    if sid is not None and gid is not None:
+        raise ValueError(
+            "SID and GID both specified. "
+            "Please provide either an SID or a GID"
+        )
+    elif sid is None and gid is None:
+        raise ValueError(
+            "Neither SID and GID specified. "
+            "Please provide either an SID or a GID"
+        )
+    elif sid is not None and gid is None:
+        gid = _gid_from_sid(sid)
+
+    logger.info("Grabbing search data from gracedb for trigger_parameters")
+    logger.info(f"Using the gid: {gid}")
+    data = get_gracedb_data(gid)
+    template_data = data["extra_attributes"]["SingleInspiral"][0]
+    trigger_params = {
+                "mass_1": template_data["mass1"],
+                "mass_2": template_data["mass2"],
+                "spin_1z": template_data["spin1z"],
+                "spin_2z": template_data["spin2z"],
+                "time": data["gpstime"], "chi_p": 0.2, "tilt": 0.1,
+                "coa_phase": 0.
+    }
+    logger.info("Using the following trigger_parameters:")
+    for param, item in trigger_params.items():
+        logger.info(f"{param} = {item}")
+
+    return trigger_params
+
+
 class Dag(object):
     """Base Dag object to handle the creation of the DAG
 
@@ -95,13 +150,14 @@ class Dag(object):
     """
     def __init__(self, opts):
         self.opts = opts
-        string = "%s/{}" % (opts.outdir)
+        string = "%s/{}" % opts.outdir
         self.error = string.format("error")
         self.log = string.format("log")
         self.output = string.format("output")
         self.submit = string.format("submit")
         self.dagman = pycondor.Dagman(name="simple_pe", submit=self.submit)
-        self.submit_file = os.path.join(self.dagman.submit, '{}.dag'.format(self.dagman.name))
+        self.submit_file = os.path.join(self.dagman.submit, '{}.dag'.format(
+            self.dagman.name))
 
     @property
     def bash_file(self):
@@ -140,7 +196,7 @@ class Dag(object):
         self.dagman.build_submit()
 
     def write_bash_script(self):
-        """Write a bash script containing all of the command lines used
+        """Write a bash script containing all the command lines used
         """
         with open(self.bash_file, "w") as f:
             f.write("#!/usr/bin/env bash\n\n")
@@ -334,13 +390,8 @@ class AnalysisNode(Node):
                 "Unable to use --use_bayestar_localization when --sid/--gid "
                 "is not provided"
             )
-        from pesummary.gw.gracedb import get_gracedb_data
         if gid is None:
-            try:
-                gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
-            except AttributeError:
-                gid = get_gracedb_data(sid, superevent=True,
-                                       info="preferred_event_data")
+            gid = _gid_from_sid(sid)
 
         from ligo.gracedb.rest import GraceDb
         from ligo.gracedb.exceptions import HTTPError
@@ -348,7 +399,9 @@ class AnalysisNode(Node):
         loc_filename = f"{self.opts.outdir}/output/{gid}_bayestar.fits"
         client = GraceDb("https://gracedb.ligo.org/api/")
         with open(loc_filename, "wb") as f:
-            options = ["bayestar.fits", "bayestar.fits.gz", "bayestar.multiorder.fits,0", "bayestar_pycbc_C01.fits.gz"]
+            options = ["bayestar.fits", "bayestar.fits.gz",
+                       "bayestar.multiorder.fits,0",
+                       "bayestar_pycbc_C01.fits.gz"]
             for opt in options:
                 try:
                     r = client.files(gid, opt)
@@ -379,6 +432,8 @@ class FilterNode(Node):
         self.opts.trigger_parameters = self._prepare_trigger_parameters(
             self.opts.sid, self.opts.gid, self.opts.trigger_parameters,
         )
+        if not len(self.opts.psd) and not len(self.opts.asd):
+            self.opts.psd = self._get_search_psd(self.opts.sid, self.opts.gid)
         self.create_pycondor_job()
 
     @property
@@ -399,53 +454,74 @@ class FilterNode(Node):
 
     def _prepare_trigger_parameters(self, sid, gid, trigger_parameters):
         """
+        Obtain the trigger parameters either from the trigger_parameters file
+        or by reading them from GraceDB using the sid/gid
+
+        Parameters
+        ----------
+        sid: str
+            GraceDB ID for the event you wish to analyse
+        gid: str
+            Superevent GraceDB ID for the event you wish to analyse
+        trigger_parameters: str or dict
+            Either a dict containing the trigger parameters or the name of a
+            file which contains the parameters
         """
         import json
         os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
-        if trigger_parameters is not None and isinstance(trigger_parameters, dict):
-            filename = f"{self.opts.outdir}/output/trigger_parameters.json"
-            with open(filename, "w") as f:
-                _trigger_parameters = {key: float(item) for key, item in trigger_parameters.items()}
-                json.dump(_trigger_parameters, f)
-        elif trigger_parameters is not None:
-            filename = trigger_parameters
-        if sid is not None and gid is not None:
-            raise ValueError(
-                "SID and GID both specified. Please provide either an SID or a GID"
-            )
-        if sid is not None and gid is None:
-            from pesummary.gw.gracedb import get_gracedb_data
-            try:
-                gid = get_gracedb_data(sid, superevent=True, info="preferred_event")
-            except AttributeError:
-                gid = get_gracedb_data(sid, superevent=True, info="preferred_event_data")
-        if gid is not None:
-            if trigger_parameters is None:
-                from pesummary.gw.gracedb import get_gracedb_data
-                logger.info("Grabbing search data from gracedb for trigger_parameters")
-                data = get_gracedb_data(gid)
-                template_data = data["extra_attributes"]["SingleInspiral"][0]
-                json_data = {
-                    "mass_1": template_data["mass1"], "mass_2": template_data["mass2"],
-                    "spin_1z": template_data["spin1z"], "spin_2z": template_data["spin2z"],
-                    "time": data["gpstime"], "chi_p": 0.2, "tilt": 0.1,
-                    "coa_phase": 0.
-                }
-                logger.info("Using the following trigger_parameters:")
-                for param, item in json_data.items():
-                    logger.info(f"{param} = {item}")
-                filename = f"{self.opts.outdir}/output/trigger_parameters.json"
-                logger.debug(f"Saving template_parameters to {filename}")
-                with open(filename, "w") as f:
-                    json.dump(json_data, f)
-
         if trigger_parameters is None and sid is None and gid is None:
             raise ValueError(
                 "Please provide a file containing the trigger parameters "
                 "or a superevent ID to download the trigger parameters "
                 "from GraceDB"
             )
+
+        if trigger_parameters is None:
+            # read parameters from graceDB using sid/gid
+            trigger_parameters = get_trigger_parameters(sid, gid)
+
+        if isinstance(trigger_parameters, dict):
+            filename = f"{self.opts.outdir}/output/trigger_parameters.json"
+            with open(filename, "w") as f:
+                _trigger_parameters = {key: float(item) for key, item in
+                                       trigger_parameters.items()}
+                json.dump(_trigger_parameters, f)
+        else:
+            filename = trigger_parameters
+
         return filename
+
+    def _get_search_psd(self, sid, gid):
+        if sid is None and gid is None:
+            raise ValueError(
+                "No PSD/ASD provided and unable to grab one from GraceDB "
+                "because no SID/GID has been provided. "
+                "Please either provide PSD/ASDs via "
+                "the --psd/--asd flags or a SID/GID via the --sid/--gid flags"
+            )
+        elif gid is None:
+            gid = _gid_from_sid(sid)
+        logger.info("Grabbing PSD/ASD data from coinc.xml file")
+        from ligo.gracedb.rest import GraceDb
+        from gwpy.frequencyseries import FrequencySeries
+        client = GraceDb("https://gracedb.ligo.org/api/")
+        coinc_filename = f"{self.opts.outdir}/output/{gid}_coinc.xml"
+        with open(coinc_filename, "wb") as f:
+            r = client.files(gid, filename="coinc.xml")
+            f.write(r.read())
+        psd_dict = {}
+        for ifo in ["H1", "L1", "V1"]:
+            try:
+                psd = FrequencySeries.read(coinc_filename, instrument=ifo)
+                psd_filename = f"{self.opts.outdir}/output/{ifo}_psd.txt"
+                psd.write(target=psd_filename, format="txt")
+                psd_dict[ifo] = psd_filename
+                logger.info(f"Found PSD for {ifo}")
+            except ValueError:
+                continue
+        if not len(psd_dict):
+            raise ValueError(f"Unable to extract PSD from {coinc_filename}")
+        return psd_dict
 
 
 class DataFindNode(Node):
@@ -463,6 +539,11 @@ class DataFindNode(Node):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._executable = self.get_executable("simple_pe_datafind")
+        if not self.opts.injection and not self.opts.trigger_time:
+            logger.info("Setting analysis time from supplied SID/GID")
+            trigger_params = get_trigger_parameters(self.opts.sid,
+                                                    self.opts.gid)
+            self.opts.trigger_time = trigger_params["time"]
         self.create_pycondor_job()
 
     @property
@@ -506,8 +587,8 @@ class CornerNode(Node):
         ]
         args += [
             [
-                "--parameters", "chirp_mass", "symmetric_mass_ratio", "chi_align",
-                "theta_jn", "luminosity_distance"
+                "--parameters", "chirp_mass", "symmetric_mass_ratio",
+                "chi_align", "theta_jn", "luminosity_distance"
             ]
         ]
         sp = ls.SimInspiralGetSpinSupportFromApproximant(
