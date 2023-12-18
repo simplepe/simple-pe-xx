@@ -37,6 +37,17 @@ def command_line():
         type=float
     )
     parser.add_argument(
+        "--localization_method",
+        choices=["fullsky", "average"],
+        help=(
+            "Method to use when localizing the event. 'average' is faster and averages "
+            "the SNR in the left and right polarizations across the sky. 'fullsky' "
+            "samples over the sky, meaning that all samples are sky dependent"
+        ),
+        default="fullsky",
+        type=str
+    )
+    parser.add_argument(
         "--peak_parameters",
         help=(
             "JSON file containing peak parameters generated with "
@@ -157,6 +168,10 @@ def main(args=None):
                 snrs[key] = np.array(snrs[key])
             else:
                 snrs[key] = snrs[key][0]
+        for key in snrs['ifo_snr'].keys():
+            snrs['ifo_snr'][key] = (
+                snrs['ifo_snr_real'][key] + snrs['ifo_snr_imag'][key] * 1j
+            )
     psd = io.load_psd_from_file(
         opts.psd, opts.asd, opts.delta_f, opts.f_low, opts.f_high
     )
@@ -180,7 +195,8 @@ def main(args=None):
     )
     _ = pe_result.generate_samples_from_aligned_spin_template_parameters(
         opts.metric_directions, opts.precession_directions,
-        opts.multipole_directions, opts.distance_directions, interp_points=5
+        opts.multipole_directions, opts.distance_directions, interp_points=5,
+        localization_method=opts.localization_method
     )
     pe_result.samples_dict.write(
         outdir=opts.outdir, filename="posterior_samples.dat", overwrite=True,

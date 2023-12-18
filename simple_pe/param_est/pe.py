@@ -146,7 +146,10 @@ class SimplePESamples(SamplesDict):
         except TypeError:
             self[name] = value 
 
-    def generate_snrs(self, psd, f_low, approximant, template_parameters, snrs):
+    def generate_snrs(
+        self, psd, f_low, approximant, template_parameters, snrs,
+        localization_method
+    ):
         from simple_pe.detectors import calc_reach_bandwidth, Network
         from simple_pe.localization.event import Event
         net = Network(threshold=10.)
@@ -160,38 +163,66 @@ class SimplePESamples(SamplesDict):
             )
             net.add_ifo(ifo, hor, f_mean, f_band, bns_range=False,
                         loc_thresh=4.)
-        f_sig = np.zeros_like(self["chirp_mass"])
-        alpha_net = np.zeros_like(self["chirp_mass"])
-        snr_left = np.zeros_like(self["chirp_mass"])
-        snr_right = np.zeros_like(self["chirp_mass"])
+
         if all(len(np.unique(self[_])) == 1 for _ in ["ra", "dec"]):
             _ra = self["ra"][:1]
             _dec = self["dec"][:1]
-        else:
+        elif localization_method == "fullsky":
             _ra = self["ra"]
             _dec = self["dec"]
+        elif localization_method == "average":
+            # downsample to 1000 sky points to average over
+            inds = np.random.choice(np.arange(len(self["ra"])), size=int(1e3))
+            _ra = self["ra"][inds]
+            _dec = self["dec"][inds]
         total = len(_ra)
+        f_sig = np.zeros(total)
+        alpha_net = np.zeros_like(f_sig)
+        snr_left = np.zeros_like(f_sig)
+        snr_right = np.zeros_like(f_sig)
         for i, (_r, _d) in tqdm.tqdm(enumerate(zip(_ra, _dec)), total=total):
+            if total != self.number_of_samples:
+                mc = template_parameters["chirp_mass"]
+            else:
+                mc = self["chirp_mass"][i]
             ee = Event.from_snrs(
-                net, snrs["ifo_snr"], snrs["ifo_time"],
-                self["chirp_mass"][i], _r, _d
+                net, snrs["ifo_snr"], snrs["ifo_time"], mc, _r, _d
             )
             ee.calculate_sensitivity()
             f_sig[i] = ee.sensitivity
             alpha_net[i] = ee.alpha_net()
             snr_left[i] = np.linalg.norm(ee.projected_snr('left'))
             snr_right[i] = np.linalg.norm(ee.projected_snr('right'))
+
         if total == 1:
-            f_sig[1:] = f_sig[0]
-            alpha_net[1:] = alpha_net[0]
-            snr_left[1:] = snr_left[0]
-            snr_right[1:] = snr_right[0]
-        self["left_snr"] = snr_left
-        self["right_snr"] = snr_right
-        self["not_left"] = np.sqrt(snrs["network"]**2 - snr_left**2)
-        self["not_right"] = np.sqrt(snrs["network"]**2 - snr_right**2)
-        self["f_sig"] = f_sig
-        self["alpha_net"] = alpha_net
+            self["f_sig"] = np.ones_like(self["chirp_mass"]) * f_sig[0]
+            self["alpha_net"] =  np.ones_like(self["chirp_mass"]) * alpha_net[0]
+            self["left_snr"] = np.ones_like(self["chirp_mass"]) * snr_left[0]
+            self["right_snr"] = np.ones_like(self["chirp_mass"]) * snr_right[0]
+            self["not_left"] = np.ones_like(self["chirp_mass"]) * np.sqrt(
+                snrs["network"]**2 - snr_left[0]**2
+            )
+            self["not_right"] = np.ones_like(self["chirp_mass"]) * np.sqrt(
+                snrs["network"]**2 - snr_right[0]**2
+            )
+        elif localization_method == "fullsky":
+            self["left_snr"] = snr_left
+            self["right_snr"] = snr_right
+            self["not_left"] = np.sqrt(snrs["network"]**2 - snr_left**2)
+            self["not_right"] = np.sqrt(snrs["network"]**2 - snr_right**2)
+            self["f_sig"] = f_sig
+            self["alpha_net"] = alpha_net
+        else:
+            self["left_snr"] = np.ones_like(self["chirp_mass"]) * np.mean(snr_left)
+            self["right_snr"] = np.ones_like(self["chirp_mass"]) * np.mean(snr_right)
+            self["not_left"] = np.ones_like(self["chirp_mass"]) * np.sqrt(
+                np.min(snrs['network']**2 - snr_left**2)
+            )
+            self["not_right"] = np.ones_like(self["chirp_mass"]) * np.sqrt(
+                np.min(snrs['network']**2 - snr_right**2)
+            )
+            self["f_sig"] = np.ones_like(self["chirp_mass"]) * np.mean(f_sig)
+            self["alpha_net"] = np.ones_like(self["chirp_mass"]) * np.mean(alpha_net)
 
     def generate_theta_jn(self, theta_dist='uniform', snr_left=0., 
                           snr_right=0., overwrite=False):
@@ -789,7 +820,8 @@ def interpolate_alpha_lm(param_max, param_min, fixed_pars, psd, f_low,
 def calculate_interpolated_snrs(
         samples, psd, f_low, dominant_snr, modes, response_sigma,
         fiducial_sigma, dist_interp_dirs,
-        hm_interp_dirs, prec_interp_dirs, interp_points, approximant, **kwargs
+        hm_interp_dirs, prec_interp_dirs, interp_points, approximant,
+        localization_method, **kwargs
 ):
     """Wrapper function to calculate the SNR in the (l,m) multipoles,
     the SNR in the second polarisation and the SNR in precession.
@@ -827,6 +859,9 @@ def calculate_interpolated_snrs(
         number of points to interpolate the SNRs
     approximant: str
         approximant to use when calculating the SNRs
+    localization_method: str
+        method to use when localizing the event. Must either be 'average'
+        or 'fullsky'
     """
     from simple_pe import io
     if not isinstance(samples, SimplePESamples):
@@ -836,7 +871,11 @@ def calculate_interpolated_snrs(
     template_parameters = kwargs.get("template_parameters", None)
     snrs = kwargs.get("snrs", None)
     if any(kwargs.get(f"{_}_snr", None) is None for _ in ["left", "right"]):
-        samples.generate_snrs(psd=psd, f_low=f_low, approximant=approximant, template_parameters=template_parameters, snrs=snrs)
+        samples.generate_snrs(
+            psd=psd, f_low=f_low, approximant=approximant,
+            template_parameters=template_parameters, snrs=snrs,
+            localization_method=localization_method
+        )
     
     if "theta_jn" not in samples.keys() and \
             kwargs.get("left_snr", None) is not None:

@@ -207,7 +207,7 @@ class Result(GWSingleAnalysisRead):
         self, metric_directions, prec_interp_dirs, hm_interp_dirs,
         dist_interp_dirs, modes=['33'], alpha_net=None, interp_points=7,
         template_parameters=None, dominant_snr=None,
-        reweight_to_isotropic_spin_prior=True
+        reweight_to_isotropic_spin_prior=True, localization_method="fullsky"
     ):
         import time
         t0 = time.time()
@@ -244,6 +244,7 @@ class Result(GWSingleAnalysisRead):
             right_snr=self.right_snr,
             template_parameters=self.template_parameters,
             snrs=self.snrs,
+            localization_method=localization_method
         )
         samples = self.samples_dict
         self.reweight_samples(

@@ -372,7 +372,7 @@ class AnalysisNode(Node):
     def arguments(self):
         string_args = [
             "approximant", "f_low", "delta_f", "f_high", "minimum_data_length",
-            "seed", "bayestar_localization", "snr_threshold"
+            "seed", "bayestar_localization", "snr_threshold", "localization_method"
         ]
         dict_args = ["asd", "psd"]
         list_args = ["metric_directions", "precession_directions"]

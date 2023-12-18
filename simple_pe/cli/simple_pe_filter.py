@@ -503,9 +503,13 @@ def main(args=None):
 
     # cast the ifo SNRs to reals
     event_snr['ifo_snr_phase'] = {}
+    event_snr['ifo_snr_real'] = {}
+    event_snr['ifo_snr_imag'] = {}
     for k, v in event_snr['ifo_snr'].items():
         event_snr['ifo_snr'][k] = abs(v)
         event_snr['ifo_snr_phase'][k] = np.angle(v)
+        event_snr['ifo_snr_real'][k] = np.real(v)
+        event_snr['ifo_snr_imag'][k] = np.imag(v)
 
     pe.SimplePESamples(
         {key: [value] for key, value in event_snr.items()}
