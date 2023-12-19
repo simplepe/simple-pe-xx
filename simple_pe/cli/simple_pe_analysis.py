@@ -32,7 +32,7 @@ def command_line():
     parser.add_argument(
         "--neffective",
         help="Total number of effective samples to obtain",
-        default=1000,
+        default=5000,
         type=int
     )
     parser.add_argument(
