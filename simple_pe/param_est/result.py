@@ -356,45 +356,5 @@ class Result(GWSingleAnalysisRead):
             old = self.__cache.number_of_samples
         self.parameters = self.__cache.parameters
         self.samples = self.__cache.samples.T
-=======
-        self.generate_samples_from_metric(
-            metric_directions, self.template_parameters, self.snrs['22'],
-        )
-        self.generate_samples_from_sky(bayestar_localization=self.bayestar_localization)
-        if reweight_to_isotropic_spin_prior:
-            self.reweight_samples(
-                pe.isotropic_spin_prior_weight,
-                dx_directions=self.metric.dx_directions
-            )
-        self.generate_all_posterior_samples(
-            function=pe.calculate_interpolated_snrs,
-            psd=self.psd,
-            f_low=self.f_low,
-            dominant_snr=self.snrs['22'],
-            modes=modes,
-            response_sigma=self.response_sigma,
-            fiducial_sigma=self.sigma,
-            dist_interp_dirs=dist_interp_dirs,
-            hm_interp_dirs=hm_interp_dirs,
-            prec_interp_dirs=prec_interp_dirs,
-            interp_points=interp_points,
-            approximant=self.approximant,
-            left_snr=self.left_snr,
-            right_snr=self.right_snr,
-            template_parameters=self.template_parameters,
-            snrs=self.snrs,
-            localization_method=localization_method
-        )
-        samples = self.samples_dict
-        self.reweight_samples(
-            pe.reweight_based_on_observed_snrs,
-            hm_snr={'33': self.snrs['33']},
-            prec_snr=self.snrs['prec'],
-            snr_2pol={
-                "not_right": samples['not_right'],
-                "not_left": samples["not_left"]
-            }, ignore_debug_params=['p_', 'weight']
-        )
->>>>>>> origin/main
         print(f"Total time taken: {time.time() - t0:.2f}s")
         return self.__cache
