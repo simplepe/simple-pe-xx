@@ -298,18 +298,18 @@ class Result(GWSingleAnalysisRead):
             )
             if sigma_22_grid is None:
                 sigma_22_grid = self.calculate_sigma_grid(
-                    dist_interp_dirs, self.psd, self.f_low, interp_points,
+                    dist_interp_dirs, self.hm_psd, self.f_low, interp_points,
                     self.approximant
                 )
             if alpha_lm_grid is None:
                 alpha_lm_grid, mins, maxs = self.calculate_alpha_lm_grid(
-                    hm_interp_dirs, self.psd, self.f_low, interp_points,
+                    hm_interp_dirs, self.hm_psd, self.f_low, interp_points,
                     modes, self.approximant
                 )
             if self.precessing_approximant(self.approximant) and \
                     beta_22_grid is None:
                 beta_22_grid = self.calculate_beta_grid(
-                    prec_interp_dirs, self.psd, self.f_low, interp_points,
+                    prec_interp_dirs, self.hm_psd, self.f_low, interp_points,
                     self.approximant
                 )
             if reweight_to_isotropic_spin_prior:
