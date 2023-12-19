@@ -326,17 +326,17 @@ class Metric:
 
         return grid_probs
 
-    def generate_samples(self, npts=int(1e5)):
+    def generate_samples(self, npts=int(1e5), mins=None, maxs=None):
         """
         Generate a given number of samples
 
         :param npts: number of points to generate
         :return phys_samples: SimplePESamples with samples
         """
-        sample_pts = self._get_samples(2 * npts)
+        sample_pts = self._get_samples(2 * npts, mins=mins, maxs=maxs)
 
         while sample_pts.number_of_samples < npts:
-            extra_pts = self._get_samples(npts)
+            extra_pts = self._get_samples(npts, mins=mins, maxs=maxs)
             sample_pts = SimplePESamples(SamplesDict(sample_pts.keys(),
                 np.concatenate((sample_pts.samples.T, extra_pts.samples.T)).T))
 
@@ -344,7 +344,7 @@ class Metric:
             sample_pts = sample_pts.downsample(npts)
         return sample_pts
 
-    def _get_samples(self, npts=int(1e5)):
+    def _get_samples(self, npts=int(1e5), mins=None, maxs=None):
         """
         Generate an ellipse of points of constant mismatch
 
@@ -358,7 +358,7 @@ class Metric:
                        ]).reshape([len(self.dx_directions), 1])
              + np.matmul(pts, self.normalized_evecs().samples.T /
                          self.n_sigma).T)))
-        sample_pts.trim_unphysical()
+        sample_pts.trim_unphysical(mins=mins, maxs=maxs)
 
         return sample_pts
 
