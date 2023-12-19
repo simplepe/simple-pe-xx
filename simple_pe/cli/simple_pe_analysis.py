@@ -35,6 +35,8 @@ def command_line():
         help="Total number of effective samples to obtain",
         default=5000,
         type=int
+    )
+    parser.add_argument(
         "--snr_threshold",
         help="SNR threshold to use for localization. Default 4",
         default=4,
