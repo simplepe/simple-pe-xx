@@ -1,5 +1,7 @@
 import numpy as np
 from simple_pe.param_est import pe, metric
+import tqdm
+import lalsimulation as lalsim
 from simple_pe import io
 from simple_pe.localization.event import Event
 from pesummary.utils.samples_dict import SamplesDict
@@ -95,11 +97,15 @@ class Result(GWSingleAnalysisRead):
             self.template_parameters, metric_directions, self.snrs['22'],
             self.f_low, self.hm_psd,  self.approximant, tolerance, max_iter
         )
-    
-    def generate_samples_from_metric(self, *args, npts=int(1e5), **kwargs):
-        if self.metric is None:
+
+    def generate_samples_from_metric(
+        self, *args, npts=int(1e5), metric=None, mins=None, maxs=None, **kwargs
+    ):
+        if self.metric is None and metric is not None:
+            self._metric = metric
+        elif self.metric is None:
             self.generate_metric(*args, **kwargs)
-        samples = self.metric.generate_samples(int(npts))
+        samples = self.metric.generate_samples(int(npts), mins=mins, maxs=maxs)
         self.samples = np.array(samples.samples).T
         self.parameters = samples.parameters
         return samples
@@ -193,12 +199,81 @@ class Result(GWSingleAnalysisRead):
         samples.generate_all_posterior_samples(function=function, **kwargs)
         self.samples = np.array(samples.samples).T
         self.parameters = samples.parameters
+
+    def calculate_sigma_grid(
+        self, interp_directions, psd, f_low, interp_points, approximant
+    ):
+        from simple_pe.param_est.pe import interpolate_sigma
+        samples = self.samples_dict
+        maxs = dict((k, samples.maximum[k]) for k in interp_directions)
+        mins = dict((k, samples.minimum[k]) for k in interp_directions)
+        fixed_pars = {k: v[0] for k, v in samples.mean.items()
+                      if k not in interp_directions}
+        fixed_pars['distance'] = 1.0
+        # ensure we wind up with unphysical spins
+        if 'chi_p' in fixed_pars.keys():
+            fixed_pars['chi_p'] = 0.
+        if 'chi_p2' in fixed_pars.keys():
+            fixed_pars['chi_p2'] = 0.
+        return interpolate_sigma(maxs, mins, fixed_pars, psd,
+                                            f_low, interp_points,
+                                            approximant)
+
+    def calculate_alpha_lm_grid(
+        self, interp_directions, psd, f_low, interp_points, modes,
+        approximant
+    ):
+        from simple_pe.param_est.pe import interpolate_alpha_lm
+        samples = self.samples_dict
+        maxs = dict((k, samples.maximum[k]) for k in interp_directions)
+        mins = dict((k, samples.minimum[k]) for k in interp_directions)
+        fixed_pars = {k: v[0] for k, v in samples.mean.items()
+                      if k not in interp_directions}
+        return interpolate_alpha_lm(maxs, mins, fixed_pars, psd,
+                                    f_low, interp_points,
+                                    modes, approximant), mins, maxs
+
+    def precessing_approximant(self, approximant):
+        return lalsim.SimInspiralGetSpinSupportFromApproximant(
+            getattr(lalsim, approximant)
+        ) > 2
+
+    def calculate_beta_grid(
+        self, interp_directions, psd, f_low, interp_points, approximant
+    ):
+        from simple_pe.param_est.pe import interpolate_opening
+        samples = self.samples_dict
+        _tmp_directions = [_ for _ in interp_directions if "chi_p" not in _]
+        maxs = dict((k, samples.maximum[k]) for k in _tmp_directions)
+        mins = dict((k, samples.minimum[k]) for k in _tmp_directions)
+        param = "chi_p" if "chi_p" in interp_directions else "chi_p2"
+        maxs[param] = [1.]
+        mins[param] = [0.]
+        fixed_pars = {k: v[0] for k, v in samples.mean.items()
+                      if k not in interp_directions}
+        return interpolate_opening(maxs, mins, fixed_pars, psd, f_low,
+                                   interp_points, approximant)
+
+    def __cache_samples(self, samples):
+        try:
+            combined = []
+            for key, value in samples.items():
+                _existing = self.__cache[key].tolist()
+                _existing += value.tolist()
+                combined.append(_existing)
+            self.__cache = pe.SimplePESamples(
+                {key: combined[num] for num, key in enumerate(samples.keys())}
+            )
+        except AttributeError:
+            self.__cache = samples
+        return
         
     def generate_samples_from_aligned_spin_template_parameters(
         self, metric_directions, prec_interp_dirs, hm_interp_dirs,
         dist_interp_dirs, modes=['33'], alpha_net=None, interp_points=7,
         template_parameters=None, dominant_snr=None,
-        reweight_to_isotropic_spin_prior=True, localization_method="fullsky"
+        reweight_to_isotropic_spin_prior=True, localization_method="fullsky",
+        metric=None, neff=5000
     ):
         import time
         t0 = time.time()
@@ -208,43 +283,78 @@ class Result(GWSingleAnalysisRead):
             self._snrs['22'] = dominant_snr
         if alpha_net is not None:
             self._alpha_net = alpha_net
-        self.generate_samples_from_metric(
-            metric_directions, self.template_parameters, self.snrs['22'],
-        )
-        self.generate_samples_from_sky(bayestar_localization=self.bayestar_localization)
-        if reweight_to_isotropic_spin_prior:
-            self.reweight_samples(
-                pe.isotropic_spin_prior_weight,
-                dx_directions=self.metric.dx_directions
+
+        sigma_22_grid, alpha_lm_grid, beta_22_grid = None, None, None
+        mins, maxs = None, None
+        old = 0
+        pbar = tqdm.tqdm(desc="Drawing samples", total=neff)
+        while True:
+            self.generate_samples_from_metric(
+                metric_directions, self.template_parameters, self.snrs['22'],
+                metric=metric, mins=mins, maxs=maxs
             )
-        self.generate_all_posterior_samples(
-            function=pe.calculate_interpolated_snrs,
-            psd=self.psd,
-            f_low=self.f_low,
-            dominant_snr=self.snrs['22'],
-            modes=modes,
-            response_sigma=self.response_sigma,
-            fiducial_sigma=self.sigma,
-            dist_interp_dirs=dist_interp_dirs,
-            hm_interp_dirs=hm_interp_dirs,
-            prec_interp_dirs=prec_interp_dirs,
-            interp_points=interp_points,
-            approximant=self.approximant,
-            left_snr=self.left_snr,
-            right_snr=self.right_snr,
-            template_parameters=self.template_parameters,
-            snrs=self.snrs,
-            localization_method=localization_method
-        )
-        samples = self.samples_dict
-        self.reweight_samples(
-            pe.reweight_based_on_observed_snrs,
-            hm_snr={'33': self.snrs['33']},
-            prec_snr=self.snrs['prec'],
-            snr_2pol={
-                "not_right": samples['not_right'],
-                "not_left": samples["not_left"]
-            }, ignore_debug_params=['p_', 'weight']
-        )
+            self.generate_samples_from_sky(
+                bayestar_localization=self.bayestar_localization
+            )
+            if sigma_22_grid is None:
+                sigma_22_grid = self.calculate_sigma_grid(
+                    dist_interp_dirs, self.hm_psd, self.f_low, interp_points,
+                    self.approximant
+                )
+            if alpha_lm_grid is None:
+                alpha_lm_grid, mins, maxs = self.calculate_alpha_lm_grid(
+                    hm_interp_dirs, self.hm_psd, self.f_low, interp_points,
+                    modes, self.approximant
+                )
+            if self.precessing_approximant(self.approximant) and \
+                    beta_22_grid is None:
+                beta_22_grid = self.calculate_beta_grid(
+                    prec_interp_dirs, self.hm_psd, self.f_low, interp_points,
+                    self.approximant
+                )
+            if reweight_to_isotropic_spin_prior:
+                self.reweight_samples(
+                    pe.isotropic_spin_prior_weight,
+                    dx_directions=self.metric.dx_directions
+                )
+            self.generate_all_posterior_samples(
+                function=pe.calculate_interpolated_snrs,
+                psd=self.psd,
+                f_low=self.f_low,
+                dominant_snr=self.snrs['22'],
+                modes=modes,
+                response_sigma=self.response_sigma,
+                fiducial_sigma=self.sigma,
+                dist_interp_dirs=dist_interp_dirs,
+                hm_interp_dirs=hm_interp_dirs,
+                prec_interp_dirs=prec_interp_dirs,
+                interp_points=interp_points,
+                approximant=self.approximant,
+                left_snr=self.left_snr,
+                right_snr=self.right_snr,
+                template_parameters=self.template_parameters,
+                snrs=self.snrs,
+                localization_method=localization_method,
+                sigma_22_grid=sigma_22_grid,
+                alpha_lm_grid=alpha_lm_grid,
+                beta_22_grid=beta_22_grid
+            )
+            samples = self.samples_dict
+            self.reweight_samples(
+                pe.reweight_based_on_observed_snrs,
+                hm_snr={'33': self.snrs['33']},
+                prec_snr=self.snrs['prec'],
+                snr_2pol={
+                    "not_right": samples['not_right'],
+                    "not_left": samples["not_left"]
+                }, ignore_debug_params=['p_', 'weight']
+            )
+            self.__cache_samples(self.samples_dict)
+            pbar.update(self.__cache.number_of_samples - old)
+            if self.__cache.neff > neff:
+                break
+            old = self.__cache.number_of_samples
+        self.parameters = self.__cache.parameters
+        self.samples = self.__cache.samples.T
         print(f"Total time taken: {time.time() - t0:.2f}s")
-        return self.samples_dict
+        return self.__cache
