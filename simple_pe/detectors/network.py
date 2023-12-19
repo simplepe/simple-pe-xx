@@ -102,11 +102,12 @@ class Network(object):
         """
         for ifo in ifos:
             horizon, f_mean, f_band = \
-                detectors.calc_reach_bandwidth(mass1=1.4, mass2=1.4, spin=0,
+                detectors.calc_reach_bandwidth(masses=[1.4, 1.4], spin=0,
                                                approx=approximant,
                                                psd=psds[ifo],
                                                fmin=f_lows[ifo],
-                                               thresh=8)
+                                               thresh=8,
+                                               mass_configuration="component")
             self.add_ifo(ifo, horizon, f_mean, f_band,
                          found_thresh, loc_thresh, duty_cycle,
                          bns_range)

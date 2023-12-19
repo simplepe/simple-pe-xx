@@ -1,5 +1,8 @@
 import numpy as np
 from simple_pe.param_est import pe, metric
+from simple_pe import io
+from simple_pe.localization.event import Event
+from pesummary.utils.samples_dict import SamplesDict
 from pesummary.gw.file.formats.base_read import GWSingleAnalysisRead
 
 
@@ -7,25 +10,20 @@ class Result(GWSingleAnalysisRead):
     """
     """
     def __init__(self, f_low=None, psd=None, approximant=None,
+                 snr_threshold=4., bayestar_localization=None,
                  data_from_matched_filter={}):
 
         self.f_low = f_low
         self.psd = psd
+        self.hm_psd = io.calculate_harmonic_mean_psd(self.psd)
         self.approximant = approximant
+        self.snr_threshold = snr_threshold
+        self.bayestar_localization = bayestar_localization
         self._template_parameters = data_from_matched_filter.get(
             "template_parameters", None
         )
         self._snrs = data_from_matched_filter.get(
             "snrs", {}
-        )
-        self._alpha_net = data_from_matched_filter.get(
-            "alpha_net", None
-        )
-        self._f_net = data_from_matched_filter.get(
-            "f_net", None
-        )
-        self._distance_face_on = data_from_matched_filter.get(
-            "distance_face_on", None
         )
         self._sigma = data_from_matched_filter.get(
             "sigma", None
@@ -95,16 +93,100 @@ class Result(GWSingleAnalysisRead):
             self._snrs["22"] = dominant_snr
         self._metric = metric.find_metric_and_eigendirections(
             self.template_parameters, metric_directions, self.snrs['22'],
-            self.f_low, self.psd,  self.approximant, tolerance, max_iter
+            self.f_low, self.hm_psd,  self.approximant, tolerance, max_iter
         )
     
-    def generate_samples_from_metric(self, *args, npts=1e6, **kwargs):
+    def generate_samples_from_metric(self, *args, npts=int(1e5), **kwargs):
         if self.metric is None:
             self.generate_metric(*args, **kwargs)
         samples = self.metric.generate_samples(int(npts))
         self.samples = np.array(samples.samples).T
         self.parameters = samples.parameters
         return samples
+
+    def generate_samples_from_sky(self, npts=int(1e5), bayestar_localization=None):
+        from pesummary.core.reweight import rejection_sampling
+        single_point = all(param in self.template_parameters for param in ["ra", "dec"])
+        if bayestar_localization is not None and single_point:
+            raise ValueError(
+                "Please specify either 'bayestar_localization' or provide "
+                "an estimate of 'ra' and 'dec' but not both"
+            )
+        if single_point:
+            ra = np.ones(npts) * self.template_parameters["ra"]
+            dec = np.ones(npts) * self.template_parameters["dec"]
+        elif bayestar_localization:
+            from ligo.skymap.io.fits import read_sky_map
+            import astropy_healpix as ah
+            import healpy as hp
+            probs, _ = read_sky_map(bayestar_localization)
+            npix = len(probs)
+            nside = ah.npix_to_nside(npix)
+            codec, ra = hp.pix2ang(nside, np.arange(npix))
+            _cache = {"ra": [], "dec": []}
+            while len(_cache["ra"]) < npts:
+                pts = SamplesDict({'ra': ra, 'dec': np.pi/2 - codec})
+                pts = rejection_sampling(pts, probs)
+                _cache["ra"] += list(pts["ra"])
+                _cache["dec"] += list(pts["dec"])
+            pts = SamplesDict({'ra': _cache["ra"], 'dec': _cache["dec"]})
+            pts = pts.downsample(npts)
+            ra = pts['ra']
+            dec = pts['dec']
+        else:
+            from simple_pe.detectors import calc_reach_bandwidth, Network
+            net = Network(threshold=10.)
+            for ifo, p in self.psd.items():
+                hor, f_mean, f_band = calc_reach_bandwidth(
+                    [
+                        self.template_parameters['chirp_mass'],
+                        self.template_parameters['symmetric_mass_ratio']
+                    ], self.template_parameters["chi_align"],
+                    self.approximant, p, self.f_low,
+                    mass_configuration="chirp"
+                )
+                net.add_ifo(ifo, hor, f_mean, f_band, bns_range=False,
+                            loc_thresh=self.snr_threshold)
+            ev = Event.from_snrs(
+                net, self.snrs["ifo_snr"], self.snrs["ifo_time"],
+                self.template_parameters['chirp_mass']
+            )
+            ev.calculate_mirror()
+            ev.localize_all(methods=['coh', 'left', 'right'])
+            if ev.localized >= 3:
+                coh = ev.localization['coh']
+                if ev.mirror and (ev.mirror_loc['coh'].snr >
+                                  ev.localization['coh'].snr):
+                    coh = ev.mirror_loc['coh']
+                # calculate max left/right SNR, allowing offset from central point
+                # to maximize SNR
+                snr_left = ev.localization['left'].calculate_max_snr()
+                snr_right = ev.localization['right'].calculate_max_snr()
+
+                ra, dec = coh.generate_samples(npts=int(1e3), sky_weight=True)
+            elif ev.localized == 1:
+                # source is only localized by the antenna pattern
+                ra = np.random.uniform(0, 2 * np.pi, npts * 100)
+                dec = np.pi / 2 - np.arccos(np.random.uniform(-1, 1, len(ra)))
+                f = np.zeros_like(ra)
+                det = ev.__getattribute__(ev.ifos[0])
+                for i, (r, d) in enumerate(zip(ra, dec)):
+                    fp, fc = det.antenna_pattern(r, np.pi / 2 - d, ev.psi, ev.gps)
+                    f[i] = np.sqrt(fp ** 2 + fc ** 2)
+                pts = SamplesDict({'ra': ra, 'dec': dec})
+                pts = rejection_sampling(pts, f ** 3).downsample(npts)
+                ra = pts['ra']
+                dec = pts['dec']
+            else:
+                raise KeyError(
+                    f"Unable to localize event from SNRs. This could be because "
+                    f"you are considering a network with less than 3 detectors, or "
+                    f"because the IFO SNRs are <{self.snr_threshold}. The recovered IFO "
+                    f"SNRs are "
+                    f"{', '.join([ifo + ':' + str(abs(self.snrs['ifo_snr'][ifo])) for ifo in self.psd.keys()])}"
+                )
+        self.samples = np.vstack([self.samples.T, ra, dec]).T
+        self.parameters = self.parameters + ["ra", "dec"]
     
     def generate_all_posterior_samples(self, function=None, **kwargs):
         samples = self.samples_dict
@@ -116,7 +198,7 @@ class Result(GWSingleAnalysisRead):
         self, metric_directions, prec_interp_dirs, hm_interp_dirs,
         dist_interp_dirs, modes=['33'], alpha_net=None, interp_points=7,
         template_parameters=None, dominant_snr=None,
-        reweight_to_isotropic_spin_prior=True
+        reweight_to_isotropic_spin_prior=True, localization_method="fullsky"
     ):
         import time
         t0 = time.time()
@@ -127,8 +209,9 @@ class Result(GWSingleAnalysisRead):
         if alpha_net is not None:
             self._alpha_net = alpha_net
         self.generate_samples_from_metric(
-            metric_directions, self.template_parameters, self.snrs['22']
+            metric_directions, self.template_parameters, self.snrs['22'],
         )
+        self.generate_samples_from_sky(bayestar_localization=self.bayestar_localization)
         if reweight_to_isotropic_spin_prior:
             self.reweight_samples(
                 pe.isotropic_spin_prior_weight,
@@ -140,9 +223,7 @@ class Result(GWSingleAnalysisRead):
             f_low=self.f_low,
             dominant_snr=self.snrs['22'],
             modes=modes,
-            alpha_net=self.alpha_net,
             response_sigma=self.response_sigma,
-            fiducial_distance=self.distance_face_on,
             fiducial_sigma=self.sigma,
             dist_interp_dirs=dist_interp_dirs,
             hm_interp_dirs=hm_interp_dirs,
@@ -150,15 +231,19 @@ class Result(GWSingleAnalysisRead):
             interp_points=interp_points,
             approximant=self.approximant,
             left_snr=self.left_snr,
-            right_snr=self.right_snr
+            right_snr=self.right_snr,
+            template_parameters=self.template_parameters,
+            snrs=self.snrs,
+            localization_method=localization_method
         )
+        samples = self.samples_dict
         self.reweight_samples(
             pe.reweight_based_on_observed_snrs,
             hm_snr={'33': self.snrs['33']},
             prec_snr=self.snrs['prec'],
             snr_2pol={
-                "not_right": self.snrs['not_right'],
-                "not_left": self.snrs["not_left"]
+                "not_right": samples['not_right'],
+                "not_left": samples["not_left"]
             }, ignore_debug_params=['p_', 'weight']
         )
         print(f"Total time taken: {time.time() - t0:.2f}s")
