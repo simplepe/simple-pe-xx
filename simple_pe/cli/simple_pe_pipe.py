@@ -369,7 +369,7 @@ class AnalysisNode(Node):
     def arguments(self):
         string_args = [
             "approximant", "f_low", "delta_f", "f_high", "minimum_data_length",
-            "seed"
+            "seed", "neffective"
         ]
         dict_args = ["asd", "psd"]
         list_args = ["metric_directions", "precession_directions"]

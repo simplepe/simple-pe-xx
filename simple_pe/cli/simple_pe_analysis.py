@@ -30,6 +30,12 @@ def command_line():
         type=int
     )
     parser.add_argument(
+        "--neffective",
+        help="Total number of effective samples to obtain",
+        default=1000,
+        type=int
+    )
+    parser.add_argument(
         "--peak_parameters",
         help=(
             "JSON file containing peak parameters generated with "
@@ -158,7 +164,8 @@ def main(args=None):
     )
     _ = pe_result.generate_samples_from_aligned_spin_template_parameters(
         opts.metric_directions, opts.precession_directions,
-        opts.multipole_directions, opts.distance_directions, interp_points=5
+        opts.multipole_directions, opts.distance_directions, interp_points=5,
+        neff=opts.neffective
     )
     pe_result.samples_dict.write(
         outdir=opts.outdir, filename="posterior_samples.dat", overwrite=True,

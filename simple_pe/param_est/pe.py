@@ -97,6 +97,12 @@ class SimplePESamples(SamplesDict):
         except (AttributeError, TypeError):
             pass
 
+    @property
+    def neff(self):
+        if "weight" in self.keys():
+            return (np.sum(self["weight"]))**2 / np.sum(self["weight"]**2)
+        return self.number_of_samples
+
     def update(self, dictionary):
         for key, value in dictionary.items():
             self.__setitem__(key, value)
@@ -202,7 +208,8 @@ class SimplePESamples(SamplesDict):
 
     def generate_distance(self, fiducial_distance, fiducial_sigma,
                           psd, f_low, interp_directions, interp_points=5,
-                          approximant="IMRPhenomXPHM", overwrite=False):
+                          approximant="IMRPhenomXPHM", overwrite=False,
+                          sigma_22_grid=None):
         """
         generate distance points using the existing theta_JN samples and
         fiducial distance.  Interpolate sensitivity over the parameter space
@@ -240,9 +247,12 @@ class SimplePESamples(SamplesDict):
             if 'chi_p2' in fixed_pars.keys():
                 fixed_pars['chi_p2'] = 0.
 
-            sigma_grid, pts = interpolate_sigma(maxs, mins, fixed_pars, psd, 
-                                                f_low, interp_points,
-                                                approximant)
+            if sigma_22_grid is None:
+                sigma_grid, pts = interpolate_sigma(maxs, mins, fixed_pars, psd,
+                                                    f_low, interp_points,
+                                                    approximant)
+            else:
+                sigma_grid, pts = sigma_22_grid
 
             sigma_int = interpolate.interpn(pts, sigma_grid, 
                                             np.array([self[k] for k in 
@@ -465,7 +475,8 @@ class SimplePESamples(SamplesDict):
                 self.samples[ind] = self[d]
 
     def calculate_rho_lm(self, psd, f_low, net_snr, modes, interp_directions, 
-                         interp_points=5, approximant="IMRPhenomXPHM"):
+                         interp_points=5, approximant="IMRPhenomXPHM",
+                         alpha_lm_grid=None):
         """
         Calculate the higher mode SNRs
 
@@ -482,9 +493,12 @@ class SimplePESamples(SamplesDict):
         fixed_pars = {k: v[0] for k, v in self.mean.items() 
                       if k not in interp_directions}
 
-        alpha_grid, pts = interpolate_alpha_lm(maxs, mins, fixed_pars, psd, 
-                                               f_low, interp_points, 
-                                               modes, approximant)
+        if alpha_lm_grid is None:
+            alpha_grid, pts = interpolate_alpha_lm(maxs, mins, fixed_pars, psd,
+                                                   f_low, interp_points,
+                                                   modes, approximant)
+        else:
+            alpha_grid, pts = alpha_lm_grid
 
         for m in modes:
             alpha = interpolate.interpn(pts, alpha_grid[m], 
@@ -526,7 +540,8 @@ class SimplePESamples(SamplesDict):
             self['rho_not_left'][self['rho_not_left'] > net_snr] = net_snr
 
     def calculate_rho_p(self, psd, f_low, net_snr, interp_directions, 
-                        interp_points=5, approximant="IMRPhenomXP"):
+                        interp_points=5, approximant="IMRPhenomXP",
+                        beta_22_grid=None):
         """
         Calculate the precession SNR
 
@@ -543,8 +558,11 @@ class SimplePESamples(SamplesDict):
         fixed_pars = {k: v[0] for k, v in self.mean.items() 
                       if k not in interp_directions}
 
-        beta_grid, pts = interpolate_opening(maxs, mins, fixed_pars, psd, 
-                                             f_low, interp_points, approximant)
+        if beta_22_grid is None:
+            beta_grid, pts = interpolate_opening(maxs, mins, fixed_pars, psd, 
+                                                 f_low, interp_points, approximant)
+        else:
+            beta_grid, pts = beta_22_grid
 
         self['beta'] = interpolate.interpn(pts, beta_grid, 
                                            np.array([self[k] for k 
@@ -795,7 +813,8 @@ def calculate_interpolated_snrs(
         samples.generate_theta_jn('uniform')
     if "distance" not in samples.keys():
         samples.generate_distance(fiducial_distance, fiducial_sigma, psd, f_low,
-                                  dist_interp_dirs, interp_points, approximant)
+                                  dist_interp_dirs, interp_points, approximant,
+                                  sigma_22_grid=kwargs.get("sigma_22_grid", None))
         samples.jitter_distance(dominant_snr, response_sigma)
     if "chi_p" not in samples.keys() and "chi_p2" not in samples.keys():
         if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) > 2:
@@ -804,7 +823,7 @@ def calculate_interpolated_snrs(
             samples["chi_p"] = np.zeros_like(samples["theta_jn"])
     samples.calculate_rho_lm(
         psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points,
-        approximant
+        approximant, alpha_lm_grid=kwargs.get("alpha_lm_grid", None)
     )
     samples.calculate_rho_2nd_pol(alpha_net, dominant_snr)
     if ("chi_p" in prec_interp_dirs) and ("chi_p" not in samples.keys()):
@@ -812,7 +831,7 @@ def calculate_interpolated_snrs(
     if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) > 2:
         samples.calculate_rho_p(
             psd, f_low, dominant_snr, prec_interp_dirs, interp_points,
-            approximant
+            approximant, beta_22_grid=kwargs.get("beta_22_grid", None)
         )
     else:
         samples["rho_p"] = np.zeros_like(samples["theta_jn"])
