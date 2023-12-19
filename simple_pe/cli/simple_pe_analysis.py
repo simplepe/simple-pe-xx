@@ -184,8 +184,6 @@ def main(args=None):
     data_from_matched_filter = {
         "template_parameters": template_parameters,
         "snrs": snrs,
-        #"alpha_net": peak_parameters['net_alpha'][0],
-        #"distance_face_on": peak_parameters['distance_face_on'][0],
         "sigma": peak_parameters['sigma'][0]
     }
     pe_result = result.Result(
