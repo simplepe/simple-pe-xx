@@ -1,12 +1,9 @@
 import numpy as np
 from simple_pe.param_est import pe, metric
-<<<<<<< HEAD
 import tqdm
 import lalsimulation as lalsim
-=======
 from simple_pe import io
 from simple_pe.localization.event import Event
->>>>>>> origin/main
 from pesummary.utils.samples_dict import SamplesDict
 from pesummary.gw.file.formats.base_read import GWSingleAnalysisRead
 
@@ -100,18 +97,13 @@ class Result(GWSingleAnalysisRead):
             self.template_parameters, metric_directions, self.snrs['22'],
             self.f_low, self.hm_psd,  self.approximant, tolerance, max_iter
         )
-    
-<<<<<<< HEAD
+
     def generate_samples_from_metric(
-        self, *args, npts=1e6, metric=None, mins=None, maxs=None, **kwargs
+        self, *args, npts=int(1e5), metric=None, mins=None, maxs=None, **kwargs
     ):
         if self.metric is None and metric is not None:
             self._metric = metric
         elif self.metric is None:
-=======
-    def generate_samples_from_metric(self, *args, npts=int(1e5), **kwargs):
-        if self.metric is None:
->>>>>>> origin/main
             self.generate_metric(*args, **kwargs)
         samples = self.metric.generate_samples(int(npts), mins=mins, maxs=maxs)
         self.samples = np.array(samples.samples).T
