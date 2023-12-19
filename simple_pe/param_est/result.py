@@ -350,9 +350,9 @@ class Result(GWSingleAnalysisRead):
                 }, ignore_debug_params=['p_', 'weight']
             )
             self.__cache_samples(self.samples_dict)
+            pbar.update(self.__cache.number_of_samples - old)
             if self.__cache.neff > neff:
                 break
-            pbar.update(self.__cache.number_of_samples - old)
             old = self.__cache.number_of_samples
         self.parameters = self.__cache.parameters
         self.samples = self.__cache.samples.T
