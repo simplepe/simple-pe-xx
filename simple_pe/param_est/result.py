@@ -25,15 +25,6 @@ class Result(GWSingleAnalysisRead):
         self._snrs = data_from_matched_filter.get(
             "snrs", {}
         )
-        #self._alpha_net = data_from_matched_filter.get(
-        #    "alpha_net", None
-        #)
-        #self._f_net = data_from_matched_filter.get(
-        #    "f_net", None
-        #)
-        #self._distance_face_on = data_from_matched_filter.get(
-        #    "distance_face_on", None
-        #)
         self._sigma = data_from_matched_filter.get(
             "sigma", None
         )
@@ -232,9 +223,7 @@ class Result(GWSingleAnalysisRead):
             f_low=self.f_low,
             dominant_snr=self.snrs['22'],
             modes=modes,
-            #alpha_net=self.alpha_net,
             response_sigma=self.response_sigma,
-            #fiducial_distance=self.distance_face_on,
             fiducial_sigma=self.sigma,
             dist_interp_dirs=dist_interp_dirs,
             hm_interp_dirs=hm_interp_dirs,
