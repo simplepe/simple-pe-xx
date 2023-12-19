@@ -363,13 +363,16 @@ class AnalysisNode(Node):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._executable = self.get_executable("simple_pe_analysis")
+        if self.opts.use_bayestar_localization:
+            self.opts.bayestar_localization = \
+                self._get_bayestar_localization(self.opts.sid, self.opts.gid)
         self.create_pycondor_job()
 
     @property
     def arguments(self):
         string_args = [
             "approximant", "f_low", "delta_f", "f_high", "minimum_data_length",
-            "seed"
+            "seed", "bayestar_localization", "snr_threshold", "localization_method"
         ]
         dict_args = ["asd", "psd"]
         list_args = ["metric_directions", "precession_directions"]
@@ -380,89 +383,6 @@ class AnalysisNode(Node):
             ["--peak_snrs", f"{self.opts.outdir}/output/peak_snrs.json"]
         ]
         return " ".join([item for sublist in args for item in sublist])
-
-
-class FilterNode(Node):
-    """Node to handle the generation of the main match filter job
-
-    Parameters
-    ----------
-    opts: argparse.Namespace
-        Namespace containing the command line arguments
-    dag: Dag
-        Dag object to control the generation of the DAG
-    """
-    job_name = "filter"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._executable = self.get_executable("simple_pe_filter")
-        self.opts.trigger_parameters = self._prepare_trigger_parameters(
-            self.opts.sid, self.opts.gid, self.opts.trigger_parameters,
-        )
-        if self.opts.use_bayestar_localization:
-            self.opts.bayestar_localization = \
-                self._get_bayestar_localization(self.opts.sid, self.opts.gid)
-        if not len(self.opts.psd) and not len(self.opts.asd):
-            self.opts.psd = self._get_search_psd(self.opts.sid, self.opts.gid)
-        self.create_pycondor_job()
-
-    @property
-    def arguments(self):
-        string_args = [
-            "trigger_parameters", "approximant", "f_low", "f_high",
-            "minimum_data_length", "seed", "snr_threshold",
-            "bayestar_localization"
-        ]
-        dict_args = ["asd", "psd"]
-        if "strain_cache" in self.opts.strain:
-            string_args += ["strain"]
-        else:
-            dict_args += ["strain", "channels"]
-        list_args = ["metric_directions"]
-        args = self._format_arg_lists(string_args, dict_args, list_args)
-        args += [["--outdir", f"{self.opts.outdir}/output"]]
-        return " ".join([item for sublist in args for item in sublist])
-
-    def _prepare_trigger_parameters(self, sid, gid, trigger_parameters):
-        """
-        Obtain the trigger parameters either from the trigger_parameters file
-        or by reading them from GraceDB using the sid/gid
-
-        Parameters
-        ----------
-        sid: str
-            GraceDB ID for the event you wish to analyse
-        gid: str
-            Superevent GraceDB ID for the event you wish to analyse
-        trigger_parameters: str or dict
-            Either a dict containing the trigger parameters or the name of a
-            file which contains the parameters
-        """
-        import json
-        os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
-
-        if trigger_parameters is None and sid is None and gid is None:
-            raise ValueError(
-                "Please provide a file containing the trigger parameters "
-                "or a superevent ID to download the trigger parameters "
-                "from GraceDB"
-            )
-
-        if trigger_parameters is None:
-            # read parameters from graceDB using sid/gid
-            trigger_parameters = get_trigger_parameters(sid, gid)
-
-        if isinstance(trigger_parameters, dict):
-            filename = f"{self.opts.outdir}/output/trigger_parameters.json"
-            with open(filename, "w") as f:
-                _trigger_parameters = {key: float(item) for key, item in
-                                       trigger_parameters.items()}
-                json.dump(_trigger_parameters, f)
-        else:
-            filename = trigger_parameters
-
-        return filename
 
     def _get_bayestar_localization(self, sid, gid):
         if sid is None and gid is None:
@@ -492,6 +412,84 @@ class FilterNode(Node):
             except Exception:
                 raise
         return loc_filename
+
+
+class FilterNode(Node):
+    """Node to handle the generation of the main match filter job
+
+    Parameters
+    ----------
+    opts: argparse.Namespace
+        Namespace containing the command line arguments
+    dag: Dag
+        Dag object to control the generation of the DAG
+    """
+    job_name = "filter"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._executable = self.get_executable("simple_pe_filter")
+        self.opts.trigger_parameters = self._prepare_trigger_parameters(
+            self.opts.sid, self.opts.gid, self.opts.trigger_parameters,
+        )
+        if not len(self.opts.psd) and not len(self.opts.asd):
+            self.opts.psd = self._get_search_psd(self.opts.sid, self.opts.gid)
+        self.create_pycondor_job()
+
+    @property
+    def arguments(self):
+        string_args = [
+            "trigger_parameters", "approximant", "f_low", "f_high",
+            "minimum_data_length", "seed",
+        ]
+        dict_args = ["asd", "psd"]
+        if "strain_cache" in self.opts.strain:
+            string_args += ["strain"]
+        else:
+            dict_args += ["strain", "channels"]
+        list_args = ["metric_directions"]
+        args = self._format_arg_lists(string_args, dict_args, list_args)
+        args += [["--outdir", f"{self.opts.outdir}/output"]]
+        return " ".join([item for sublist in args for item in sublist])
+
+    def _prepare_trigger_parameters(self, sid, gid, trigger_parameters):
+        """
+        Obtain the trigger parameters either from the trigger_parameters file
+        or by reading them from GraceDB using the sid/gid
+
+        Parameters
+        ----------
+        sid: str
+            GraceDB ID for the event you wish to analyse
+        gid: str
+            Superevent GraceDB ID for the event you wish to analyse
+        trigger_parameters: str or dict
+            Either a dict containing the trigger parameters or the name of a
+            file which contains the parameters
+        """
+        import json
+        os.makedirs(f"{self.opts.outdir}/output", exist_ok=True)
+        if trigger_parameters is None and sid is None and gid is None:
+            raise ValueError(
+                "Please provide a file containing the trigger parameters "
+                "or a superevent ID to download the trigger parameters "
+                "from GraceDB"
+            )
+
+        if trigger_parameters is None:
+            # read parameters from graceDB using sid/gid
+            trigger_parameters = get_trigger_parameters(sid, gid)
+
+        if isinstance(trigger_parameters, dict):
+            filename = f"{self.opts.outdir}/output/trigger_parameters.json"
+            with open(filename, "w") as f:
+                _trigger_parameters = {key: float(item) for key, item in
+                                       trigger_parameters.items()}
+                json.dump(_trigger_parameters, f)
+        else:
+            filename = trigger_parameters
+
+        return filename
 
     def _get_search_psd(self, sid, gid):
         if sid is None and gid is None:
