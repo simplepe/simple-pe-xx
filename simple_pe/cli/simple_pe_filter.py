@@ -331,14 +331,16 @@ def calculate_subdominant_snr(
             strain_f[ifo], psd[ifo], t_start, t_end, f_low, multipoles,
             h_hm, h_hm_perp
         )
-    _, _, _, hm_net_snr_perp = waveforms.network_mode_snr(
-        z_hm, z_hm_perp, ifos, multipoles, dominant_mode='22'
+    _, hm_net_snr_perp = waveforms.network_mode_snr(
+        z_hm_perp, ifos, multipoles, dominant_mode='22'
     )
     _snr = {}
+    _overlap = {}
     for lm in multipoles:
         _snr[lm] = hm_net_snr_perp[lm]
+        _overlap[lm] = abs(zetas[lm])
 
-    return _snr
+    return _snr, _overlap
 
 
 def calculate_precession_snr(
@@ -395,23 +397,25 @@ def calculate_precession_snr(
             f_lower=f_low, f_final=f_high
         )
 
+    h_perp, sig, zeta = waveforms.orthonormalize_modes(
+        hp, io.calculate_harmonic_mean_psd(psd), f_low, [0, 1],
+        dominant_mode=0
+        )
+
     z_prec = {}
     z_prec_perp = {}
-    overlap_prec = {}
     for ifo in ifos:
-        h_perp, sig, zeta = waveforms.orthonormalize_modes(
-            hp, psd[ifo], f_low, [0, 1], dominant_mode=0
-        )
-        overlap_prec[ifo] = zeta[1]
         z_prec[ifo], z_prec_perp[ifo] = _calculate_mode_snr(
             strain_f[ifo], psd[ifo], t_start, t_end, f_low, [0, 1], hp, h_perp,
             dominant_mode=0
         )
-    _, _, _, prec_net_snr_perp = waveforms.network_mode_snr(
-        z_prec, z_prec_perp, ifos, [0, 1], 0
+    _, prec_net_snr_perp = waveforms.network_mode_snr(
+        z_prec_perp, ifos, [0, 1], 0
     )
     _snr = {"prec": prec_net_snr_perp[1]}
-    return _snr
+    _overlap = {"prec": abs(zeta[1])}
+
+    return _snr, _overlap
 
 
 def _calculate_mode_snr(
@@ -485,16 +489,17 @@ def main(args=None):
     )
     peak_parameters.add_fixed("sigma", _sigma)
 
-    _snrs = calculate_subdominant_snr(
+    _snrs, overlaps = calculate_subdominant_snr(
         peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
         trig_start, trig_end
     )
     event_snr.update(_snrs)
 
-    _snrs = calculate_precession_snr(
+    _snrs, _overlaps = calculate_precession_snr(
         peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
         trig_start, trig_end
     )
+    overlaps.update(_overlaps)
     event_snr.update(_snrs)
     peak_parameters.write(
         outdir=opts.outdir, filename="peak_parameters.json", overwrite=True,
@@ -511,6 +516,9 @@ def main(args=None):
         event_snr['ifo_snr_real'][k] = np.real(v)
         event_snr['ifo_snr_imag'][k] = np.imag(v)
 
+    # add the overlaps of event_snr
+    event_snr["overlaps"] = overlaps
+    
     pe.SimplePESamples(
         {key: [value] for key, value in event_snr.items()}
     ).write(
