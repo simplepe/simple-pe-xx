@@ -666,7 +666,7 @@ class SimplePESamples(SamplesDict):
             for lm, snr in hm_snr.items():
                 rv = ncx2(2, snr ** 2)
                 if overlaps is not None:
-                    over = overlaps['lm']
+                    over = overlaps[lm]
                 else:
                     over = 0.
                 p = rv.pdf(self['rho_' + lm] ** 2 * (1 - over ** 2))
