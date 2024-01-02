@@ -352,7 +352,7 @@ class Result(GWSingleAnalysisRead):
                     "not_right": samples['not_right'],
                     "not_left": samples["not_left"]
                 },
-                overlaps=self.overlaps,
+                overlaps=self.overlaps(),
                 ignore_debug_params=['p_', 'weight']
             )
             self.__cache_samples(self.samples_dict)
