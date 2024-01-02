@@ -9,17 +9,18 @@ from simple_pe import fstat
 from simple_pe.waveforms.waveform_modes import mode_array_dict
 
 
-def calc_reach_bandwidth(mass1, mass2, spin, approx, psd, fmin, thresh=8.):
+def calc_reach_bandwidth(
+    masses, spin, approx, psd, fmin, thresh=8., mass_configuration="component"
+):
     """
     Calculate the horizon, mean frequency and bandwidth for a given PSD in
     the detector frame
 
     Parameters
     ----------
-    mass1: float
-        the mass of the first component
-    mass2: float
-        the mass of the second component
+    masses: list
+        the masses of the binary. Can be component masses or chirp mass-symmetric
+        mass ratio
     spin: float
         the aligned spin for both components
     approx: str
@@ -30,6 +31,10 @@ def calc_reach_bandwidth(mass1, mass2, spin, approx, psd, fmin, thresh=8.):
         the minimum frequency
     thresh: float
         the SNR at which to calculate the horizon
+    mass_configuration: str, optional
+        configuration of the binary masses. Must be either 'component' if masses
+        contains the primary mass and secondary, or 'chirp' if masses contained
+        the chirp mass and symmetric mass ratio
 
     Returns
     -------
@@ -41,6 +46,18 @@ def calc_reach_bandwidth(mass1, mass2, spin, approx, psd, fmin, thresh=8.):
         the frequency bandwidth
     """
     from simple_pe.waveforms.waveform import make_waveform
+    if mass_configuration not in ["component", "chirp"]:
+        raise ValueError(
+            "mass_configuration must be either component or chirp"
+        )
+    if mass_configuration == "component":
+        mass1, mass2 = masses
+    else:
+        from pycbc.conversions import (
+            mass1_from_mchirp_eta, mass2_from_mchirp_eta
+        )
+        mass1 = mass1_from_mchirp_eta(*masses)
+        mass2 = mass2_from_mchirp_eta(*masses)
     fmax = psd.sample_frequencies[-1]
     df = psd.delta_f
     params = {

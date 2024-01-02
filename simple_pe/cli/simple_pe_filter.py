@@ -48,12 +48,6 @@ def command_line():
         default=None,
     )
     parser.add_argument(
-        "--snr_threshold",
-        help="SNR threshold to use for localization. Default 4",
-        default=4,
-        type=float
-    )
-    parser.add_argument(
         "--strain",
         help=(
             "Time domain strain data to analyse. Must be provided as a space "
@@ -145,13 +139,6 @@ def command_line():
         help="Directions to calculate metric",
         nargs="+",
         default=['chirp_mass', 'symmetric_mass_ratio', 'chi_align']
-    )
-    parser.add_argument(
-        "--bayestar_localization",
-        help="File containing details of Bayestar localization.  "
-             "Default=None",
-        default=None,
-        type=str
     )
     return parser
 
@@ -431,175 +418,6 @@ def calculate_precession_snr(
     return _snr, _overlap
 
 
-def calculate_localisation_information(
-        peak_template, psd, approximant, f_low,
-        event_snr, threshold, trigger_parameters, bayestar_localization=None
-):
-    """Calculate the localization information for the event and use this
-    to provide the network sensitivity, the sensitivity to the second
-    polarization and the SNR in the second polarization for the peak template
-
-    Parameters
-    ----------
-    peak_template: SimplePESamples
-        dictionary of parameters that correspond to peak template
-    psd: dict
-        dictionary of PSDs
-    approximant: str
-        approximant to use for the analysis
-    f_low: float
-        low frequency cutoff to use for the analysis
-    event_snr: dict
-        dictionary of snrs of the candidate GW
-    threshold:
-        threshold for individual ifo to contribute to localization
-    trigger_parameters: dict
-        dictionary of trigger parameters to use as starting point
-    bayestar_localization: string
-        name of file containing Bayestar localization information
-    """
-    # Check consistency of localization request:
-    single_sky_point = all(param in trigger_parameters for
-                           param in ["ra", "dec"])
-    if any(param in trigger_parameters for param in ["ra", "dec"]) and \
-            not single_sky_point:
-        raise ValueError("Please provide samples for both ra and dec")
-    elif bayestar_localization and single_sky_point:
-        raise ValueError(
-            "Please specify either 'bayestar_localization' or provide "
-            "an estimate of 'ra' and 'dec' but not both")
-
-    # generate network and sensitivity
-    ifos = list(event_snr['ifo_snr'].keys())
-    net = Network(threshold=10.)
-
-    for ifo in ifos:
-        hor, f_mean, f_band = calc_reach_bandwidth(
-            peak_template['mass_1'], peak_template['mass_2'],
-            peak_template["chi_align"],
-            approximant, psd[ifo], f_low
-        )
-        net.add_ifo(ifo, hor, f_mean, f_band, bns_range=False,
-                    loc_thresh=threshold)
-
-    if bayestar_localization or single_sky_point:
-        # Use the localization information provided
-        if single_sky_point:
-            ra = [trigger_parameters['ra']]
-            dec = [trigger_parameters['dec']]
-
-        else:
-            from ligo.skymap.io.fits import read_sky_map
-            import astropy_healpix as ah
-            import healpy as hp
-
-            probs, _ = read_sky_map(bayestar_localization)
-            npix = len(probs)
-            nside = ah.npix_to_nside(npix)
-            codec, ra = hp.pix2ang(nside, np.arange(npix))
-            pts = SamplesDict({'ra': ra, 'dec': np.pi/2 - codec})
-            pts = rejection_sampling(pts, probs).downsample(int(1e3))
-            ra = pts['ra']
-            dec = pts['dec']
-            # should add distance??
-
-        # calculate network sensitivity at points
-        f_sig = np.zeros_like(ra)
-        alpha_net = np.zeros_like(ra)
-        snr_left = np.zeros_like(ra)
-        snr_right = np.zeros_like(ra)
-
-        for i, (_ra, _dec) in enumerate(zip(ra, dec)):
-            ee = event.Event.from_snrs(
-                net, event_snr["ifo_snr"], event_snr["ifo_time"],
-                peak_template['chirp_mass'], _ra, _dec
-            )
-            ee.calculate_sensitivity()
-            f_sig[i] = ee.sensitivity
-            alpha_net[i] = ee.alpha_net()
-            # need to account for time offsets in calculating SNRs
-            snr_left[i] = np.linalg.norm(ee.projected_snr('left'))
-            snr_right[i] = np.linalg.norm(ee.projected_snr('right'))
-
-    else:
-        # Localize based upon measured SNRs and times
-        ev = event.Event.from_snrs(
-            net, event_snr["ifo_snr"], event_snr["ifo_time"],
-            peak_template['chirp_mass']
-        )
-        ev.calculate_mirror()
-        ev.localize_all(methods=['coh', 'left', 'right'])
-
-        if ev.localized >= 3:
-            # generate points from localization region to calculate F+ and Fx
-            coh = ev.localization['coh']
-            if ev.mirror and (ev.mirror_loc['coh'].snr >
-                              ev.localization['coh'].snr):
-                coh = ev.mirror_loc['coh']
-            # calculate max left/right SNR, allowing offset from central point
-            # to maximize SNR
-            snr_left = ev.localization['left'].calculate_max_snr()
-            snr_right = ev.localization['right'].calculate_max_snr()
-
-            ra, dec = coh.generate_samples(npts=int(1e3), sky_weight=True)
-
-        elif ev.localized == 1:
-            # one detector so snr is consistent with left/right polarization
-            snr_left = event_snr['network']
-            snr_right = event_snr['network']
-            # source is only localized by the antenna pattern
-            npts = int(1e4)
-            ra = np.random.uniform(0, 2 * np.pi, npts)
-            dec = np.pi / 2 - np.arccos(np.random.uniform(-1, 1, npts))
-            f = np.zeros_like(ra)
-            det = ev.__getattribute__(ev.ifos[0])
-            for i, (r, d) in enumerate(zip(ra, dec)):
-                fp, fc = det.antenna_pattern(r, np.pi / 2 - d, ev.psi, ev.gps)
-                f[i] = np.sqrt(fp ** 2 + fc ** 2)
-            pts = SamplesDict({'ra': ra, 'dec': dec})
-            pts = rejection_sampling(pts, f ** 3).downsample(int(1e3))
-            ra = pts['ra']
-            dec = pts['dec']
-
-        else:
-            raise KeyError(
-                f"Unable to localize event from SNRs. This could be because "
-                f"you are considering a network with less than 3 detectors, or "
-                f"because the IFO SNRs are <{threshold}. The recovered IFO "
-                f"SNRs are {', '.join([ifo + ':' + str(abs(event_snr['ifo_snr'][ifo])) for ifo in ifos])}"
-            )
-
-        # calculate network sensitivity at points
-        f_sig = np.zeros_like(ra)
-        alpha_net = np.zeros_like(ra)
-
-        for i, (_ra, _dec) in enumerate(zip(ra, dec)):
-            ee = event.Event.from_snrs(
-                net, event_snr["ifo_snr"], event_snr["ifo_time"],
-                peak_template['chirp_mass'], _ra, _dec
-            )
-            ee.calculate_sensitivity()
-            f_sig[i] = ee.sensitivity
-            alpha_net[i] = ee.alpha_net()
-
-    # add information to peak template:
-    peak_template.add_fixed('f_net', np.mean(f_sig) / peak_template['sigma'])
-    peak_template.add_fixed("response_sigma",
-                            np.std(f_sig) / np.mean(f_sig))
-    peak_template.add_fixed("net_alpha", np.mean(alpha_net))
-    peak_template.add_fixed("distance_face_on",
-                            peak_template["distance"] * peak_template["f_net"] *
-                            peak_template['sigma'] / event_snr["network"]
-                            )
-    _snrs = {"not_left": np.sqrt(np.min(event_snr['network']**2 -
-                                        snr_left ** 2)),
-             "not_right": np.sqrt(np.min(event_snr['network']**2 -
-                                         snr_right ** 2))
-             }
-
-    return _snrs
-
-
 def _calculate_mode_snr(
     strain_f, psd, t_start, t_end, f_low, harmonics, h, h_perp, **kwargs
 ):
@@ -658,6 +476,9 @@ def main(args=None):
         trigger_parameters, strain_f, psd, opts.approximant,
         opts.f_low, opts.time_window, dx_directions=opts.metric_directions
     )
+    for param in ["ra", "dec"]:
+        if param in trigger_parameters.keys():
+            peak_parameters[param] = trigger_parameters[param]
 
     trig_start = trigger_parameters["time"] - opts.time_window
     trig_end = trigger_parameters["time"] + opts.time_window
@@ -680,14 +501,6 @@ def main(args=None):
     )
     overlaps.update(_overlaps)
     event_snr.update(_snrs)
-
-    _snrs = calculate_localisation_information(
-        peak_parameters, psd, opts.approximant, opts.f_low,
-        event_snr, opts.snr_threshold, trigger_parameters,
-        opts.bayestar_localization
-    )
-    event_snr.update(_snrs)
-
     peak_parameters.write(
         outdir=opts.outdir, filename="peak_parameters.json", overwrite=True,
         file_format="json"
@@ -695,9 +508,13 @@ def main(args=None):
 
     # cast the ifo SNRs to reals
     event_snr['ifo_snr_phase'] = {}
+    event_snr['ifo_snr_real'] = {}
+    event_snr['ifo_snr_imag'] = {}
     for k, v in event_snr['ifo_snr'].items():
         event_snr['ifo_snr'][k] = abs(v)
         event_snr['ifo_snr_phase'][k] = np.angle(v)
+        event_snr['ifo_snr_real'][k] = np.real(v)
+        event_snr['ifo_snr_imag'][k] = np.imag(v)
 
     # add the overlaps of event_snr
     event_snr["overlaps"] = overlaps
