@@ -171,7 +171,7 @@ def main(args=None):
     with open(opts.peak_snrs, "r") as f:
         snrs = json.load(f)["posterior_samples"]
         for key in snrs.keys():
-            if "ifo" not in key:
+            if ("ifo" not in key) and ("overlaps" not in key):
                 snrs[key] = np.array(snrs[key])
             else:
                 snrs[key] = snrs[key][0]
