@@ -33,7 +33,13 @@ def command_line():
     parser.add_argument(
         "--neffective",
         help="Total number of effective samples to obtain",
-        default=5000,
+        default=None,
+        type=int
+    )
+    parser.add_argument(
+        "--nsamples",
+        help="Total number of samples to obtain",
+        default=None,
         type=int
     )
     parser.add_argument(
@@ -201,7 +207,8 @@ def main(args=None):
     _ = pe_result.generate_samples_from_aligned_spin_template_parameters(
         opts.metric_directions, opts.precession_directions,
         opts.multipole_directions, opts.distance_directions, interp_points=5,
-        neff=opts.neffective, localization_method=opts.localization_method
+        neff=opts.neffective, localization_method=opts.localization_method,
+        nsamples=opts.nsamples
     )
     pe_result.samples_dict.write(
         outdir=opts.outdir, filename="posterior_samples.dat", overwrite=True,
