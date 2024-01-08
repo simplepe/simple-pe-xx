@@ -633,7 +633,7 @@ class PostProcessingNode(Node):
         dict_args = ["psd"]
         args = self._format_arg_lists(string_args, dict_args, [])
         args += [
-            ["--webir", f"{self.opts.outdir}/webpage"],
+            ["--webdir", f"{self.opts.outdir}/webpage"],
             ["--samples", f"{self.opts.outdir}/output/posterior_samples.dat"],
             ["--gw"], ["--no_ligo_skymap"], ["--disable_interactive"],
             ["--label", "simple_pe"],
