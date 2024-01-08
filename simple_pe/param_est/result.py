@@ -364,7 +364,7 @@ class Result(GWSingleAnalysisRead):
                 }, ignore_debug_params=['p_', 'weight']
             )
             self.__cache_samples(self.samples_dict)
-            _new = getattr(self.__cache, _property)
+            _new = np.round(getattr(self.__cache, _property), 0)
             pbar.update(_new - old)
             if _new > _total:
                 break
