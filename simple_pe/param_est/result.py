@@ -275,10 +275,24 @@ class Result(GWSingleAnalysisRead):
         reweight_to_isotropic_spin_prior=True,
         reweight_to_component_mass_prior=True,
         localization_method="fullsky",
-        metric=None, neff=5000
+        metric=None, neff=5000, nsamples=None
     ):
         import time
         t0 = time.time()
+        if neff is None and nsamples is None:
+            print(
+                "neff and nsamples not provided. Drawing 1000 effective "
+                "samples as default"
+            )
+            neff = 1000
+            _property = "neff"
+            _total = neff
+        elif neff is None:
+            _property = "number_of_samples"
+            _total = nsamples
+        else:
+            _property = "neff"
+            _total = neff
         if template_parameters is not None:
             self._template_parameters = template_parameters
         if dominant_snr is not None:
@@ -289,7 +303,7 @@ class Result(GWSingleAnalysisRead):
         sigma_22_grid, alpha_lm_grid, beta_22_grid = None, None, None
         mins, maxs = None, None
         old = 0
-        pbar = tqdm.tqdm(desc="Drawing samples", total=neff)
+        pbar = tqdm.tqdm(desc="Drawing samples", total=_total)
         while True:
             self.generate_samples_from_metric(
                 metric_directions, self.template_parameters, self.snrs['22'],
@@ -357,10 +371,11 @@ class Result(GWSingleAnalysisRead):
                 }, ignore_debug_params=['p_', 'weight']
             )
             self.__cache_samples(self.samples_dict)
-            pbar.update(self.__cache.number_of_samples - old)
-            if self.__cache.neff > neff:
+            _new = np.round(getattr(self.__cache, _property), 0)
+            pbar.update(_new - old)
+            if _new > _total:
                 break
-            old = self.__cache.number_of_samples
+            old = _new
         self.parameters = self.__cache.parameters
         self.samples = self.__cache.samples.T
         print(f"Total time taken: {time.time() - t0:.2f}s")
