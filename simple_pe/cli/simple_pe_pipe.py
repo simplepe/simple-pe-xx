@@ -609,7 +609,7 @@ class CornerNode(Node):
 
 
 class PostProcessingNode(Node):
-    """Node to handle the generation of a PESummary pages the posterior
+    """Node to handle the generation of PESummary pages to show the posterior
 
     Parameters
     ----------
