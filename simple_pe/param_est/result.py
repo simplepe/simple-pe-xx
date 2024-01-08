@@ -367,7 +367,7 @@ class Result(GWSingleAnalysisRead):
             _new = getattr(self.__cache, _property)
             pbar.update(_new - old)
             if _new > _total:
-                    break
+                break
             old = _new
         self.parameters = self.__cache.parameters
         self.samples = self.__cache.samples.T
