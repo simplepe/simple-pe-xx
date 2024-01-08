@@ -968,8 +968,8 @@ def isotropic_spin_prior_weight(samples, dx_directions):
 
     Returns
     -------
-    """
     reweighted_samples: SimplePESamples
+    """
     from pesummary.core.reweight import rejection_sampling
     if 'chi_p' in dx_directions:
         weights = samples['chi_p'] * (1 - samples['chi_p'])
@@ -1005,4 +1005,3 @@ def component_mass_prior_weight(samples, dx_directions):
         mass_weights = np.ones_like(samples['chirp_mass'])
 
     return rejection_sampling(samples, mass_weights)
-
