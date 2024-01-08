@@ -301,8 +301,7 @@ class Result(GWSingleAnalysisRead):
         sigma_22_grid, alpha_lm_grid, beta_22_grid = None, None, None
         mins, maxs = None, None
         old = 0
-        pbar = None
-        tqdm.tqdm(desc="Drawing samples", total=_total)
+        pbar = tqdm.tqdm(desc="Drawing samples", total=_total)
         while True:
             self.generate_samples_from_metric(
                 metric_directions, self.template_parameters, self.snrs['22'],
