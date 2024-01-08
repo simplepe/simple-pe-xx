@@ -282,7 +282,7 @@ class Result(GWSingleAnalysisRead):
                 "neff and nsamples not provided. Drawing 1000 effective "
                 "samples as default"
             )
-            neff = 5000
+            neff = 1000
             _property = "neff"
             _total = neff
         elif neff is None:
