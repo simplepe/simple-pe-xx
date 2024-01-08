@@ -326,23 +326,39 @@ class Metric:
 
         return grid_probs
 
-    def generate_samples(self, npts=int(1e5)):
+    def generate_samples(self, npts=int(1e5), mins=None, maxs=None):
+        """
+        Generate a given number of samples
+
+        :param npts: number of points to generate
+        :return phys_samples: SimplePESamples with samples
+        """
+        sample_pts = self._get_samples(2 * npts, mins=mins, maxs=maxs)
+
+        while sample_pts.number_of_samples < npts:
+            extra_pts = self._get_samples(npts, mins=mins, maxs=maxs)
+            sample_pts = SimplePESamples(SamplesDict(sample_pts.keys(),
+                np.concatenate((sample_pts.samples.T, extra_pts.samples.T)).T))
+
+        if sample_pts.number_of_samples > npts:
+            sample_pts = sample_pts.downsample(npts)
+        return sample_pts
+
+    def _get_samples(self, npts=int(1e5), mins=None, maxs=None):
         """
         Generate an ellipse of points of constant mismatch
 
         :param npts: number of points to generate
         :return phys_samples: SimplePESamples with samples
         """
-        pts = np.random.normal(0, 1, [2 * npts, self.ndim])
+        pts = np.random.normal(0, 1, [npts, self.ndim])
 
         sample_pts = SimplePESamples(SamplesDict(self.dx_directions,
-                                                 (np.array([self.x[dx] for dx in self.normalized_evecs().keys()
-                                                            ]).reshape([len(self.dx_directions), 1])
-                                                  + np.matmul(pts,
-                                                              self.normalized_evecs().samples.T / self.n_sigma).T)))
-        sample_pts.trim_unphysical()
-        if sample_pts.number_of_samples > npts:
-            sample_pts = sample_pts.downsample(npts)
+            (np.array([self.x[dx] for dx in self.normalized_evecs().keys()
+                       ]).reshape([len(self.dx_directions), 1])
+             + np.matmul(pts, self.normalized_evecs().samples.T /
+                         self.n_sigma).T)))
+        sample_pts.trim_unphysical(mins=mins, maxs=maxs)
 
         return sample_pts
 
@@ -383,8 +399,11 @@ def average_mismatch(x, dx, scaling, f_low, psd,
     for s in [1., -1.]:
         a[s] = waveform.check_physical(x, dx, s * scaling)
         try:
-            h = waveform.make_offset_waveform(x, dx, s * a[s] * scaling, psd.delta_f, f_low, len(psd), approximant)
-            m[s] = match(h0, h, psd, low_frequency_cutoff=f_low, subsample_interpolation=True)[0]
+            h = waveform.make_offset_waveform(x, dx, s * a[s] * scaling,
+                                              psd.delta_f, f_low, len(psd),
+                                              approximant)
+            m[s] = match(h0, h, psd, low_frequency_cutoff=f_low,
+                         subsample_interpolation=True)[0]
         except RuntimeError:
             m[s] = 1e-5
 
@@ -393,7 +412,8 @@ def average_mismatch(x, dx, scaling, f_low, psd,
         print("Mismatches %.3g, %.3g" % (1 - m[-1], 1 - m[1]))
     if min(a.values()) < 1e-2:
         if verbose:
-            print("we're really close to the boundary, so down-weight match contribution")
+            print("we're really close to the boundary," 
+                  "so down-weight match contribution")
         mm = (2 - m[1] - m[-1]) / (a[1] ** 2 + a[-1] ** 2)
     else:
         mm = 1 - 0.5 * (scale_match(m[1], a[1]) + scale_match(m[-1], a[-1]))
@@ -416,19 +436,30 @@ def scale_dx(x, dx, desired_mismatch, f_low, psd,
     :param tolerance: the maximum fractional error in the mismatch
     :return scale: The required scaling of dx to achieve the desired mismatch
     """
-    opt = optimize.root_scalar(lambda a: average_mismatch(x, dx, a, f_low, psd,
-                                                          approximant=approximant) - desired_mismatch,
-                               bracket=[0, 20], method='brentq', rtol=tolerance)
-    scale = opt.root
+    for num in range(10):
+        try:
+            opt = optimize.root_scalar(
+                lambda a: average_mismatch(
+                    x, dx, a, f_low, psd, approximant=approximant
+                ) - desired_mismatch, bracket=np.array([0., 20.]) * (float(num) + 1),
+                method='brentq', rtol=tolerance
+            )
+        except ValueError:
+            continue
 
+    try:
+        scale = opt.root
+    except UnboundLocalError:
+        raise ValueError("Unable to scale the input vectors")
     return scale
 
 
-def find_metric_and_eigendirections(x, dx_directions, snr, f_low, psd, approximant="IMRPhenomD",
+def find_metric_and_eigendirections(x, dx_directions, snr, f_low, psd,
+                                    approximant="IMRPhenomD",
                                     tolerance=0.05, max_iter=20):
     """
-    Calculate the eigendirections in parameter space, normalized to enclose a 90% confidence
-    region at the requested SNR
+    Calculate the eigendirections in parameter space, normalized to enclose a
+    90% confidence region at the requested SNR
 
     :param x: dictionary with parameter values for initial point
     :param dx_directions: list of parameters for which to calculate waveform variations

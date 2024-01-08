@@ -8,19 +8,27 @@ from pesummary.gw.conversions.mass import mchirp_from_m1_m2
 ##################################################################
 class Det(detector.Detector):
     """
-    class to hold the details of a detector
+    Class to hold the details of a detector
 
     Parameters
     ----------
-    detector_name: 2 character string for detector
-    horizon: the BNS horizon of the detector
-    f_mean: float, mean frequency
-    f_band: float, frequency bandwidth
-    found_thresh: threshold for declaring an event found
-    loc_thresh: threshold for declaring an event localized
-    duty_cycle: fraction of time the detector is operational
-    bns_range: is the given range for BNS (if yes, then rescale SNR with
-            mchirp^5/6)
+    detector_name: str
+        2 character string for detector
+    horizon: float
+        the BNS horizon of the detector
+    f_mean: float
+        mean frequency
+    f_band: float
+        frequency bandwidth
+    found_thresh: float
+        threshold for declaring an event found
+    loc_thresh: float
+        threshold for declaring an event localized
+    duty_cycle: float
+        fraction of time the detector is operational
+    bns_range: boolean
+        is the given range for BNS (if yes, then rescale SNR with
+        mchirp^5/6)
     """
 
     def __init__(self, detector_name, horizon, f_mean, f_band,
@@ -49,7 +57,8 @@ class Det(detector.Detector):
 
         Parameters
         ----------
-        event: object, containing ra, dec, psi, gmst
+        event: event.Event
+            object, containing ra, dec, psi, gmst
         """
         self.f_plus, self.f_cross = self.antenna_pattern(event.ra, event.dec,
                                                          event.psi, event.gps)
@@ -61,7 +70,8 @@ class Det(detector.Detector):
 
         Parameters
         ----------
-        event: object, containing mirror_ra, mirror_dec, psi, gmst
+        event: even.Event
+            object, containing mirror_ra, mirror_dec, psi, gmst
         """
         self.mirror_f_plus, self.mirror_f_cross = \
             self.antenna_pattern(event.mirror_ra, event.mirror_dec,
@@ -73,7 +83,8 @@ class Det(detector.Detector):
 
         Parameters
         ----------
-        event: object, containing ra, dec, psi, gmst, phi, cosi
+        event: event.Event
+            object containing ra, dec, psi, gmst, phi, cosi
 
         Returns
         -------
@@ -81,8 +92,8 @@ class Det(detector.Detector):
         """
         self.calculate_sensitivity(event)
         if self.bns_range:
-            mass_scale = (event.mchirp / mchirp_from_m1_m2(1.4, 1.4)) ** (
-                        5. / 6)
+            mass_scale = (event.mchirp / mchirp_from_m1_m2(1.4, 1.4)) ** (5.
+                                                                          / 6)
         else:
             mass_scale = 1.
         self.snr = mass_scale * self.sigma / event.D * \
@@ -95,12 +106,14 @@ class Det(detector.Detector):
         Method to return the sensitivity of the detector
 
         Parameters
-        ---------
-        mirror: boolean, is this the mirror position
+        ----------
+        mirror: boolean
+            is this the mirror position
 
         Returns
         -------
-        :returns: length 2 array: sigma * (F_plus, F_cross)
+        np.array
+            length 2 array: sigma * (F_plus, F_cross)
         """
         if mirror:
             return self.sigma * np.array([self.mirror_f_plus,

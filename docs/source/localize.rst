@@ -1,11 +1,20 @@
-simple_pe.localization package
-==============================
+Localization package
+====================
+.. _localize:
 
 Submodules
 ----------
 
-simple_pe.localization.localize module
---------------------------------------
+simple_pe.localization.event module
+-----------------------------------
+
+.. automodule:: simple_pe.localization.event
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+simple_pe.localization.loc module
+---------------------------------
 
 .. automodule:: simple_pe.localization.loc
     :members:
@@ -20,10 +29,10 @@ simple_pe.localization.sky module
     :undoc-members:
     :show-inheritance:
 
-simple_pe.localization.sky_ring module
----------------------------------
+simple_pe.localization.sky_loc module
+-------------------------------------
 
-.. automodule:: simple_pe.localization.sky_ring
+.. automodule:: simple_pe.localization.sky_loc
     :members:
     :undoc-members:
     :show-inheritance:

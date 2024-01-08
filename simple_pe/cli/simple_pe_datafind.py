@@ -144,7 +144,7 @@ def get_internal_data(outdir, trigger_time, ifo, channel):
     outdir: str
         directory to output data
     trigger_time: float
-        central time to grab data for. By default the start time is
+        central time to grab data for. By default, the start time is
         trigger_time-512 and end time if trigger_time+512
     ifo: str
         name of the IFO you wish to grab data for
