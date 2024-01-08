@@ -350,10 +350,10 @@ class Result(GWSingleAnalysisRead):
                 }, ignore_debug_params=['p_', 'weight']
             )
             self.__cache_samples(self.samples_dict)
-            pbar.update(self.__cache.number_of_samples - old)
+            pbar.update(self.__cache.neff - old)
             if self.__cache.neff > neff:
                 break
-            old = self.__cache.number_of_samples
+            old = self.__cache.neff
         self.parameters = self.__cache.parameters
         self.samples = self.__cache.samples.T
         print(f"Total time taken: {time.time() - t0:.2f}s")
