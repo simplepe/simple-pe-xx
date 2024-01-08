@@ -273,10 +273,24 @@ class Result(GWSingleAnalysisRead):
         dist_interp_dirs, modes=['33'], alpha_net=None, interp_points=7,
         template_parameters=None, dominant_snr=None,
         reweight_to_isotropic_spin_prior=True, localization_method="fullsky",
-        metric=None, neff=5000
+        metric=None, neff=None, nsamples=None
     ):
         import time
         t0 = time.time()
+        if neff is None and nsamples is None:
+            print(
+                "neff and nsamples not provided. Drawing 1000 effective "
+                "samples as default"
+            )
+            neff = 1000
+            _property = "neff"
+            _total = neff
+        elif neff is None:
+            _property = "number_of_samples"
+            _total = nsamples
+        else:
+            _property = "neff"
+            _total = neff
         if template_parameters is not None:
             self._template_parameters = template_parameters
         if dominant_snr is not None:
@@ -287,7 +301,8 @@ class Result(GWSingleAnalysisRead):
         sigma_22_grid, alpha_lm_grid, beta_22_grid = None, None, None
         mins, maxs = None, None
         old = 0
-        pbar = tqdm.tqdm(desc="Drawing samples", total=neff)
+        pbar = None
+        tqdm.tqdm(desc="Drawing samples", total=_total)
         while True:
             self.generate_samples_from_metric(
                 metric_directions, self.template_parameters, self.snrs['22'],
@@ -350,10 +365,11 @@ class Result(GWSingleAnalysisRead):
                 }, ignore_debug_params=['p_', 'weight']
             )
             self.__cache_samples(self.samples_dict)
-            pbar.update(self.__cache.number_of_samples - old)
-            if self.__cache.neff > neff:
-                break
-            old = self.__cache.number_of_samples
+            _new = getattr(self.__cache, _property)
+            pbar.update(_new - old)
+            if _new > _total:
+                    break
+            old = _new
         self.parameters = self.__cache.parameters
         self.samples = self.__cache.samples.T
         print(f"Total time taken: {time.time() - t0:.2f}s")
