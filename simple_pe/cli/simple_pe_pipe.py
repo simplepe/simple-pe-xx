@@ -41,7 +41,8 @@ def command_line():
             )
     parser.add_argument(
         "config_file", nargs="?", action=ConfigAction,
-        help="Configuration file containing command line arguments"
+        help="Configuration file containing command line arguments",
+        default=None
     )
     parser.add_argument(
         "--sid",
@@ -410,6 +411,13 @@ class AnalysisNode(Node):
                     continue
             try:
                 f.write(r.read())
+            except UnboundLocalError:
+                raise ValueError(
+                    "Unable to grab localization data from gracedb. "
+                    "This could be because you do not have "
+                    "authentication, or the file has a non-standard "
+                    "name."
+                )
             except Exception:
                 raise
         return loc_filename
@@ -600,6 +608,42 @@ class CornerNode(Node):
         return " ".join([item for sublist in args for item in sublist])
 
 
+class PostProcessingNode(Node):
+    """Node to handle the generation of a PESummary pages the posterior
+
+    Parameters
+    ----------
+    opts: argparse.Namespace
+        Namespace containing the command line arguments
+    dag: Dag
+        Dag object to control the generation of the DAG
+    """
+    job_name = "postprocessing"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._executable = self.get_executable("summarypages")
+        self.create_pycondor_job()
+
+    @property
+    def arguments(self):
+        string_args = [
+            "approximant", "f_low", "f_high"
+        ]
+        dict_args = ["psd"]
+        args = self._format_arg_lists(string_args, dict_args, [])
+        args += [
+            ["--webir", f"{self.opts.outdir}/webpage"],
+            ["--samples", f"{self.opts.outdir}/output/posterior_samples.dat"],
+            ["--gw"], ["--no_ligo_skymap"], ["--disable_interactive"],
+            ["--label", "simple_pe"],
+        ]
+        if self.opts.config_file is not None:
+            args += [["--config", f"{self.opts.config_file}"]]
+        return " ".join([item for sublist in args for item in sublist])
+
+
+
 def main(args=None):
     """Main interface for `simple_pe_pipe`
     """
@@ -615,6 +659,8 @@ def main(args=None):
     FilterJob = FilterNode(opts, MainDag)
     CornerJob = CornerNode(opts, MainDag)
     AnalysisJob = AnalysisNode(opts, MainDag)
+    PostProcessingJob = PostProcessingNode(opts, MainDag)
+    AnalysisJob.add_child(PostProcessingJob.job)
     AnalysisJob.add_child(CornerJob.job)
     FilterJob.add_child(AnalysisJob.job)
     if DATAFIND:
