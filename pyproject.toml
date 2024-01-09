@@ -51,6 +51,7 @@ plotting = ["cartopy"]
 
 [project.scripts]
 simple_pe_analysis = "simple_pe.cli.simple_pe_analysis:main"
+simple_pe_convert = "simple_pe.cli.simple_pe_convert::main"
 simple_pe_corner = "simple_pe.cli.simple_pe_corner:main"
 simple_pe_datafind = "simple_pe.cli.simple_pe_datafind:main"
 simple_pe_filter = "simple_pe.cli.simple_pe_filter:main"
