@@ -666,12 +666,15 @@ class PostProcessingNode(Node):
         args = self._format_arg_lists(string_args, dict_args, [])
         args += [
             ["--webdir", f"{self.opts.outdir}/webpage"],
-            ["--samples", f"{self.opts.outdir}/output/converted_posterior_samples.dat"],
             ["--gw"], ["--no_ligo_skymap"], ["--disable_interactive"],
             ["--label", "simple_pe"],
             ["--add_to_corner", "theta_jn", "network_precessing_snr",
              "network_33_multipole_snr"],
         ]
+        if self.opts.convert_samples:
+            args += [["--samples", f"{self.opts.outdir}/output/converted_posterior_samples.dat"]]
+        else:
+            args += [["--samples", f"{self.opts.outdir}/output/posterior_samples.dat"]]
         if self.opts.config_file is not None:
             args += [["--config", f"{self.opts.config_file}"]]
         return " ".join([item for sublist in args for item in sublist])
