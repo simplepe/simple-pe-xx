@@ -1,7 +1,7 @@
 from simple_pe.param_est import pe
 from pesummary.io import read
 from pesummary.core.command_line import CheckFilesExistAction
-import argparse
+from argparse import ArgumentParser
 
 __authors__ = [
     "Charlie Hoy <charlie.hoy@ligo.org>",

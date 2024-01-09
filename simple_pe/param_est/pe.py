@@ -14,7 +14,7 @@ import lalsimulation as ls
 import tqdm
 
 
-def _add_chi_align(data):
+def _add_chi_align(data, **kwargs):
     """Add samples for chi_align. If spin_1z, spin_2z, mass_ratio are not
     in data, samples for chi_align are not added to data
 
@@ -45,9 +45,10 @@ def _component_spins_from_chi_align(data, **kwargs):
         dictionary of samples
     """
     from pesummary.utils.utils import draw_conditioned_prior_samples
-    if not all(_ in data.keys() for _ in ["chi_align", "mass_ratio"]):
+    _data = SimplePESamples(data.copy())
+    _data.generate_all_posterior_samples()
+    if not all(_ in _data.keys() for _ in ["chi_align", "mass_ratio"]):
         return data
-    _data = data.copy()
     s1z = np.random.uniform(-1, 1, len(_data["chi_align"]))
     s2z = np.random.uniform(-1, 1, len(_data["chi_align"]))
     conditioned = _add_chi_align(
