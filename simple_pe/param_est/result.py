@@ -384,5 +384,8 @@ class Result(GWSingleAnalysisRead):
             old = _new
         self.parameters = self.__cache.parameters
         self.samples = self.__cache.samples.T
+        self.generate_all_posterior_samples(
+            function=pe._component_spins_from_chi_align
+        )
         print(f"Total time taken: {time.time() - t0:.2f}s")
         return self.__cache
