@@ -14,7 +14,7 @@ import lalsimulation as ls
 import tqdm
 
 
-def _add_chi_align(data):
+def _add_chi_align(data, **kwargs):
     """Add samples for chi_align. If spin_1z, spin_2z, mass_ratio are not
     in data, samples for chi_align are not added to data
 
@@ -30,6 +30,73 @@ def _add_chi_align(data):
     except KeyError:
         pass
     return data
+
+
+def _component_spins_from_chi_align_chi_p(data, chip_to_spin1x=False, **kwargs):
+    """Add samples for the component spins. If chi_align and mass ratio
+    are not in data, z component spins are not added. If chi_p and component
+    masses are not in data, x, y component spins are not added. Component spins
+    are drawn from a uniform distribution, and conditioned on the
+    provided chi_align, chi_p samples (except when `chip_to_spin1x=True`). This
+    is an expensive operation and can likely be optimised.
+
+    Parameters
+    ----------
+    data: dict
+        dictionary of samples
+    chip_to_spin1x: Bool, optional
+        if True, set spin_1x=chi_p and all other in-plane spin components=0
+    """
+    from pesummary.utils.utils import draw_conditioned_prior_samples
+    _data = SimplePESamples(data.copy())
+    _data.generate_all_posterior_samples()
+    if all(_ in _data.keys() for _ in ["chi_align", "mass_ratio"]):
+        s1z = np.random.uniform(-1, 1, len(_data["chi_align"]))
+        s2z = np.random.uniform(-1, 1, len(_data["chi_align"]))
+        conditioned = _add_chi_align(
+            {"spin_1z": s1z, "spin_2z": s2z, "mass_ratio": _data["mass_ratio"]}
+        )
+        conditioned = draw_conditioned_prior_samples(
+            _data, conditioned, ["chi_align"], {"chi_align": -1}, {"chi_align": 1},
+            nsamples=len(_data["chi_align"])
+        )
+        _data["spin_1z"] = conditioned["spin_1z"]
+        _data["spin_2z"] = conditioned["spin_2z"]
+        _data["_chi_align"] = _data["chi_align"]
+        _data["chi_align"] = conditioned["chi_align"]
+    if "chi_p" in _data.keys() and chip_to_spin1x:
+        _total = len(_data["chi_p"])
+        _data["spin_1x"] = _data["chi_p"]
+        _data["spin_1y"] = np.zeros(_total)
+        _data["spin_2x"] = np.zeros(_total)
+        _data["spin_2y"] = np.zeros(_total)
+    elif all(_ in _data.keys() for _ in ["chi_p", "mass_1", "mass_2"]):
+        from pesummary.gw.conversions import chi_p
+        s1x = np.random.uniform(-1, 1, int(1e5))
+        s1y = np.random.uniform(-1, 1, int(1e5))
+        s2x = np.random.uniform(-1, 1, int(1e5))
+        s2y = np.random.uniform(-1, 1, int(1e5))
+        m1 = np.random.choice(_data["mass_1"], replace=True, size=int(1e5))
+        m2 = np.random.choice(_data["mass_2"], replace=True, size=int(1e5))
+        conditioned = chi_p(m1, m2, s1x, s1y, s2x, s2y)
+        conditioned = draw_conditioned_prior_samples(
+            _data, {"chi_p": conditioned}, ["chi_p"], {"chi_p": 0.}, {"chi_p": 1},
+            nsamples=len(_data["chi_p"])
+        )
+        _data["spin_1x"] = conditioned["spin_1x"]
+        _data["spin_1y"] = conditioned["spin_1y"]
+        _data["spin_2x"] = conditioned["spin_2x"]
+        _data["spin_2y"] = conditioned["spin_2y"]
+        _data["_chi_p"] = _data["chi_p"]
+        _data["chi_p"] = conditioned["chi_p"]
+    for num in range(1, 3, 1):
+        if all(f"spin_{num}{comp}" in _data.keys() for comp in ["x", "y", "z"]):
+            _data[f"a_{num}"] = np.sqrt(
+                _data[f"spin_{num}x"]**2 + _data[f"spin_{num}y"]**2 +
+                _data[f"spin_{num}z"]**2
+            )
+            _data[f"a_{num}"][_data[f"a_{num}"] > 1.] = 1.
+    return _data
 
 
 def convert(*args, **kwargs):
