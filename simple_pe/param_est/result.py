@@ -272,8 +272,10 @@ class Result(GWSingleAnalysisRead):
         self, metric_directions, prec_interp_dirs, hm_interp_dirs,
         dist_interp_dirs, modes=['33'], alpha_net=None, interp_points=7,
         template_parameters=None, dominant_snr=None,
-        reweight_to_isotropic_spin_prior=True, localization_method="fullsky",
-        metric=None, neff=None, nsamples=None
+        reweight_to_isotropic_spin_prior=True,
+        reweight_to_component_mass_prior=True,
+        localization_method="fullsky",
+        metric=None, neff=5000, nsamples=None
     ):
         import time
         t0 = time.time()
@@ -329,6 +331,11 @@ class Result(GWSingleAnalysisRead):
             if reweight_to_isotropic_spin_prior:
                 self.reweight_samples(
                     pe.isotropic_spin_prior_weight,
+                    dx_directions=self.metric.dx_directions
+                )
+            if reweight_to_component_mass_prior:
+                self.reweight_samples(
+                    pe.component_mass_prior_weight,
                     dx_directions=self.metric.dx_directions
                 )
             self.generate_all_posterior_samples(

@@ -953,6 +953,23 @@ def reweight_based_on_observed_snrs(samples, **kwargs):
 
 
 def isotropic_spin_prior_weight(samples, dx_directions):
+    """
+    Re-weight points to prior proportional to chi_p (1 - chi_p), rather
+    than uniform in chi_p or chi_p2.
+    This prior approximately matches the one that arises from using
+    uniform priors on spin magnitudes and orientations.
+
+    Parameters
+    ----------
+    samples: SimplePESamples
+        set of samples to reweight
+    dx_directions: list
+        directions used in generating samples
+
+    Returns
+    -------
+    reweighted_samples: SimplePESamples
+    """
     from pesummary.core.reweight import rejection_sampling
     if 'chi_p' in dx_directions:
         weights = samples['chi_p'] * (1 - samples['chi_p'])
@@ -961,3 +978,30 @@ def isotropic_spin_prior_weight(samples, dx_directions):
     else:
         weights = np.ones_like(samples['chirp_mass'])
     return rejection_sampling(samples, weights)
+
+
+def component_mass_prior_weight(samples, dx_directions):
+    """
+    Re-weight points to uniform in mass ratio rather than
+    symmetric mass ratio.  Since the transformation is singular at equal mass
+    we truncate at close to equal mass (eta = 0.2499)
+
+    Parameters
+    ----------
+    samples: SimplePESamples
+        set of samples to re-weight
+    dx_directions: list
+        directions used in generating samples
+
+    Returns
+    -------
+    reweighted_samples: SimplePESamples
+    """
+    from pesummary.core.reweight import rejection_sampling
+    if 'symmetric_mass_ratio' in dx_directions:
+        mass_weights = samples['chirp_mass'] * np.minimum(50, 1 / np.sqrt(
+            1 - 4 * samples['symmetric_mass_ratio']))
+    else:
+        mass_weights = np.ones_like(samples['chirp_mass'])
+
+    return rejection_sampling(samples, mass_weights)
