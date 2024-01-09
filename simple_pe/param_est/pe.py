@@ -32,7 +32,7 @@ def _add_chi_align(data):
     return data
 
 
-def _component_spins_from_chi_align(data):
+def _component_spins_from_chi_align(data, **kwargs):
     """Add samples for the component spins. If chi_align and mass ratio
     are not in data, component spins are not added. Component spins
     are drawn from a uniform distribution, and conditioned on the
