@@ -32,11 +32,12 @@ def _add_chi_align(data, **kwargs):
     return data
 
 
-def _component_spins_from_chi_align(data, **kwargs):
+def _component_spins_from_chi_align_chi_p(data, **kwargs):
     """Add samples for the component spins. If chi_align and mass ratio
-    are not in data, component spins are not added. Component spins
+    are not in data, z component spins are not added. If chi_p and component
+    masses are not in data, x, y component spins are not added. Component spins
     are drawn from a uniform distribution, and conditioned on the
-    provided chi_align samples. This is an expensive operation
+    provided chi_align chi_p samples. This is an expensive operation
     and can likely be optimised.
 
     Parameters
@@ -47,21 +48,39 @@ def _component_spins_from_chi_align(data, **kwargs):
     from pesummary.utils.utils import draw_conditioned_prior_samples
     _data = SimplePESamples(data.copy())
     _data.generate_all_posterior_samples()
-    if not all(_ in _data.keys() for _ in ["chi_align", "mass_ratio"]):
-        return data
-    s1z = np.random.uniform(-1, 1, len(_data["chi_align"]))
-    s2z = np.random.uniform(-1, 1, len(_data["chi_align"]))
-    conditioned = _add_chi_align(
-        {"spin_1z": s1z, "spin_2z": s2z, "mass_ratio": _data["mass_ratio"]}
-    )
-    conditioned = draw_conditioned_prior_samples(
-        _data, conditioned, ["chi_align"], {"chi_align": -1}, {"chi_align": 1},
-        nsamples=len(_data["chi_align"])
-    )
-    _data["spin_1z"] = conditioned["spin_1z"]
-    _data["spin_2z"] = conditioned["spin_2z"]
-    _data["_chi_align"] = _data["chi_align"]
-    _data["chi_align"] = conditioned["chi_align"]
+    if all(_ in _data.keys() for _ in ["chi_align", "mass_ratio"]):
+        s1z = np.random.uniform(-1, 1, len(_data["chi_align"]))
+        s2z = np.random.uniform(-1, 1, len(_data["chi_align"]))
+        conditioned = _add_chi_align(
+            {"spin_1z": s1z, "spin_2z": s2z, "mass_ratio": _data["mass_ratio"]}
+        )
+        conditioned = draw_conditioned_prior_samples(
+            _data, conditioned, ["chi_align"], {"chi_align": -1}, {"chi_align": 1},
+            nsamples=len(_data["chi_align"])
+        )
+        _data["spin_1z"] = conditioned["spin_1z"]
+        _data["spin_2z"] = conditioned["spin_2z"]
+        _data["_chi_align"] = _data["chi_align"]
+        _data["chi_align"] = conditioned["chi_align"]
+    if all(_ in _data.keys() for _ in ["chi_p", "mass_1", "mass_2"]):
+        from pesummary.gw.conversions import chi_p
+        s1x = np.random.uniform(-1, 1, len(_data["chi_p"]))
+        s1y = np.random.uniform(-1, 1, len(_data["chi_p"]))
+        s2x = np.random.uniform(-1, 1, len(_data["chi_p"]))
+        s2y = np.random.uniform(-1, 1, len(_data["chi_p"]))
+        conditioned = chi_p(
+            _data["mass_1"], _data["mass_2"], s1x, s1y, s2x, s2y
+        )
+        conditioned = draw_conditioned_prior_samples(
+            _data, {"chi_p": conditioned}, ["chi_p"], {"chi_p": 0.}, {"chi_p": 1},
+            nsamples=len(_data["chi_p"])
+        )
+        _data["spin_1x"] = conditioned["spin_1x"]
+        _data["spin_1y"] = conditioned["spin_1y"]
+        _data["spin_2x"] = conditioned["spin_2x"]
+        _data["spin_2y"] = conditioned["spin_2y"]
+        _data["_chi_p"] = _data["chi_p"]
+        _data["chi_p"] = conditioned["chi_p"]
     return _data
 
 

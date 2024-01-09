@@ -39,7 +39,7 @@ def main(args=None):
         function=pe._add_chi_align
     )
     samples.generate_all_posterior_samples(
-        function=pe._component_spins_from_chi_align
+        function=pe._component_spins_from_chi_align_chi_p
     )
     samples.write(
         file_format="dat", outdir=opts.outdir,
