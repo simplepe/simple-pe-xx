@@ -89,6 +89,13 @@ def _component_spins_from_chi_align_chi_p(data, chip_to_spin1x=False, **kwargs):
         _data["spin_2y"] = conditioned["spin_2y"]
         _data["_chi_p"] = _data["chi_p"]
         _data["chi_p"] = conditioned["chi_p"]
+    for num in range(1, 3, 1):
+        if all(f"spin_{num}{comp}" in _data.keys() for comp in ["x", "y", "z"]):
+            _data[f"a_{num}"] = np.sqrt(
+                _data[f"spin_{num}x"]**2 + _data[f"spin_{num}y"]**2 +
+                _data[f"spin_{num}z"]**2
+            )
+            _data[f"a_{num}"][_data[f"a_{num}"] > 1.] = 1.
     return _data
 
 

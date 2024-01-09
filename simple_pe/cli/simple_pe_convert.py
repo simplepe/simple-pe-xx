@@ -48,6 +48,8 @@ def main(args=None):
         function=pe._component_spins_from_chi_align_chi_p,
         chip_to_spin1x=opts.chip_to_spin1x
     )
+    samples["network_precessing_snr"] = samples.pop("rho_p")
+    samples["network_33_multipole_snr"] = samples.pop("rho_33")
     samples.write(
         file_format="dat", outdir=opts.outdir,
         filename="converted_posterior_samples.dat"
