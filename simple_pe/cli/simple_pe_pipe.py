@@ -70,6 +70,12 @@ def command_line():
         help="use the bayestar localization. --sid/--gid must also be provided"
     )
     parser.add_argument(
+        "--convert_samples",
+        action="store_true",
+        default=False,
+        help="run the `simple_pe_convert` executable as part of the workflow"
+    )
+    parser.add_argument(
         "--truth",
         help="File containing the injected values. Used only for plotting",
         default=None,
@@ -686,11 +692,14 @@ def main(args=None):
     FilterJob = FilterNode(opts, MainDag)
     CornerJob = CornerNode(opts, MainDag)
     AnalysisJob = AnalysisNode(opts, MainDag)
-    ConvertJob = ConvertNode(opts, MainDag)
     PostProcessingJob = PostProcessingNode(opts, MainDag)
-    AnalysisJob.add_child(ConvertJob.job)
+    if opts.convert_samples:
+        ConvertJob = ConvertNode(opts, MainDag)
+        AnalysisJob.add_child(ConvertJob.job)
+        ConvertJob.add_child(PostProcessingJob.job)
+    else:
+        AnalysisJob.add_child(PostProcessingJob.job)
     AnalysisJob.add_child(CornerJob.job)
-    ConvertJob.add_child(PostProcessingJob.job)
     FilterJob.add_child(AnalysisJob.job)
     if DATAFIND:
         DataFindJob.add_child(FilterJob.job)
