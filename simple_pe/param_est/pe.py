@@ -32,6 +32,37 @@ def _add_chi_align(data):
     return data
 
 
+def _component_spins_from_chi_align(data):
+    """Add samples for the component spins. If chi_align and mass ratio
+    are not in data, component spins are not added. Component spins
+    are drawn from a uniform distribution, and conditioned on the
+    provided chi_align samples. This is an expensive operation
+    and can likely be optimised.
+
+    Parameters
+    ----------
+    data: dict
+        dictionary of samples
+    """
+    from pesummary.utils.utils import draw_conditioned_prior_samples
+    if not all(_ in data.keys() for _ in ["chi_align", "mass_ratio"]):
+        return data
+    _data = data.copy()
+    s1z = np.random.uniform(-1, 1, len(_data["chi_align"]))
+    s2z = np.random.uniform(-1, 1, len(_data["chi_align"]))
+    conditioned = _add_chi_align(
+        {"spin_1z": s1z, "spin_2z": s2z, "mass_ratio": _data["mass_ratio"]}
+    )
+    conditioned = draw_conditioned_prior_samples(
+        _data, conditioned, ["chi_align"], {"chi_align": -1}, {"chi_align": 1},
+        nsamples=len(_data["chi_align"])
+    )
+    _data["spin_1z"] = conditioned["spin_1z"]
+    _data["spin_2z"] = conditioned["spin_2z"]
+    _data["chi_align"] = conditioned["chi_align"]
+    return _data
+
+
 def convert(*args, **kwargs):
     from pesummary.gw.conversions import convert as _convert
     if isinstance(args[0], dict):
