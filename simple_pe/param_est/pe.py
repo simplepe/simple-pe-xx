@@ -60,6 +60,7 @@ def _component_spins_from_chi_align(data, **kwargs):
     )
     _data["spin_1z"] = conditioned["spin_1z"]
     _data["spin_2z"] = conditioned["spin_2z"]
+    _data["_chi_align"] = _data["chi_align"]
     _data["chi_align"] = conditioned["chi_align"]
     return _data
 
