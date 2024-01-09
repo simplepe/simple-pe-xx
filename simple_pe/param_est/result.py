@@ -388,4 +388,4 @@ class Result(GWSingleAnalysisRead):
             function=pe._component_spins_from_chi_align
         )
         print(f"Total time taken: {time.time() - t0:.2f}s")
-        return self.__cache
+        return self.samples_dict
