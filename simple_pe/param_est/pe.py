@@ -65,10 +65,11 @@ def _component_spins_from_chi_align_chi_p(data, chip_to_spin1x=False, **kwargs):
         _data["_chi_align"] = _data["chi_align"]
         _data["chi_align"] = conditioned["chi_align"]
     if "chi_p" in _data.keys() and chip_to_spin1x:
+        _total = len(_data["chi_p"])
         _data["spin_1x"] = _data["chi_p"]
-        _data["spin_1y"] = np.zeros(len(s1x))
-        _data["spin_2x"] = np.zeros(len(s1x))
-        _data["spin_2y"] = np.zeros(len(s1x))
+        _data["spin_1y"] = np.zeros(_total)
+        _data["spin_2x"] = np.zeros(_total)
+        _data["spin_2y"] = np.zeros(_total)
     elif all(_ in _data.keys() for _ in ["chi_p", "mass_1", "mass_2"]):
         from pesummary.gw.conversions import chi_p
         s1x = np.random.uniform(-1, 1, int(1e5))
