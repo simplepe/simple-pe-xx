@@ -64,13 +64,13 @@ def _component_spins_from_chi_align_chi_p(data, **kwargs):
         _data["chi_align"] = conditioned["chi_align"]
     if all(_ in _data.keys() for _ in ["chi_p", "mass_1", "mass_2"]):
         from pesummary.gw.conversions import chi_p
-        s1x = np.random.uniform(-1, 1, len(_data["chi_p"]))
-        s1y = np.random.uniform(-1, 1, len(_data["chi_p"]))
-        s2x = np.random.uniform(-1, 1, len(_data["chi_p"]))
-        s2y = np.random.uniform(-1, 1, len(_data["chi_p"]))
-        conditioned = chi_p(
-            _data["mass_1"], _data["mass_2"], s1x, s1y, s2x, s2y
-        )
+        s1x = np.random.uniform(-1, 1, int(1e5))
+        s1y = np.random.uniform(-1, 1, int(1e5))
+        s2x = np.random.uniform(-1, 1, int(1e5))
+        s2y = np.random.uniform(-1, 1, int(1e5))
+        m1 = np.random.choice(_data["mass_1"], replace=True, size=int(1e5))
+        m2 = np.random.choice(_data["mass_2"], replace=True, size=int(1e5))
+        conditioned = chi_p(m1, m2, s1x, s1y, s2x, s2y)
         conditioned = draw_conditioned_prior_samples(
             _data, {"chi_p": conditioned}, ["chi_p"], {"chi_p": 0.}, {"chi_p": 1},
             nsamples=len(_data["chi_p"])
