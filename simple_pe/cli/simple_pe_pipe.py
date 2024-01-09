@@ -631,7 +631,7 @@ class ConvertNode(Node):
             ["--outdir", f"{self.opts.outdir}/output"],
             ["--posterior", f"{self.opts.outdir}/output/posterior_samples.dat"]
         ]
-        return args
+        return " ".join([item for sublist in args for item in sublist])
 
 
 class PostProcessingNode(Node):
@@ -654,7 +654,7 @@ class PostProcessingNode(Node):
     @property
     def arguments(self):
         string_args = [
-            "approximant", "f_low", "f_high"
+            "approximant", "f_low"
         ]
         dict_args = ["psd"]
         args = self._format_arg_lists(string_args, dict_args, [])
