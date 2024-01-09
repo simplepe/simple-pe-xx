@@ -635,7 +635,8 @@ class ConvertNode(Node):
     def arguments(self):
         args = [
             ["--outdir", f"{self.opts.outdir}/output"],
-            ["--posterior", f"{self.opts.outdir}/output/posterior_samples.dat"]
+            ["--posterior", f"{self.opts.outdir}/output/posterior_samples.dat"],
+            ["--chip_to_spin1x"]
         ]
         return " ".join([item for sublist in args for item in sublist])
 

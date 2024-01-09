@@ -26,6 +26,12 @@ def command_line():
         help="Directory to store the output",
         default="./",
     )
+    parser.add_argument(
+        "--chip_to_spin1x",
+        help="Assign chi_p to spin_1x",
+        default=False,
+        action="store_true"
+    )
     return parser
 
 
@@ -39,7 +45,8 @@ def main(args=None):
         function=pe._add_chi_align
     )
     samples.generate_all_posterior_samples(
-        function=pe._component_spins_from_chi_align_chi_p
+        function=pe._component_spins_from_chi_align_chi_p,
+        chip_to_spin1x=opts.chip_to_spin1x
     )
     samples.write(
         file_format="dat", outdir=opts.outdir,

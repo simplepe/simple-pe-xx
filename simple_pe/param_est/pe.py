@@ -32,18 +32,20 @@ def _add_chi_align(data, **kwargs):
     return data
 
 
-def _component_spins_from_chi_align_chi_p(data, **kwargs):
+def _component_spins_from_chi_align_chi_p(data, chip_to_spin1x=False, **kwargs):
     """Add samples for the component spins. If chi_align and mass ratio
     are not in data, z component spins are not added. If chi_p and component
     masses are not in data, x, y component spins are not added. Component spins
     are drawn from a uniform distribution, and conditioned on the
-    provided chi_align chi_p samples. This is an expensive operation
-    and can likely be optimised.
+    provided chi_align, chi_p samples (except when `chip_to_spin1x=True`). This
+    is an expensive operation and can likely be optimised.
 
     Parameters
     ----------
     data: dict
         dictionary of samples
+    chip_to_spin1x: Bool, optional
+        if True, set spin_1x=chi_p and all other in-plane spin components=0
     """
     from pesummary.utils.utils import draw_conditioned_prior_samples
     _data = SimplePESamples(data.copy())
@@ -62,7 +64,12 @@ def _component_spins_from_chi_align_chi_p(data, **kwargs):
         _data["spin_2z"] = conditioned["spin_2z"]
         _data["_chi_align"] = _data["chi_align"]
         _data["chi_align"] = conditioned["chi_align"]
-    if all(_ in _data.keys() for _ in ["chi_p", "mass_1", "mass_2"]):
+    if "chi_p" in _data.keys() and chip_to_spin1x:
+        _data["spin_1x"] = _data["chi_p"]
+        _data["spin_1y"] = np.zeros(len(s1x))
+        _data["spin_2x"] = np.zeros(len(s1x))
+        _data["spin_2y"] = np.zeros(len(s1x))
+    elif all(_ in _data.keys() for _ in ["chi_p", "mass_1", "mass_2"]):
         from pesummary.gw.conversions import chi_p
         s1x = np.random.uniform(-1, 1, int(1e5))
         s1y = np.random.uniform(-1, 1, int(1e5))
