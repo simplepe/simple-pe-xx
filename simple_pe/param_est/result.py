@@ -379,4 +379,4 @@ class Result(GWSingleAnalysisRead):
         self.parameters = self.__cache.parameters
         self.samples = self.__cache.samples.T
         print(f"Total time taken: {time.time() - t0:.2f}s")
-        return self.__cache
+        return self.samples_dict
