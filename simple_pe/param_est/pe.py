@@ -5,12 +5,12 @@ from scipy import interpolate
 from simple_pe.waveforms import parameter_bounds, waveform_modes
 from simple_pe.detectors import noise_curves
 from simple_pe.fstat import fstat_hm
+from simple_pe import waveforms
 from pesummary.utils.array import Array
 from pesummary.utils.samples_dict import SamplesDict
 from pesummary.gw.conversions.spins import opening_angle
 from scipy.stats import ncx2, norm
 from pycbc.filter import sigma
-import lalsimulation as ls
 import tqdm
 
 
@@ -978,24 +978,27 @@ def calculate_interpolated_snrs(
                                   sigma_22_grid=kwargs.get("sigma_22_grid", None))
         samples.jitter_distance(dominant_snr, response_sigma)
     if "chi_p" not in samples.keys() and "chi_p2" not in samples.keys():
-        if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) > 2:
+        if waveforms.precessing_approximant(approximant):
             samples.generate_chi_p('isotropic_on_sky')
         else:
-            samples["chi_p"] = np.zeros_like(samples["theta_jn"])
+            samples.add_fixed("chi_p", 0.)
+
     samples.calculate_rho_lm(
         hm_psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points,
         approximant, alpha_lm_grid=kwargs.get("alpha_lm_grid", None)
     )
     samples.calculate_rho_2nd_pol(samples["alpha_net"], dominant_snr)
-    if ("chi_p" in prec_interp_dirs) and ("chi_p" not in samples.keys()):
+
+    if (prec_interp_dirs is not None) and ("chi_p" in prec_interp_dirs) and \
+            ("chi_p" not in samples.keys()):
         samples['chi_p'] = samples['chi_p2']**0.5
-    if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) > 2:
+    if waveforms.precessing_approximant(approximant):
         samples.calculate_rho_p(
             hm_psd, f_low, dominant_snr, prec_interp_dirs, interp_points,
             approximant, beta_22_grid=kwargs.get("beta_22_grid", None)
         )
     else:
-        samples["rho_p"] = np.zeros_like(samples["theta_jn"])
+        samples.add_fixed("rho_p", 0.)
     if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
         samples['chi_p'] = samples['chi_p2']**0.5
     return samples
