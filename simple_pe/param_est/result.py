@@ -58,7 +58,10 @@ class Result(GWSingleAnalysisRead):
     @property
     def right_snr(self):
         return self._snrs.get("right", None)
-    
+
+    @property
+    def prec_snr(self):
+        return self._snrs.get("prec", None)
     @property
     def alpha_net(self):
         return self._alpha_net
@@ -361,7 +364,7 @@ class Result(GWSingleAnalysisRead):
             self.reweight_samples(
                 pe.reweight_based_on_observed_snrs,
                 hm_snr={'33': self.snrs['33']},
-                prec_snr=self.snrs['prec'],
+                prec_snr=self.prec_snr,
                 snr_2pol={
                     "not_right": samples['not_right'],
                     "not_left": samples["not_left"]
