@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser
 from pesummary.core.command_line import ConfigAction as _ConfigAction
+from simple_pe import waveforms
 import pycondor
 import os
 from . import logger
@@ -611,10 +612,7 @@ class CornerNode(Node):
                 "chi_align", "theta_jn", "luminosity_distance"
             ]
         ]
-        sp = ls.SimInspiralGetSpinSupportFromApproximant(
-            getattr(ls, self.opts.approximant)
-        )
-        if sp > 2:
+        if waveforms.precessing_approximant(self.opts.approximant):
             args[-1] += ["chi_p"]
         return " ".join([item for sublist in args for item in sublist])
 
