@@ -12,7 +12,7 @@ from simple_pe.waveforms import parameter_bounds, waveform_modes, eccentric
 from pesummary.gw import conversions
 
 
-def precessing_approxmant(approximant):
+def precessing_approximant(approximant):
     """
     Function to check whether a given approximant supports in-plane spins and
     therefore generates precessing waveforms.
