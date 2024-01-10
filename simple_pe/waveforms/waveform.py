@@ -1,16 +1,34 @@
 import numpy as np
 import lal
 import copy
+import lalsimulation
 from lalsimulation import (
     SimInspiralFD, SimInspiralCreateModeArray, SimInspiralModeArrayActivateMode,
-    SimInspiralWaveformParamsInsertModeArray, GetApproximantFromString
+    SimInspiralWaveformParamsInsertModeArray, GetApproximantFromString,
+    SimInspiralGetSpinSupportFromApproximant
 )
 from pycbc.types import FrequencySeries
 from simple_pe.waveforms import parameter_bounds, waveform_modes, eccentric
 from pesummary.gw import conversions
 
 
-def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD", return_hc=False, modes=None,
+def precessing_approximant(approximant):
+    """
+    Function to check whether a given approximant supports in-plane spins and
+    therefore generates precessing waveforms.
+
+    :param approximant: the approximant generator to use
+    :return prec: boolean which is True if waveform supports precession
+    """
+    _approx = getattr(lalsimulation, approximant)
+    spin = SimInspiralGetSpinSupportFromApproximant(_approx)
+    if spin > 2:
+        return True
+    return False
+
+
+def make_waveform(params, df, f_low, flen, approximant="IMRPhenomD",
+                  return_hc=False, modes=None,
                   harm2=False):
     """
     This function makes a waveform for the given parameters and

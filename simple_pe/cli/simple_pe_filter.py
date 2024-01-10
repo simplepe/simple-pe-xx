@@ -492,8 +492,7 @@ def main(args=None):
     )
     event_snr.update(_snrs)
 
-    if ls.SimInspiralGetSpinSupportFromApproximant(
-            getattr(ls, opts.approximant)) > 2:
+    if waveforms.precessing_approximant(opts.approximant):
         _snrs, _overlaps = calculate_precession_snr(
             peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
             trig_start, trig_end
