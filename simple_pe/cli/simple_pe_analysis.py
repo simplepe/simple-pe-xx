@@ -172,7 +172,7 @@ def main(args=None):
     opts, _ = parser.parse_known_args(args=args)
     np.random.seed(opts.seed)
 
-    if (waveforms.precessing_approxmant(opts.approximant) is False) and \
+    if (waveforms.precessing_approximant(opts.approximant) is False) and \
             (opts.precession_directions is not None):
         print("precession_directions specified for a non-precessing waveform")
         print("setting precession directions to None")
