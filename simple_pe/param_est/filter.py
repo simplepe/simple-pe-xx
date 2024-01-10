@@ -87,9 +87,92 @@ def _neg_net_snr(x, dx_directions, ifos, data, psds, t_start, t_end, f_low, appr
     return -s
 
 
+def filter_grid_components(event_info, grid_data, strain_f, f_low, f_high, delta_f, psds, approximant, t_start, t_end, ifos, prec_snr=True, hm_snr=True):
+    # filter over a grid in mc and eta space, keeping other parameters given in
+    # event_info fixed can filter higher harmonics and precession as well
+    import tqdm
+    import copy
+    from pesummary.gw.conversions.snr import _calculate_precessing_harmonics
+    from simple_pe.waveforms import prec_33
+    snrs = {}
+    overlaps = {}
+
+    dirs = grid_data.keys()
+    data_size = grid_data[list(dirs)[0]].shape
+
+    snrs = np.zeros(data_size)
+
+    if prec_snr:
+        prec_modes = [0, 1]
+    else:
+        prec_modes = [0]
+
+    for ind in tqdm.tqdm(range(len(snrs.flatten())) ):
+        i = np.unravel_index(ind, data_size)
+        ei = copy.deepcopy(event_info)
+        for d in dirs:
+            ei[d] = grid_data[d][i]
+        ei = pe.SimplePESamples(ei)
+        ei.add_fixed('phase', 0.)
+        ei.add_fixed('f_ref', f_low)
+        ei.add_fixed('theta_jn', 0.5)
+        ei.generate_prec_spin()
+        ei.generate_all_posterior_samples(
+            f_low=f_low, f_ref=f_low, delta_f=delta_f, disable_remnant=True
+        )
+
+        hp = _calculate_precessing_harmonics(
+            ei["mass_1"][0], ei["mass_2"][0], ei["a_1"][0], ei["a_2"][0],
+            ei["tilt_1"][0], ei["tilt_2"][0], ei["phi_12"][0], ei["beta"][0],
+            ei["distance"][0], harmonics=prec_modes, approx=approximant,
+            mode_array=[[2,2]], df=delta_f, f_low=f_low, f_final=f_high
+        )
+        snrs[i], _, _ = matched_filter_network(ifos, strain_f, psds, t_start, t_end, hp, f_low) 
+        #h_perp, sigma, zeta = waveform_modes.orthonormalize_modes(
+        #    hp, psd, f_low, prec_modes, dominant_mode=0
+        #)
+        #z = waveform_modes.calculate_mode_snr(
+        #    strain_f, psd, h_perp, t_start, t_end, f_low,
+        #    prec_modes, dominant_mode=0
+        #)[0]
+        #snrs[dom][i] = np.abs(z[0])
+
+        #if prec_snr:
+        #    overlaps[prec][i] = zeta[1]
+        #    snrs[prec][i] = np.abs(z[1])
+
+        #if hm_snr:
+        #    h33 = prec_33.calculate_precessing_harmonics(
+        #        ei["mass_1"][0], ei["mass_2"][0], ei["a_1"][0], ei["a_2"][0],
+        #        ei["tilt_1"][0], ei["tilt_2"][0], ei["phi_12"][0],
+        #        ei["beta"][0], ei["distance"][0], harmonics=[0],
+        #        approx=approximant, df=delta_f, f_low=f_low,
+        #        f_ref=f_low, f_final=f_high
+        #    )
+
+        #    h_hm = {dom: h_perp[0], hm: h33[0]}
+        #    z = waveform_modes.calculate_mode_snr(
+        #        strain_f, psd, h_hm, t_start, t_end, f_low,
+        #        h_hm.keys(), dom
+        #    )[0]
+        #    snrs[hm][i] = np.abs(z[hm])
+
+    #snrsq_tot = None
+    #for k, s in snrs.items():
+    #    if snrsq_tot is None:
+    #        snrsq_tot = np.zeros_like(s)
+
+    #    snrsq_tot += s**2
+
+    #snrs['Total'] = snrsq_tot**0.5
+
+    return snrs
+
+
 def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
                   f_low, approximant="IMRPhenomD", method='scipy', harm2=False, bounds=None,
-                  initial_mismatch=0.03, final_mismatch=0.001, tolerance=0.01, verbose=False):
+                  initial_mismatch=0.03, final_mismatch=0.001, tolerance=0.01, verbose=False,
+                  _net_snr=None):
     """
     A function to find the maximum SNR.
     Either calculate a metric at the point x in dx_directions and walk to peak, or use
@@ -116,10 +199,35 @@ def find_peak_snr(ifos, data, psds, t_start, t_end, x, dx_directions,
     """
     snr_peak = 0
 
-    if (method != 'metric') and (method != 'scipy'):
-        print('Have only implemented metric and scipy optimize based methods')
+    if method not in ["metric", "scipy", "grid"]:
+        print('Have only implemented metric, scipy and grid optimize based methods')
         return
     
+    elif method == "grid":
+        g_ms = metric.find_metric_and_eigendirections(
+            x, dx_directions, _net_snr, f_low, psds["L1"], approximant
+        )
+        scale=1.5
+        npts = 11
+        x_val = np.linspace(-scale, scale, npts)
+        grid = np.meshgrid(x_val, x_val, x_val)
+        n_evec = g_ms.normalized_evecs()
+        grid_data = {}
+        dx_data = np.tensordot(n_evec.samples, np.asarray(grid), axes=(1, 0))
+        for i,d in enumerate(dx_directions):
+            grid_data[d] = dx_data[i] + g_ms.x[d]
+        snrs = filter_grid_components(
+            x, grid_data, data, f_low, psds["L1"].sample_frequencies[-1], psds["L1"].delta_f, psds, approximant, t_start, t_end, ifos, prec_snr=True, hm_snr=True
+        )
+        #s = 'Total'
+        amax = np.unravel_index(np.argmax(snrs), snrs.shape)
+        snr_peak = snrs[amax]
+        x = {}
+        for k, i in grid_data.items():
+            x[k] = i[amax]
+        fixed_pars = {k: float(v) for k, v in x.items() if k not in dx_directions}
+        x.update(fixed_pars)
+
     elif method == 'scipy':
 
         nlc = None

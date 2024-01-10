@@ -38,6 +38,11 @@ def command_line():
         type=int
     )
     parser.add_argument(
+        "--peak_finder",
+        help="Method to use when finding the peak",
+        default="scipy",
+    )
+    parser.add_argument(
         "--trigger_parameters",
         help=(
             "Either a json file containing the trigger parameters or a space "
@@ -190,13 +195,16 @@ def find_peak(
     event_info = {
         k: trigger_parameters[k] for k in dx_directions + fixed_directions
     }
+    GRID=False
+    if method == "grid":
+        method = "scipy"
+        GRID=True
     # find dominant harmonic peak
     x_peak, snr_peak = filter.find_peak_snr(
         ifos, strain_f, psd, t_start, t_end, event_info,
         dx_directions, f_low, approximant, method=method,
         harm2=trigger_parameters["_precessing"]
     )  # Harm2 should probably be False here -- we do the 2-harm peak later
-
     x_peak = pe.convert(x_peak, disable_remnant=True)
     print("Found dominant harmonic peak with SNR = %.4f" % snr_peak)
     for k, v in x_peak.items():
@@ -212,7 +220,36 @@ def find_peak(
             dx_directions, f_low, approximant, method=method, harm2=True
         )
         x_2h_peak = pe.convert(x_2h_peak, disable_remnant=True)
-
+        if GRID:
+            # refind dominant harmonic peak using grid method
+            peak_info["chi_align"] = x_2h_peak['chi_align']
+            _x_peak, _ = filter.find_peak_snr(
+                list(strain_f.keys()), strain_f, psd, t_start, t_end, peak_info,
+                ["chirp_mass", "symmetric_mass_ratio", "chi_align"], f_low,
+                approximant, method="grid", harm2=True, _net_snr=snr_peak
+            )
+            # refind two-harmonic peak
+            event_info = {
+                k: _x_peak.get(k, x_peak[k]) for k in dx_directions + fixed_directions
+            }
+            x_2h_peak, snr_2h_peak = filter.find_peak_snr(
+                list(strain_f.keys()), strain_f, _psd, t_start, t_end, event_info,
+                dx_directions, f_low, approximant, method=method, harm2=True
+            )
+            x_2h_peak = pe.convert(x_2h_peak, disable_remnant=True)
+            peak_info = {}
+            peak_pars = ['chirp_mass', 'symmetric_mass_ratio', 'distance']
+            for p in peak_pars:
+                peak_info[p] = x_2h_peak[p]
+        dx_directions = ["chirp_mass", "symmetric_mass_ratio", "chi", "tilt"]
+        peak_info['chi'] = np.sqrt(x_2h_peak['chi_align']**2 + x_2h_peak['chi_p']**2)
+        peak_info['tilt'] = np.arctan2(x_2h_peak['chi_p'], x_2h_peak['chi_align'])
+        x_peak, snr_peak = filter.find_peak_snr(
+            list(strain_f.keys()), strain_f, psd, t_start, t_end, peak_info, 
+            dx_directions, f_low, approximant, method=method, harm2=True,
+        )
+        x_peak['chi_eff'] = x_peak['chi'] * np.cos(x_peak['tilt'])
+        x_peak['chi_p'] = x_peak['chi'] * np.sin(x_peak['tilt'])
         print("Found two harmonic peak with SNR = %.4f" % snr_peak)
         for k, v in x_2h_peak.items():
             print("%s = %.4f" % (k, v))
@@ -474,7 +511,8 @@ def main(args=None):
 
     peak_parameters, event_snr = find_peak(
         trigger_parameters, strain_f, psd, opts.approximant,
-        opts.f_low, opts.time_window, dx_directions=opts.metric_directions
+        opts.f_low, opts.time_window,  dx_directions=opts.metric_directions,
+        method=opts.peak_finder
     )
     for param in ["ra", "dec"]:
         if param in trigger_parameters.keys():
