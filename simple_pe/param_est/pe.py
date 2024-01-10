@@ -5,12 +5,12 @@ from scipy import interpolate
 from simple_pe.waveforms import parameter_bounds, waveform_modes
 from simple_pe.detectors import noise_curves
 from simple_pe.fstat import fstat_hm
+from simple_pe import waveforms
 from pesummary.utils.array import Array
 from pesummary.utils.samples_dict import SamplesDict
 from pesummary.gw.conversions.spins import opening_angle
 from scipy.stats import ncx2, norm
 from pycbc.filter import sigma
-import lalsimulation as ls
 import tqdm
 
 
@@ -717,13 +717,14 @@ class SimplePESamples(SamplesDict):
                         np.tan(t_over_2)
 
     def calculate_hm_prec_probs(self, hm_snr=None, prec_snr=None, 
-                                snr_2pol=None):
+                                snr_2pol=None, overlaps=None):
         """
         Calculate the precession SNR
 
         :param hm_snr: dictionary of measured SNRs in higher modes
         :param prec_snr: measured precession SNR
         :param snr_2pol: the SNR in the second polarization
+        :param overlaps: dictionary of the measured overlaps between modes
         """
         weights = np.ones(self.number_of_samples)
 
@@ -731,14 +732,22 @@ class SimplePESamples(SamplesDict):
             hm_snr = np.nan_to_num(hm_snr, 0.)
             for lm, snr in hm_snr.items():
                 rv = ncx2(2, snr ** 2)
-                p = rv.pdf(self['rho_' + lm] ** 2)
+                if overlaps is not None:
+                    over = overlaps[lm]
+                else:
+                    over = 0.
+                p = rv.pdf(self['rho_' + lm] ** 2 * (1 - over ** 2))
                 self['p_' + lm] = p/p.max()
                 weights *= self['p_' + lm]
 
         if prec_snr is not None:
             prec_snr = np.nan_to_num(prec_snr, 0.)
             rv = ncx2(2, prec_snr ** 2)
-            p = rv.pdf(self['rho_p'] ** 2)
+            if overlaps is not None:
+                over = overlaps['prec']
+            else:
+                over = 0.
+            p = rv.pdf(self['rho_p'] ** 2 * (1 - over ** 2))
             self['p_p'] = p / p.max()
             weights *= self['p_p']
 
@@ -978,24 +987,27 @@ def calculate_interpolated_snrs(
                                   sigma_22_grid=kwargs.get("sigma_22_grid", None))
         samples.jitter_distance(dominant_snr, response_sigma)
     if "chi_p" not in samples.keys() and "chi_p2" not in samples.keys():
-        if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) > 2:
+        if waveforms.precessing_approximant(approximant):
             samples.generate_chi_p('isotropic_on_sky')
         else:
-            samples["chi_p"] = np.zeros_like(samples["theta_jn"])
+            samples.add_fixed("chi_p", 0.)
+
     samples.calculate_rho_lm(
         hm_psd, f_low, dominant_snr, modes, hm_interp_dirs, interp_points,
         approximant, alpha_lm_grid=kwargs.get("alpha_lm_grid", None)
     )
     samples.calculate_rho_2nd_pol(samples["alpha_net"], dominant_snr)
-    if ("chi_p" in prec_interp_dirs) and ("chi_p" not in samples.keys()):
+
+    if (prec_interp_dirs is not None) and ("chi_p" in prec_interp_dirs) and \
+            ("chi_p" not in samples.keys()):
         samples['chi_p'] = samples['chi_p2']**0.5
-    if ls.SimInspiralGetSpinSupportFromApproximant(getattr(ls, approximant)) > 2:
+    if waveforms.precessing_approximant(approximant):
         samples.calculate_rho_p(
             hm_psd, f_low, dominant_snr, prec_interp_dirs, interp_points,
             approximant, beta_22_grid=kwargs.get("beta_22_grid", None)
         )
     else:
-        samples["rho_p"] = np.zeros_like(samples["theta_jn"])
+        samples.add_fixed("rho_p", 0.)
     if ("chi_p2" in samples.keys()) and ("chi_p" not in samples.keys()):
         samples['chi_p'] = samples['chi_p2']**0.5
     return samples

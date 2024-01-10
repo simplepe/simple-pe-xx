@@ -6,11 +6,8 @@ import numpy as np
 from pesummary.core.command_line import DictionaryAction
 from pesummary.gw.conversions.snr import _calculate_precessing_harmonics, \
     _mode_array_map
-from pesummary.core.reweight import rejection_sampling
-from pesummary.utils.samples_dict import SamplesDict
 from pycbc.filter.matchedfilter import sigma
-from simple_pe.detectors import calc_reach_bandwidth, Network
-from simple_pe.localization import event
+import lalsimulation as ls
 from simple_pe.param_est import filter, pe
 from simple_pe.waveforms import make_waveform
 from simple_pe import waveforms
@@ -495,12 +492,14 @@ def main(args=None):
     )
     event_snr.update(_snrs)
 
-    _snrs, _overlaps = calculate_precession_snr(
-        peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
-        trig_start, trig_end
-    )
-    overlaps.update(_overlaps)
-    event_snr.update(_snrs)
+    if waveforms.precessing_approximant(opts.approximant):
+        _snrs, _overlaps = calculate_precession_snr(
+            peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
+            trig_start, trig_end
+        )
+        overlaps.update(_overlaps)
+        event_snr.update(_snrs)
+
     peak_parameters.write(
         outdir=opts.outdir, filename="peak_parameters.json", overwrite=True,
         file_format="json"
@@ -518,7 +517,7 @@ def main(args=None):
 
     # add the overlaps of event_snr
     event_snr["overlaps"] = overlaps
-    
+
     pe.SimplePESamples(
         {key: [value] for key, value in event_snr.items()}
     ).write(
