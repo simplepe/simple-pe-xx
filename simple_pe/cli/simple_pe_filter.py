@@ -501,9 +501,7 @@ def main(args=None):
             trig_start, trig_end
         )
         overlaps.update(_overlaps)
-    else:
-        _snrs = {'prec': None}
-    event_snr.update(_snrs)
+        event_snr.update(_snrs)
 
     peak_parameters.write(
         outdir=opts.outdir, filename="peak_parameters.json", overwrite=True,
