@@ -495,12 +495,14 @@ def main(args=None):
     )
     event_snr.update(_snrs)
 
-    _snrs, _overlaps = calculate_precession_snr(
-        peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
-        trig_start, trig_end
-    )
-    overlaps.update(_overlaps)
-    event_snr.update(_snrs)
+    if waveforms.precessing_approximant(opts.approximant):
+        _snrs, _overlaps = calculate_precession_snr(
+            peak_parameters, psd, opts.approximant, strain_f, opts.f_low,
+            trig_start, trig_end
+        )
+        overlaps.update(_overlaps)
+        event_snr.update(_snrs)
+
     peak_parameters.write(
         outdir=opts.outdir, filename="peak_parameters.json", overwrite=True,
         file_format="json"
