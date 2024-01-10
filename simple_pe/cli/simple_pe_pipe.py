@@ -76,6 +76,12 @@ def command_line():
         help="run the `simple_pe_convert` executable as part of the workflow"
     )
     parser.add_argument(
+        "--generate_corner",
+        action="store_true",
+        default=False,
+        help="run the `simple_pe_corner` executable as part of the workflow"
+    )
+    parser.add_argument(
         "--truth",
         help="File containing the injected values. Used only for plotting",
         default=None,
@@ -694,16 +700,17 @@ def main(args=None):
         DATAFIND = True
         opts.strain = f"{opts.outdir}/output/strain_cache.json"
     FilterJob = FilterNode(opts, MainDag)
-    CornerJob = CornerNode(opts, MainDag)
     AnalysisJob = AnalysisNode(opts, MainDag)
     PostProcessingJob = PostProcessingNode(opts, MainDag)
+    if opts.generate_corner:
+        CornerJob = CornerNode(opts, MainDag)
+        AnalysisJob.add_child(CornerJob.job)
     if opts.convert_samples:
         ConvertJob = ConvertNode(opts, MainDag)
         AnalysisJob.add_child(ConvertJob.job)
         ConvertJob.add_child(PostProcessingJob.job)
     else:
         AnalysisJob.add_child(PostProcessingJob.job)
-    AnalysisJob.add_child(CornerJob.job)
     FilterJob.add_child(AnalysisJob.job)
     if DATAFIND:
         DataFindJob.add_child(FilterJob.job)
