@@ -4,7 +4,7 @@ import os
 from argparse import ArgumentParser
 from pesummary.io import read
 from pesummary.core.command_line import DictionaryAction
-from simple_pe import io
+from simple_pe import io, waveforms
 from simple_pe.param_est import result
 import numpy as np
 import json
@@ -171,6 +171,13 @@ def main(args=None):
     parser = command_line()
     opts, _ = parser.parse_known_args(args=args)
     np.random.seed(opts.seed)
+
+    if (waveforms.precessing_approxmant(opts.approximant) is False) and \
+            (opts.precession_directions is not None):
+        print("precession_directions specified for a non-precessing waveform")
+        print("setting precession directions to None")
+        opts.precession_directions = None
+
     if not os.path.isdir(opts.outdir):
         os.mkdir(opts.outdir)
     peak_parameters = read(opts.peak_parameters).samples_dict
@@ -201,8 +208,10 @@ def main(args=None):
     }
     pe_result = result.Result(
         f_low=opts.f_low, psd=psd,
-        approximant=opts.approximant, bayestar_localization=opts.bayestar_localization,
-        snr_threshold=opts.snr_threshold, data_from_matched_filter=data_from_matched_filter
+        approximant=opts.approximant,
+        bayestar_localization=opts.bayestar_localization,
+        snr_threshold=opts.snr_threshold,
+        data_from_matched_filter=data_from_matched_filter
     )
     _ = pe_result.generate_samples_from_aligned_spin_template_parameters(
         opts.metric_directions, opts.precession_directions,
