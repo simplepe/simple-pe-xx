@@ -1,8 +1,7 @@
 import numpy as np
 from simple_pe.param_est import pe, metric
 import tqdm
-import lalsimulation as lalsim
-from simple_pe import io
+from simple_pe import io, waveforms
 from simple_pe.localization.event import Event
 from pesummary.utils.samples_dict import SamplesDict
 from pesummary.gw.file.formats.base_read import GWSingleAnalysisRead
@@ -234,9 +233,7 @@ class Result(GWSingleAnalysisRead):
                                     modes, approximant), mins, maxs
 
     def precessing_approximant(self, approximant):
-        return lalsim.SimInspiralGetSpinSupportFromApproximant(
-            getattr(lalsim, approximant)
-        ) > 2
+        return waveforms.precessing_approximant(approximant)
 
     def calculate_beta_grid(
         self, interp_directions, psd, f_low, interp_points, approximant
