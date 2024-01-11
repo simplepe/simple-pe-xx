@@ -1,0 +1,7 @@
+kind: analysis
+name: simple-pe-analysis
+pipeline: simple_pe
+waveform:
+  approximant: IMRPhenomXPHM
+needs:
+  - ProdPSD

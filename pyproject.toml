@@ -35,6 +35,7 @@ dependencies = [
 	"pycondor",
 	"scipy",
 	"sympy",
+	"asimov>=0.4.0",
 ]
 
 [project.optional-dependencies]
@@ -67,3 +68,6 @@ simple_pe_sky_coverage = "simple_pe.cli.simple_pe_sky_coverage:main"
 packages = [
 	"simple_pe",
 ]
+
+[project.entry-points.'asimov.pipelines']
+simple_pe = 'simple_pe.asimov:AsimovPipeline'

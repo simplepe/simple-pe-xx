@@ -1,0 +1,32 @@
+
+{%- if production.event.repository %}
+{%- assign repo_dir = production.event.repository.directory %}
+{%- else %}
+{%- assign repo_dir = "." %}
+{%- endif %}
+{%- assign meta = production.meta %}
+{%- assign sampler = production.meta['sampler'] %}
+{%- assign scheduler = production.meta['scheduler'] %}
+{%- assign likelihood = production.meta['likelihood'] %}
+{%- assign priors = production.meta['priors'] %}
+{%- assign data = production.meta['data'] %}
+{%- assign quality = production.meta['quality'] %}
+{%- assign ifos = production.meta['interferometers'] %}
+
+[pesummary]
+use_bayestar_localization=True
+trigger_time={{ production.meta['event time'] }}
+channels={ {% for ifo in ifos %}{{data['channels'][ifo]}}{% if forloop.last != true %},{% endif %}{% endfor %} }
+outdir={{ production.rundir }}
+accounting_group={{ scheduler['accounting group'] }}
+accounting_group_user={{ config['condor']['user'] }}
+f_low={{ quality['minimum frequency'][ifos[0]] }}
+f_high={{ quality['maximum frequency'][ifos[0]]}}
+{%- if likelihood contains "fiducial parameters" %}
+trigger_parameters={{ likelihood['fiducial parameters'] }}
+{%- endif %}
+{%- if "superevent" in production.meta['ligo'] %}
+sid={{ production.meta['ligo']['superevent'] }}
+{%- endif %}
+approximant={{ production.meta['waveform']['approximant'] }}
+psd={ {% for ifo in ifos %}{{production.psds[ifo]}}{% if forloop.last != true %},{% endif %}{% endfor %} }
